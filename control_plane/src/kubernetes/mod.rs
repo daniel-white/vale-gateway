@@ -1,9 +1,10 @@
 use kube::Client;
 use std::ops::Deref;
 use tracing::error;
-use vg_core::sync::signal::{Receiver, signal};
+use vg_core::sync::signal::{signal, Receiver};
 use vg_core::task::Builder as TaskBuilder;
 
+pub mod adapters;
 pub mod objects;
 
 #[derive(Clone)]

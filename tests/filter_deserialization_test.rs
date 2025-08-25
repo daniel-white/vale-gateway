@@ -45,7 +45,7 @@ requestHeaderModifier:
 
     #[test]
     fn test_vg_config_filter_deserialization() {
-        // This is what a Vale Gateway config.yaml should look like
+        // This is what a Vale Gateway configuration.yaml should look like
         let vg_config_yaml = r#"
 type: "RequestHeaderModifier"
 request_header_modifier:

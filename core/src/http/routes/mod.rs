@@ -19,7 +19,7 @@ impl<S: Into<String>> From<S> for HttpRouteKey {
     }
 }
 
-#[derive(Validate, Getters, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Validate, Getters, Debug, PartialEq, Eq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct HttpRoute {
     #[getset(get = "pub")]
@@ -77,6 +77,7 @@ impl HttpRouteBuilder {
         self.host_header_matches_builders.push(builder);
         self
     }
+
     pub fn add_rule<K, F>(&mut self, key: K, factory: F) -> &mut Self
     where
         K: Into<HttpRouteRuleKey>,

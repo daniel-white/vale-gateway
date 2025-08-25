@@ -1,14 +1,14 @@
+use serde_yaml;
 use vg_core::config::gateway::types::http::filters::{
     HTTPHeader, HTTPHeaderModifierBuilder, HTTPMethod, HTTPPathMatchType, HTTPQueryParamMatchType,
 };
 use vg_core::config::gateway::GatewayConfig;
-use serde_yaml;
 
 #[cfg(test)]
 mod config_filter_tests {
     #[test]
     fn test_config_with_filters_deserialization() {
-        // This is what a Vale Gateway config.yaml should look like with filters
+        // This is what a Vale Gateway configuration.yaml should look like with filters
         let config_yaml = r#"
 version: v1alpha1
 ipc:
@@ -56,11 +56,11 @@ error_responses:
   kind: "ProblemDetail"
 "#;
 
-        // Try to deserialize the config
+        // Try to deserialize the configuration
         let config_result: Result<GatewayConfig, _> = serde_yaml::from_str(config_yaml);
         match config_result {
             Ok(config) => {
-                println!("Successfully deserialized config: {:#?}", config);
+                println!("Successfully deserialized configuration: {:#?}", config);
 
                 // Check that filters were properly deserialized
                 assert!(!config.http_routes().is_empty());
@@ -84,7 +84,7 @@ error_responses:
                 println!("Filter deserialization test passed!");
             }
             Err(e) => {
-                println!("Failed to deserialize config with filters: {}", e);
+                println!("Failed to deserialize configuration with filters: {}", e);
                 panic!("Config deserialization failed: {}", e);
             }
         }
@@ -92,7 +92,7 @@ error_responses:
 
     #[test]
     fn test_existing_config_without_filters() {
-        // Test the existing simple.yaml config to see if it deserializes correctly
+        // Test the existing simple.yaml configuration to see if it deserializes correctly
         let simple_config = r#"
 version: v1alpha1
 ipc:
@@ -118,14 +118,14 @@ http_routes:
 "#;
 
         let config: GatewayConfig = serde_yaml::from_str(simple_config).unwrap();
-        println!("Existing config deserialized: {:#?}", config);
+        println!("Existing configuration deserialized: {:#?}", config);
 
         // Check that filters are empty (as expected)
         let route = &config.http_routes()[0];
         let rule = &route.rules()[0];
         assert!(rule.filters().is_empty());
 
-        println!("Existing config has no filters as expected");
+        println!("Existing configuration has no filters as expected");
     }
 
     #[test]

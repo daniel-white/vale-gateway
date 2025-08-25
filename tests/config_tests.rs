@@ -10,7 +10,7 @@ async fn test_configuration_file_operations() {
     init_test_env();
 
     let temp_dir = TempDir::new().unwrap();
-    let config_path = temp_dir.path().join("test-config.yaml");
+    let config_path = temp_dir.path().join("test-configuration.yaml");
 
     // Test writing configuration
     let config = create_test_gateway_config();

@@ -1,19 +1,12 @@
 use crate::controllers::instances::InstanceRole;
-use crate::controllers::transformers::{
-    Backend, ExtensionFilterKind, ExtensionFilters, GatewayInstanceConfiguration,
-};
+use crate::controllers::transformers::{Backend, ExtensionFilters, GatewayInstanceConfiguration};
 use crate::ipc::IpcServices;
 use crate::kubernetes::objects::{ObjectRef, SyncObjectAction};
 use crate::kubernetes::KubeClientCell;
 use crate::options::Options;
 use crate::{sync_objects, watch_objects};
 use axum::http::HeaderName;
-use gateway_api::apis::standard::httproutes::{
-    HTTPRoute, HTTPRouteRulesMatchesHeadersType, HTTPRouteRulesMatchesMethod,
-    HTTPRouteRulesMatchesPathType, HTTPRouteRulesMatchesQueryParamsType,
-};
-use gateway_api::gateways::Gateway;
-use gateway_api::httproutes::HTTPRouteRulesMatches;
+use gateway_api::apis::standard::httproutes::HTTPRoute;
 use getset::CloneGetters;
 use gtmpl_derive::Gtmpl;
 use k8s_openapi::api::core::v1::{ConfigMap, Service};
@@ -28,27 +21,20 @@ use tokio::sync::mpsc::UnboundedSender;
 use tracing::{debug, error, info, warn};
 use typed_builder::TypedBuilder;
 use vg_api::v1alpha1::{
-    AccessControlFilter as ApiAccessControlFilter, AccessControlFilterEffect,
-    ClientAddressesSource, ErrorResponseKind, ProxyIpAddressHeaders, StaticResponseFilter,
+    AccessControlFilter, AccessControlFilterEffect, ClientAddressesSource, ErrorResponseKind,
+    ProxyIpAddressHeaders, StaticResponseFilter,
 };
-use vg_core::config::gateway::types::http::filters::{
-    ExtStaticResponseRef, HTTPHeader, HttpRouteFilter, HttpRouteFilterType, RequestHeaderModifier,
-    ResponseHeaderModifier,
+
+use crate::kubernetes::adapters::http::rules;
+use crate::kubernetes::adapters::http::rules::{
+    add_http_route_rules_filters, add_http_route_rules_matches,
 };
-use vg_core::config::gateway::types::http::router::{
-    HttpMethodMatch, HttpRouteBuilder, HttpRouteRuleBuilder, HttpRouteRuleMatchesBuilder,
-};
-use vg_core::config::gateway::types::net::{
-    ErrorResponseKind as ConfigErrorResponseKind, ErrorResponses as ConfigErrorResponses,
-    ProblemDetailErrorResponse, StaticResponse, StaticResponseBody,
-};
-use vg_core::config::gateway::types::{GatewayConfiguration, GatewayConfigurationBuilder};
-use vg_core::http::filters::access_control::{
-    AccessControlEffect, HttpAccessControlClients, HttpAccessControlFilter,
-    HttpAccessControlFilterRef,
-};
-use vg_core::http::filters::client_addrs::HttpProxyHeaders;
-use vg_core::net::{Hostname, Port};
+use vg_core::gateways::{Gateway, GatewayBuilder};
+use vg_core::http::filters::client_addr::HttpProxyHeaders;
+use vg_core::http::matches::{HttpMethodMatch, HttpRouteRuleMatchesBuilder};
+use vg_core::http::routes::rules::{HttpRouteRuleBuilder, HttpRouteRuleFilter};
+use vg_core::http::routes::HttpRouteBuilder;
+use vg_core::net::Port;
 use vg_core::sync::signal::{signal, Receiver};
 use vg_core::task::Builder as TaskBuilder;
 use vg_core::{await_ready, continue_after, continue_on, ReadyState};
@@ -216,20 +202,20 @@ fn generate_gateway_configmaps(
         });
 }
 
-#[derive(Clone, Debug, TypedBuilder)]
+#[derive(Debug, TypedBuilder)]
 struct GatewayState {
     gateway_ref: ObjectRef,
     configmap_ref: ObjectRef,
-    values: Option<(TemplateValues, GatewayConfiguration)>,
+    values: Option<(TemplateValues, Gateway)>,
 }
 
-fn expand(configurations: &HashMap<ObjectRef, Option<GatewayConfiguration>>) -> Vec<GatewayState> {
+fn expand(configurations: &HashMap<ObjectRef, Option<Gateway>>) -> Vec<GatewayState> {
     configurations
         .iter()
         .map(|(gateway_ref, config)| {
             let configmap_ref = ObjectRef::of_kind::<ConfigMap>()
                 .namespace(gateway_ref.namespace().clone())
-                .name(format!("{}-config", gateway_ref.name()))
+                .name(format!("{}-configuration", gateway_ref.name()))
                 .build();
 
             let state = GatewayState::builder()
@@ -253,7 +239,7 @@ fn expand(configurations: &HashMap<ObjectRef, Option<GatewayConfiguration>>) -> 
                     .config_yaml(config_yaml)
                     .build();
 
-                state.values(Some((template_values, config.clone())))
+                state.values(Some((template_values, config)))
             } else {
                 warn!("No configuration found for gateway: {}", gateway_ref);
                 state.values(None)
@@ -271,7 +257,7 @@ fn generate_gateway_configurations(
     http_routes_rx: Receiver<HashMap<ObjectRef, Vec<Arc<HTTPRoute>>>>,
     backends_rx: Receiver<HashMap<ObjectRef, Backend>>,
     extension_filters_rx: Receiver<HashMap<ObjectRef, ExtensionFilters>>,
-) -> Receiver<HashMap<ObjectRef, Option<GatewayConfiguration>>> {
+) -> Receiver<HashMap<ObjectRef, Gateway>> {
     let (tx, rx) = signal("generated_gateway_configurations");
 
     task_builder
@@ -291,62 +277,33 @@ fn generate_gateway_configurations(
                     backends_rx,
                     extension_filters_rx
                 ) {
-                    let configs: HashMap<ObjectRef, Option<GatewayConfiguration>> =
-                        gateway_instances
-                            .iter()
-                            .map(|(gateway_ref, gateway_instance)| {
-                                let mut gateway_configuration =
-                                    GatewayConfigurationBuilder::default();
-                                let extension_filters = extension_filters.get(gateway_ref);
+                    let configs: HashMap<ObjectRef, Option<Gateway>> = gateway_instances
+                        .iter()
+                        .map(|(gateway_ref, gateway_instance)| {
+                            let mut gateway = Gateway::builder();
+                            let extension_filters = extension_filters.get(gateway_ref);
 
-                                set_ipc(
-                                    &mut gateway_configuration,
-                                    &ipc_services,
-                                    *primary_instance_ip_addr,
-                                );
-                                set_client_addrs_strategy(
-                                    &mut gateway_configuration,
-                                    gateway_instance,
-                                );
-                                set_error_responses_strategy(
-                                    &mut gateway_configuration,
-                                    gateway_instance,
-                                );
-                                if let Some(extension_filters) = extension_filters {
-                                    apply_static_response_filters(
-                                        &mut gateway_configuration,
-                                        extension_filters,
-                                    );
-                                    apply_access_control_filters(
-                                        &mut gateway_configuration,
-                                        extension_filters,
-                                    );
-                                }
+                            set_ipc(&mut gateway, &ipc_services, *primary_instance_ip_addr);
+                            set_client_addrs_strategy(&mut gateway, gateway_instance);
+                            set_error_responses_strategy(&mut gateway, gateway_instance);
+                            if let Some(extension_filters) = extension_filters {
+                                apply_static_response_filters(&mut gateway, extension_filters);
+                                apply_access_control_filters(&mut gateway, extension_filters);
+                            }
 
-                                add_listeners(&mut gateway_configuration, gateway_instance);
+                            add_listeners(&mut gateway, gateway_instance);
 
-                                process_http_routes(
-                                    gateway_ref,
-                                    gateway_instance,
-                                    http_routes,
-                                    backends,
-                                    &mut gateway_configuration,
-                                );
+                            process_http_routes(
+                                gateway_ref,
+                                gateway_instance,
+                                http_routes,
+                                backends,
+                                &mut gateway,
+                            );
 
-                                match gateway_configuration.build() {
-                                    Ok(gateway_configuration) => {
-                                        (gateway_ref.clone(), Some(gateway_configuration))
-                                    }
-                                    Err(err) => {
-                                        error!(
-                                            "Failed to build GatewayConfiguration for {}: {}",
-                                            gateway_ref, err
-                                        );
-                                        (gateway_ref.clone(), None)
-                                    }
-                                }
-                            })
-                            .collect();
+                            (gateway_ref.clone(), Some(gateway.build()))
+                        })
+                        .collect();
 
                     tx.set(configs).await;
                 }
@@ -354,71 +311,6 @@ fn generate_gateway_configurations(
         });
 
     rx
-}
-
-fn apply_access_control_filters(
-    gateway_configuration: &mut GatewayConfigurationBuilder,
-    extension_filters: &ExtensionFilters,
-) {
-    if !extension_filters.access_controls().is_empty() {
-        let filters = extension_filters
-            .access_controls()
-            .iter()
-            .map(|(ref_, _, filter)| {
-                let effect = match filter.spec.effect {
-                    AccessControlFilterEffect::Allow => AccessControlEffect::Allow,
-                    AccessControlFilterEffect::Deny => AccessControlEffect::Deny,
-                };
-
-                let clients = HttpAccessControlClients::builder()
-                    .ip_ranges(filter.spec.clients.ip_ranges.clone())
-                    .ips(filter.spec.clients.ips.clone())
-                    .build();
-
-                HttpAccessControlFilter::builder()
-                    .key(ref_.to_string())
-                    .effect(effect)
-                    .clients(clients)
-                    .build()
-            })
-            .collect();
-
-        gateway_configuration.with_access_control_filters(filters);
-    }
-}
-
-fn apply_static_response_filters(
-    builder: &mut GatewayConfigurationBuilder,
-    extension_filters: &ExtensionFilters,
-) {
-    let static_responses: Vec<_> = extension_filters
-        .static_responses()
-        .iter()
-        .filter_map(|(ref_, _, filter)| {
-            let spec = &filter.spec;
-
-            let version_key = filter.metadata.resource_version.as_ref()?;
-            let uid = filter.uid()?;
-
-            let builder = StaticResponse::builder()
-                .key(ref_.to_string())
-                .version_key(version_key)
-                .status_code(spec.status_code);
-
-            if let Some(body) = &spec.body {
-                let body_result = StaticResponseBody::builder()
-                    .content_type(body.content_type.clone())
-                    .identifier(uid)
-                    .build();
-
-                Some(builder.body(body_result).build())
-            } else {
-                Some(builder.build())
-            }
-        })
-        .collect();
-
-    builder.with_static_responses(static_responses);
 }
 
 fn format_rule_id(gateway: &Gateway, route: &HTTPRoute, idx: usize) -> Option<String> {
@@ -451,29 +343,6 @@ fn add_backend(backend: &Backend, target: &mut HttpRouteRuleBuilder) {
             }
         }
     });
-}
-
-fn add_query_params_matches(
-    source: &HTTPRouteRulesMatches,
-    target: &mut HttpRouteRuleMatchesBuilder,
-) {
-    for query_param in source.query_params.iter().flatten() {
-        match query_param
-            .r#type
-            .as_ref()
-            .unwrap_or(&HTTPRouteRulesMatchesQueryParamsType::Exact)
-        {
-            HTTPRouteRulesMatchesQueryParamsType::Exact => {
-                target.add_exact_query_param(query_param.name.as_str(), query_param.value.as_str());
-            }
-            HTTPRouteRulesMatchesQueryParamsType::RegularExpression => {
-                target.add_query_param_matching(
-                    query_param.name.as_str(),
-                    query_param.value.as_str(),
-                );
-            }
-        }
-    }
 }
 
 #[allow(clippy::too_many_lines)]
@@ -511,230 +380,13 @@ fn process_http_routes(
 
                 // Process rules - handle the Option<Vec<HTTPRouteRules>> properly
                 if let Some(rules) = &http_route.spec.rules {
-                    for (index, rule) in rules.iter().enumerate() {
-                        let rule_id = format_rule_id(gateway_instance.gateway(), http_route, index)
-                            .unwrap_or_else(|| format!("rule-{index}"));
+                    for (rule_idx, rule) in rules.iter().enumerate() {
+                        let rule_id = format_rule_id(gateway_instance.gateway(), http_route, rule_idx)
+                            .unwrap_or_else(|| format!("rule-{rule_idx}"));
 
-                        r.add_rule(rule_id, |target| {
-                            // Process filters from HTTPRoute rule
-                            if let Some(filters) = &rule.filters {
-                                for filter in filters {
-                                    if let Some(request_header_modifier) = &filter.request_header_modifier {
-                                        // Convert Gateway API RequestHeaderModifier to Vale Gateway RequestHeaderModifier
-                                        let mut vg_modifier = RequestHeaderModifier::default();
-
-                                        // Convert set headers
-                                        if let Some(set_headers) = &request_header_modifier.set {
-                                            vg_modifier.set = Some(set_headers.iter().map(|h| HTTPHeader {
-                                                name: h.name.clone(),
-                                                value: h.value.clone(),
-                                            }).collect());
-                                        }
-
-                                        // Convert add headers
-                                        if let Some(add_headers) = &request_header_modifier.add {
-                                            vg_modifier.add = Some(add_headers.iter().map(|h| HTTPHeader {
-                                                name: h.name.clone(),
-                                                value: h.value.clone(),
-                                            }).collect());
-                                        }
-
-                                        // Convert remove headers
-                                        if let Some(remove_headers) = &request_header_modifier.remove {
-                                            vg_modifier.remove = Some(remove_headers.clone());
-                                        }
-
-                                        let vg_filter = HttpRouteFilter {
-                                            filter_type: HttpRouteFilterType::RequestHeaderModifier,
-                                            request_header_modifier: Some(vg_modifier),
-                                            response_header_modifier: None,
-                                            request_mirror: None,
-                                            request_redirect: None,
-                                            url_rewrite: None,
-                                            ext_static_response: None,
-                                            ext_access_control: None,
-                                        };
-
-                                        target.add_filter(vg_filter);
-                                    }
-                                    if let Some(response_header_modifier) = &filter.response_header_modifier {
-                                        // Convert Gateway API ResponseHeaderModifier to Vale Gateway ResponseHeaderModifier
-                                        let mut vg_modifier = ResponseHeaderModifier::default();
-
-                                        // Convert set headers
-                                        if let Some(set_headers) = &response_header_modifier.set {
-                                            vg_modifier.set = Some(set_headers.iter().map(|h| HTTPHeader {
-                                                name: h.name.clone(),
-                                                value: h.value.clone(),
-                                            }).collect());
-                                        }
-
-                                        // Convert add headers
-                                        if let Some(add_headers) = &response_header_modifier.add {
-                                            vg_modifier.add = Some(add_headers.iter().map(|h| HTTPHeader {
-                                                name: h.name.clone(),
-                                                value: h.value.clone(),
-                                            }).collect());
-                                        }
-
-                                        // Convert remove headers
-                                        if let Some(remove_headers) = &response_header_modifier.remove {
-                                            vg_modifier.remove = Some(remove_headers.clone());
-                                        }
-
-                                        // Add filter to Vale Gateway configuration
-                                        let vg_filter = HttpRouteFilter {
-                                            filter_type: HttpRouteFilterType::ResponseHeaderModifier,
-                                            request_header_modifier: None,
-                                            response_header_modifier: Some(vg_modifier),
-                                            request_mirror: None,
-                                            request_redirect: None,
-                                            url_rewrite: None,
-                                            ext_static_response: None,
-                                            ext_access_control: None,
-                                        };
-
-                                        target.add_filter(vg_filter);
-                                    }
-                                    if let Some(request_redirect) = &filter.request_redirect {
-                                        // Convert Gateway API RequestRedirect to Vale Gateway RequestRedirect
-                                        use crate::controllers::filters::gateway_api_converter::convert_request_redirect;
-
-                                        let vg_redirect = convert_request_redirect(request_redirect);
-                                        let vg_filter = HttpRouteFilter {
-                                            filter_type: HttpRouteFilterType::RequestRedirect,
-                                            request_header_modifier: None,
-                                            response_header_modifier: None,
-                                            request_mirror: None,
-                                            request_redirect: Some(vg_redirect),
-                                            url_rewrite: None,
-                                            ext_static_response: None,
-                                            ext_access_control: None,
-                                        };
-                                        target.add_filter(vg_filter);
-                                    }
-                                    if let Some(url_rewrite_filter) = &filter.url_rewrite {
-                                        // Convert Gateway API URLRewrite to Vale Gateway URLRewrite
-                                        let mut vg_url_rewrite = vg_core::config::gateway::types::http::filters::URLRewrite {
-                                            hostname: url_rewrite_filter.hostname.clone(),
-                                            path: None,
-                                        };
-
-                                        // Convert path rewrite if present
-                                        if let Some(path_config) = &url_rewrite_filter.path {
-                                            use vg_core::config::gateway::types::http::filters::{PathRewrite, PathRewriteType};
-
-                                            let vg_path_rewrite = match &path_config.r#type {
-                                                gateway_api::apis::standard::httproutes::HTTPRouteRulesFiltersUrlRewritePathType::ReplaceFullPath => {
-                                                    PathRewrite {
-                                                        rewrite_type: PathRewriteType::ReplaceFullPath,
-                                                        replace_full_path: path_config.replace_full_path.clone(),
-                                                        replace_prefix_match: None,
-                                                    }
-                                                }
-                                                gateway_api::apis::standard::httproutes::HTTPRouteRulesFiltersUrlRewritePathType::ReplacePrefixMatch => {
-                                                    PathRewrite {
-                                                        rewrite_type: PathRewriteType::ReplacePrefixMatch,
-                                                        replace_full_path: None,
-                                                        replace_prefix_match: path_config.replace_prefix_match.clone(),
-                                                    }
-                                                }
-                                            };
-                                            vg_url_rewrite.path = Some(vg_path_rewrite);
-                                        }
-
-                                        // Add URLRewrite filter to Vale Gateway configuration
-                                        let vg_filter = HttpRouteFilter {
-                                            filter_type: HttpRouteFilterType::URLRewrite,
-                                            request_header_modifier: None,
-                                            response_header_modifier: None,
-                                            request_mirror: None,
-                                            request_redirect: None,
-                                            url_rewrite: Some(vg_url_rewrite),
-                                            ext_static_response: None,
-                                            ext_access_control: None,
-                                        };
-                                        target.add_filter(vg_filter);
-                                    }
-
-                                    if let Some(extension_ref) = &filter.extension_ref {
-                                        // Handle extension filters
-                                        if extension_ref.group == "vale-gateway.whitefamily.in" {
-                                            match ExtensionFilterKind::try_from(extension_ref.kind.as_str()) {
-                                                Ok(ExtensionFilterKind::StaticResponseFilter) => {
-                                                    let filter_ref = ObjectRef::of_kind::<StaticResponseFilter>()
-                                                        .namespace(http_route.metadata.namespace.clone())
-                                                        .name(&extension_ref.name)
-                                                        .build();
-
-                                                    let static_response = ExtStaticResponseRef::builder()
-                                                        .key(filter_ref.to_string())
-                                                        .build();
-
-                                                    let vg_filter = HttpRouteFilter {
-                                                        filter_type: HttpRouteFilterType::ExtStaticResponse,
-                                                        request_header_modifier: None,
-                                                        response_header_modifier: None,
-                                                        request_mirror: None,
-                                                        request_redirect: None,
-                                                        url_rewrite: None,
-                                                        ext_static_response: Some(static_response),
-                                                        ext_access_control: None,
-                                                    };
-
-                                                    target.add_filter(vg_filter);
-                                                }
-                                                Ok(ExtensionFilterKind::AccessControlFilter) => {
-                                                    let filter_ref = ObjectRef::of_kind::<ApiAccessControlFilter>()
-                                                        .namespace(http_route.metadata.namespace.clone())
-                                                        .name(&extension_ref.name)
-                                                        .build();
-
-                                                    let access_control = HttpAccessControlFilterRef::builder()
-                                                        .key(filter_ref.to_string())
-                                                        .build();
-
-                                                    let vg_filter = HttpRouteFilter {
-                                                        filter_type: HttpRouteFilterType::ExtAccessControl,
-                                                        request_header_modifier: None,
-                                                        response_header_modifier: None,
-                                                        request_mirror: None,
-                                                        request_redirect: None,
-                                                        url_rewrite: None,
-                                                        ext_static_response: None,
-                                                        ext_access_control: Some(access_control),
-                                                    };
-
-                                                    target.add_filter(vg_filter);
-                                                }
-                                                Err(err) => {
-                                                    warn!(
-                                                        "Unsupported extension filter kind {}: {}",
-                                                        extension_ref.kind, err
-                                                    );
-                                                }
-                                            }
-                                        } else {
-                                            warn!(
-                                                "Unsupported extension filter group {} for HTTPRoute {:?} at rule index {}",
-                                                extension_ref.group, http_route.metadata.name, index
-                                            );
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Process matches from HTTPRoute rule
-                            if let Some(matches) = &rule.matches {
-                                for source in matches {
-                                    target.add_match(|target| {
-                                        add_method_matches(source, target);
-                                        add_path_matches(source, target);
-                                        add_header_matches(source, target);
-                                        add_query_params_matches(source, target);
-                                    });
-                                }
-                            }
+                        r.add_rule(rule_id, |builder| {
+                            add_http_route_rules_filters(http_route, (rule, rule_idx), builder);
+                            add_http_route_rules_matches(rule, builder);
 
                             // Process backend references
                             if let Some(backend_refs) = &rule.backend_refs {
@@ -750,12 +402,12 @@ fn process_http_routes(
 
                                     match backends.get(&source_ref) {
                                         Some(source) => {
-                                            add_backend(source, target);
+                                            add_backend(source, builder);
                                         }
                                         None => {
                                             warn!(
                                                 "Backend reference {} not found for HTTPRoute {:?} at rule index {}",
-                                                backend_ref.name, http_route.metadata.name, index
+                                                backend_ref.name, http_route.metadata.name, rule_idx
                                             );
                                         }
                                     }
@@ -768,70 +420,17 @@ fn process_http_routes(
         }
     }
 }
-fn add_header_matches(source: &HTTPRouteRulesMatches, target: &mut HttpRouteRuleMatchesBuilder) {
-    for header in source.headers.iter().flatten() {
-        match header
-            .r#type
-            .as_ref()
-            .unwrap_or(&HTTPRouteRulesMatchesHeadersType::Exact)
-        {
-            HTTPRouteRulesMatchesHeadersType::Exact => {
-                target.add_exact_header(&header.name, &header.value);
-            }
-            HTTPRouteRulesMatchesHeadersType::RegularExpression => {
-                target.add_header_matching(&header.name, &header.value);
-            }
-        }
-    }
-}
 
-fn add_path_matches(source: &HTTPRouteRulesMatches, target: &mut HttpRouteRuleMatchesBuilder) {
-    if let Some(path) = &source.path {
-        match (path.r#type.as_ref(), path.value.as_ref()) {
-            (Some(HTTPRouteRulesMatchesPathType::Exact), Some(value)) => {
-                target.with_exact_path(value);
-            }
-            (Some(HTTPRouteRulesMatchesPathType::PathPrefix), Some(value)) => {
-                target.with_path_prefix(value);
-            }
-            (Some(HTTPRouteRulesMatchesPathType::RegularExpression), Some(value)) => {
-                target.with_path_matching(value);
-            }
-            _ => {
-                warn!("Unsupported path match type or missing value: {:?}", path);
-            }
-        }
-    } else {
-        warn!("No path match specified in source: {:?}", source);
-    }
-}
+fn add_host_header_matches_for_route(route: &Arc<HTTPRoute>, builder: &mut HttpRouteBuilder) {
+    for hostname in route.spec.hostnames.iter().flatten() {
+        builder.add_host_header_match(|builder| {});
 
-fn add_method_matches(source: &HTTPRouteRulesMatches, target: &mut HttpRouteRuleMatchesBuilder) {
-    if let Some(method) = &source.method {
-        let method = match method {
-            HTTPRouteRulesMatchesMethod::Get => HttpMethodMatch::Get,
-            HTTPRouteRulesMatchesMethod::Head => HttpMethodMatch::Head,
-            HTTPRouteRulesMatchesMethod::Post => HttpMethodMatch::Post,
-            HTTPRouteRulesMatchesMethod::Put => HttpMethodMatch::Put,
-            HTTPRouteRulesMatchesMethod::Delete => HttpMethodMatch::Delete,
-            HTTPRouteRulesMatchesMethod::Connect => HttpMethodMatch::Connect,
-            HTTPRouteRulesMatchesMethod::Options => HttpMethodMatch::Options,
-            HTTPRouteRulesMatchesMethod::Trace => HttpMethodMatch::Trace,
-            HTTPRouteRulesMatchesMethod::Patch => HttpMethodMatch::Patch,
-        };
-
-        target.with_method(method);
-    }
-}
-
-fn add_host_header_matches_for_route(source: &Arc<HTTPRoute>, target: &mut HttpRouteBuilder) {
-    for hostname in source.spec.hostnames.iter().flatten() {
         match map_hostname_match_to_type(Some(hostname)) {
             Some(HostnameMatchType::Exact(hostname)) => {
-                target.add_exact_host_header(hostname);
+                builder.a(hostname);
             }
             Some(HostnameMatchType::Suffix(hostname)) => {
-                target.add_host_header_with_suffix(hostname);
+                builder.add_host_header_with_suffix(hostname);
             }
             None => {}
         }
@@ -916,87 +515,4 @@ fn set_error_responses_strategy(
     };
 
     gateway_configuration.with_error_responses(error_responses);
-}
-
-fn set_client_addrs_strategy(
-    gateway_configuration: &mut GatewayConfigurationBuilder,
-    instance: &GatewayInstanceConfiguration,
-) {
-    if let Some(client_addresses) = instance.configuration().client_addresses.as_ref() {
-        gateway_configuration.with_client_addrs(|c| {
-            warn!(
-                "Configuring client addresses for gateway: {:?}",
-                client_addresses
-            );
-            match client_addresses.source {
-                ClientAddressesSource::None => {
-                    // No strategy, use default behavior
-                }
-                ClientAddressesSource::Header => match &client_addresses
-                    .header
-                    .as_deref()
-                    .and_then(|h| HeaderName::from_str(h).ok())
-                {
-                    Some(header) => {
-                        c.trust_header(header);
-                    }
-                    None => {
-                        warn!("ClientAddressesSource::Header requires a valid header to be set");
-                    }
-                },
-                ClientAddressesSource::Proxies => {
-                    c.trust_proxies(|p| {
-                        let Some(proxies) = &client_addresses.proxies else {
-                            warn!("ClientAddressesSource::Proxies requires proxies to be set");
-                            return;
-                        };
-                        if proxies.trust_local_ranges {
-                            p.trust_local_ranges();
-                        }
-                        for trusted_ip in &proxies.trusted_ips {
-                            p.add_trusted_ip(*trusted_ip);
-                        }
-                        for trusted_range in &proxies.trusted_ranges {
-                            p.add_trusted_range(*trusted_range);
-                        }
-                        for trusted_header in &proxies.trusted_headers {
-                            match trusted_header {
-                                ProxyIpAddressHeaders::Forwarded => {
-                                    p.add_trusted_header(HttpProxyHeaders::Forwarded)
-                                }
-                                ProxyIpAddressHeaders::XForwardedFor => {
-                                    p.add_trusted_header(HttpProxyHeaders::XForwardedFor)
-                                }
-                                ProxyIpAddressHeaders::XForwardedHost => {
-                                    p.add_trusted_header(HttpProxyHeaders::XForwardedHost)
-                                }
-                                ProxyIpAddressHeaders::XForwardedProto => {
-                                    p.add_trusted_header(HttpProxyHeaders::XForwardedProto)
-                                }
-                                ProxyIpAddressHeaders::XForwardedBy => {
-                                    p.add_trusted_header(HttpProxyHeaders::XForwardedBy)
-                                }
-                            };
-                        }
-                    });
-                }
-            }
-        });
-    }
-}
-
-enum HostnameMatchType {
-    Exact(Hostname),
-    Suffix(Hostname),
-}
-
-fn map_hostname_match_to_type(hostname: Option<&str>) -> Option<HostnameMatchType> {
-    match hostname {
-        Some("") | None => None,
-        Some(hostname) if hostname.starts_with('*') => {
-            let hostname = hostname.trim_start_matches('*');
-            Some(HostnameMatchType::Suffix(Hostname::new(hostname)))
-        }
-        Some(hostname) => Some(HostnameMatchType::Exact(Hostname::new(hostname))),
-    }
 }

@@ -60,21 +60,21 @@ pub struct HttpHeaderModifierFilterBuilder {
 }
 
 impl HttpHeaderModifierFilterBuilder {
-    pub fn set_header<H: IntoHeaderName, V: Into<HeaderValue>>(
+    pub fn set_header<H: Into<HeaderName>, V: Into<HeaderValue>>(
         &mut self,
         header: H,
         value: V,
     ) -> &mut Self {
-        self.set.insert(header, value.into());
+        self.set.insert(header.into(), value.into());
         self
     }
 
-    pub fn add_header<H: IntoHeaderName, V: Into<HeaderValue>>(
+    pub fn add_header<H: Into<HeaderName>, V: Into<HeaderValue>>(
         &mut self,
         header: H,
         value: V,
     ) -> &mut Self {
-        self.add.append(header, value.into());
+        self.add.append(header.into(), value.into());
         self
     }
 

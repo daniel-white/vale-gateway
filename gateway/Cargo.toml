@@ -13,6 +13,7 @@ dashmap = { workspace = true }
 eventsource-client = { version = "0.15" }
 futures = { workspace = true }
 getset = { workspace = true }
+hickory-proto = { workspace = true }
 http = { workspace = true }
 http-constant = { workspace = true }
 ipnet = { workspace = true }
@@ -31,13 +32,14 @@ regex = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
-url = "2"
+url = { workspace = true }
 rand = "0.9"
 rand_chacha = "0.9"
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
 reqwest-tracing = { workspace = true }
 serde_json = { workspace = true }
+serde_yaml = { workspace = true }
 strum = { workspace = true }
 trusted-proxies = "0.3"
 typed-builder = { workspace = true }

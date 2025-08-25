@@ -2,6 +2,7 @@ use getset::Getters;
 use http::{HeaderValue, StatusCode};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 use typed_builder::TypedBuilder;
 
 #[derive(Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq, Hash, Eq)]
@@ -21,6 +22,18 @@ pub struct HttpStaticResponseBodyKey(String);
 impl<S: AsRef<str>> From<S> for HttpStaticResponseBodyKey {
     fn from(value: S) -> Self {
         Self(value.as_ref().to_string())
+    }
+}
+
+impl Display for HttpStaticResponseFilterKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Display for &HttpStaticResponseBodyKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
@@ -51,7 +64,7 @@ pub struct HttpStaticResponseFilter {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[getset(get = "pub")]
-    #[builder(default, setter(strip_option))]
+    #[builder(default, setter(into))]
     body: Option<HttpStaticResponseBody>,
 }
 

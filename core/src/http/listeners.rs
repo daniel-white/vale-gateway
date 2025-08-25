@@ -1,8 +1,8 @@
 use crate::http::filters::access_control::{HttpAccessControlFilter, HttpAccessControlFilterRef};
-use crate::http::filters::client_addrs::{HttpClientAddrsFilter, HttpClientAddrsFilterRef};
+use crate::http::filters::client_addr::{HttpClientAddrFilter, HttpClientAddrFilterRef};
 use crate::http::filters::error_response::{HttpErrorResponseFilter, HttpErrorResponseFilterRef};
 use crate::http::filters::header_modifier::HttpHeaderModifierFilter;
-use crate::http::filters::redirect::HttpRedirectFilter;
+use crate::http::filters::redirect_response::HttpRedirectResponseFilter;
 use crate::http::filters::static_response::HttpStaticResponseFilter;
 use crate::http::routes::{HttpRoute, HttpRouteBuilder, HttpRouteKey};
 use crate::net::Port;
@@ -11,13 +11,13 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_valid::Validate;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum HttpListenerProtocol {
     Http,
 }
 
-#[derive(Validate, Getters, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Validate, Getters, Debug, PartialEq, Eq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct HttpListener {
     #[getset(get = "pub")]
@@ -111,20 +111,17 @@ impl HttpListenerBuilder {
 pub enum HttpListenerFilter {
     UpstreamRequestHeaderModifier(HttpHeaderModifierFilter),
     ResponseHeaderModifier(HttpHeaderModifierFilter),
-    Redirect(HttpRedirectFilter),
+    RedirectResponse(HttpRedirectResponseFilter),
     AccessControl(HttpAccessControlFilterRef),
-    ClientAddrs(HttpClientAddrsFilterRef),
+    ClientAddr(HttpClientAddrFilterRef),
     ErrorResponse(HttpErrorResponseFilterRef),
 }
 
 #[derive(Validate, Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum HttpFilterDefinition {
-    UpstreamRequestHeaderModifier(HttpHeaderModifierFilter),
-    ResponseHeaderModifier(HttpHeaderModifierFilter),
-    Redirect(HttpRedirectFilter),
     StaticResponse(HttpStaticResponseFilter),
     AccessControl(HttpAccessControlFilter),
-    ClientAddrs(HttpClientAddrsFilter),
+    ClientAddr(HttpClientAddrFilter),
     ErrorResponse(HttpErrorResponseFilter),
 }

@@ -12,12 +12,12 @@ async fn test_control_plane_signal_communication() {
     let (tx, rx) = vg_core::sync::signal::signal::<String>();
 
     // Simulate control plane sending configuration updates
-    tx.set("config-v1".to_string()).await;
-    assert_eq!(rx.get().await, Some("config-v1".to_string()));
+    tx.set("configuration-v1".to_string()).await;
+    assert_eq!(rx.get().await, Some("configuration-v1".to_string()));
 
     // Update configuration
-    tx.set("config-v2".to_string()).await;
-    assert_eq!(rx.get().await, Some("config-v2".to_string()));
+    tx.set("configuration-v2".to_string()).await;
+    assert_eq!(rx.get().await, Some("configuration-v2".to_string()));
 
     // Clear configuration
     tx.clear().await;

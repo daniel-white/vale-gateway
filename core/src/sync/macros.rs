@@ -93,6 +93,26 @@ pub enum ReadyState<T> {
     NotReady,
 }
 
+impl<T> ReadyState<T> {
+    pub fn map<U, F>(self, f: F) -> ReadyState<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        match self {
+            ReadyState::Ready(val) => ReadyState::Ready(f(val)),
+            ReadyState::NotReady => ReadyState::NotReady,
+        }
+    }
+    
+    pub fn is_ready(&self) -> bool {
+        matches!(self, ReadyState::Ready(_))
+    }
+    
+    pub fn is_not_ready(&self) -> bool {
+        matches!(self, ReadyState::NotReady)
+    }
+}
+
 #[macro_export]
 macro_rules! await_ready {
     // Single receiver

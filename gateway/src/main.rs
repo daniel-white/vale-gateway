@@ -1,29 +1,23 @@
 mod cli;
-mod controllers;
 mod http;
+mod infra;
 mod instrumentation;
-mod proxy;
-mod util;
 
 use crate::cli::Cli;
-use crate::controllers::config::fs::{watch_configuration_file, WatchConfigurationFileParams};
-use crate::controllers::config::ipc::{
-    fetch_configuration, watch_ipc_endpoint, FetchConfigurationParams,
+use crate::http::filters::{HttpFilterHandlers, HttpFilterHandlersDependencies};
+use crate::http::listener::controllers::{
+    http_listener, http_listener_filter_handlers, http_listener_routes,
 };
-use crate::controllers::config::selector::{select_configuration, SelectorParams};
-use crate::controllers::ipc_events::{poll_gateway_events, PollGatewayEventsParams};
-use crate::controllers::router::synthesize_http_router;
-use crate::controllers::static_response_bodies_cache::static_response_bodies_cache;
-use crate::http::filters::access_control::access_control_filters_handlers;
-use crate::http::filters::client_addrs::client_addr_filter_handler;
-use crate::proxy::filters::static_responses::static_responses;
-use crate::proxy::responses::error_responses::error_responses;
-use crate::proxy::Proxy;
+use crate::http::proxy::HttpProxy;
+use crate::http::router::http_router;
+use crate::infra::configuration::{
+    gateway_configuration, GatewayConfigurationParams, IpcSourceParams,
+};
+use crate::infra::ipc::{ipc_addr, poll_gateway_events, PollGatewayEventsParams};
+use crate::infra::{InstanceContext, TopologyLocation};
 use clap::Parser;
 use pingora::prelude::http_proxy_service;
 use pingora::server::Server;
-
-use proxy::router::topology::TopologyLocation;
 use reqwest_middleware::ClientBuilder;
 use reqwest_tracing::TracingMiddleware;
 use std::sync::Arc;
@@ -51,11 +45,23 @@ async fn main() {
 
     let args = Cli::parse();
 
-    let current_location = {
+    let location = {
         let zone = args.zone_name().filter(|z| !z.is_empty());
         let node = args.node_name().filter(|n| !n.is_empty());
 
-        TopologyLocation::builder().zone(zone).node(node).build()
+        let location = TopologyLocation::builder().zone(zone).node(node).build();
+        Arc::new(location)
+    };
+
+    let instance_context = {
+        let instance_context = InstanceContext::builder()
+            .pod_name(args.pod_name())
+            .gateway_namespace(args.pod_namespace())
+            .gateway_name(args.gateway_name())
+            .location(location.clone())
+            .build();
+
+        Arc::new(instance_context)
     };
 
     let (ipc_endpoint_tx, ipc_endpoint_rx) = signal("ipc_endpoint");
@@ -64,76 +70,65 @@ async fn main() {
         let params = PollGatewayEventsParams::builder()
             .client(client.clone())
             .ipc_endpoint_rx(ipc_endpoint_rx.clone())
-            .pod_name(args.pod_name())
-            .gateway_namespace(args.pod_namespace())
-            .gateway_name(args.gateway_name())
+            .instance_context(instance_context.clone())
             .build();
 
         poll_gateway_events(&task_builder, params)
     };
 
-    let ipc_configuration_source_rx = {
-        let params = FetchConfigurationParams::builder()
+    let gateway_rx = {
+        let ipc_source_params = IpcSourceParams::builder()
             .client(client.clone())
             .ipc_endpoint_rx(ipc_endpoint_rx.clone())
             .gateway_events_rx(gateway_events_tx.subscribe())
-            .pod_name(args.pod_name())
-            .gateway_namespace(args.pod_namespace())
-            .gateway_name(args.gateway_name())
+            .instance_context(instance_context.clone())
             .build();
 
-        fetch_configuration(&task_builder, params)
-    };
-
-    let fs_configuration_source_rx = {
-        let params = WatchConfigurationFileParams::builder()
+        let fs_source_params = crate::infra::configuration::FsSourceParams::builder()
             .file_path(args.config_file_path())
             .build();
 
-        watch_configuration_file(&task_builder, params)
-    };
-
-    let gateway_configuration_rx = {
-        let params = SelectorParams::builder()
-            .ipc_configuration_source_rx(ipc_configuration_source_rx)
-            .fs_configuration_source_rx(fs_configuration_source_rx)
+        let gateway_configuration_params = GatewayConfigurationParams::builder()
+            .ipc_source_params(ipc_source_params)
+            .fs_source_params(fs_source_params)
             .build();
 
-        select_configuration(&task_builder, params)
+        gateway_configuration(&task_builder, gateway_configuration_params)
     };
 
-    watch_ipc_endpoint(&task_builder, &gateway_configuration_rx, ipc_endpoint_tx);
+    ipc_addr(&task_builder, &gateway_rx, ipc_endpoint_tx);
 
-    let router_rx =
-        synthesize_http_router(&task_builder, &gateway_configuration_rx, current_location);
-    let client_addr_filter_handler_rx =
-        client_addr_filter_handler(&task_builder, &gateway_configuration_rx);
-    let access_control_filters_handlers_rx =
-        access_control_filters_handlers(&task_builder, &gateway_configuration_rx);
-    let error_responses_rx = error_responses(&task_builder, &gateway_configuration_rx);
-    let static_responses_rx = static_responses(&task_builder, &gateway_configuration_rx);
-    let static_response_bodies_cache = static_response_bodies_cache(
+    let http_listener_rx = http_listener(&task_builder, &gateway_rx);
+
+    let http_listener_routes_rx = http_listener_routes(&task_builder, &http_listener_rx);
+
+    let http_filter_handlers = {
+        let dependencies = HttpFilterHandlersDependencies::builder()
+            .client(client)
+            .http_listener_rx(http_listener_rx.clone())
+            .ipc_endpoint(ipc_endpoint_rx)
+            .instance_context(instance_context)
+            .build();
+        HttpFilterHandlers::new(&task_builder, dependencies)
+    };
+
+    let http_listener_filter_handlers_rx =
+        http_listener_filter_handlers(&task_builder, &http_listener_rx, &http_filter_handlers);
+
+    let http_router_rx = http_router(
         &task_builder,
-        client.clone(),
-        &static_responses_rx,
-        &ipc_endpoint_rx,
-        args.pod_name(),
-        args.pod_namespace(),
-        args.gateway_name(),
+        &http_listener_routes_rx,
+        &http_listener_filter_handlers_rx,
+        &http_filter_handlers,
+        location.clone(),
     );
 
     task_builder.new_task("server").spawn_blocking(move || {
         let mut server = Server::new(None).unwrap();
         server.bootstrap();
-        let proxy = Proxy::builder()
-            .client_addr_filter_handler_rx(client_addr_filter_handler_rx)
-            .access_control_filters_handlers_rx(access_control_filters_handlers_rx)
-            .error_responses_rx(error_responses_rx)
-            .router_rx(router_rx)
-            .static_responses_rx(static_responses_rx)
-            .static_response_bodies_cache(static_response_bodies_cache)
-            .build();
+        let proxy = HttpProxy::builder().http_router_rx(http_router_rx).build();
         let mut service = http_proxy_service(&server.configuration, proxy);
+
         service.add_tcp("0.0.0.0:8080");
 
         server.add_service(service);

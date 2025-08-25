@@ -25,7 +25,7 @@ impl FromStr for HttpListenerProtocol {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Listener {
     pub name: String,
     pub protocol: HttpListenerProtocol,

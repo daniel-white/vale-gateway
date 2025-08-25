@@ -195,7 +195,7 @@ fn generate_gateway_deployments(
                             let template_values = TemplateValues::builder()
                                 .gateway_name(gateway_ref.name())
                                 .cluster_name("TBD")
-                                .configmap_name(format!("{}-config", gateway_ref.name()))
+                                .configmap_name(format!("{}-configuration", gateway_ref.name()))
                                 .image_pull_policy(Into::<&'static str>::into(
                                     instance.image_pull_policy(),
                                 ))
@@ -366,7 +366,7 @@ mod tests {
                 expected: (Some("always_off".to_string()), None),
             },
             Case {
-                name: "None config",
+                name: "None configuration",
                 input: None,
                 expected: (None, None),
             },

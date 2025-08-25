@@ -1,64 +1,68 @@
-use super::AccessControlFilterHandler;
+use super::HttpAccessControlFilterHandler;
 use std::collections::HashMap;
-use vg_core::config::gateway::types::GatewayConfiguration;
+use std::sync::Arc;
 use vg_core::http::filters::access_control::{HttpAccessControlFilter, HttpAccessControlFilterKey};
+use vg_core::http::listeners::HttpFilterDefinition;
 use vg_core::sync::signal::{signal, Receiver};
 use vg_core::task::Builder as TaskBuilder;
 use vg_core::{await_ready, continue_on, ReadyState};
 
 pub type AccessControlFilterHandlers =
-    HashMap<HttpAccessControlFilterKey, AccessControlFilterHandler>;
+    HashMap<HttpAccessControlFilterKey, Arc<HttpAccessControlFilterHandler>>;
 
-fn access_control_filters_config(
+fn http_access_control_filters(
     task_builder: &TaskBuilder,
-    gateway_configuration_rx: &Receiver<GatewayConfiguration>,
+    http_filter_definitions_rx: &Receiver<Vec<HttpFilterDefinition>>,
 ) -> Receiver<HashMap<HttpAccessControlFilterKey, HttpAccessControlFilter>> {
-    let (tx, rx) = signal(stringify!(access_control_filters));
-    let gateway_configuration_rx = gateway_configuration_rx.clone();
+    let (tx, rx) = signal(stringify!(http_access_control_filters));
+    let http_filter_definitions_rx = http_filter_definitions_rx.clone();
 
     task_builder
-        .new_task(stringify!(access_control_filters))
+        .new_task(stringify!(http_access_control_filters))
         .spawn(async move {
             loop {
-                if let ReadyState::Ready(gateway_configuration) =
-                    await_ready!(gateway_configuration_rx)
-                {
-                    let filters: HashMap<HttpAccessControlFilterKey, HttpAccessControlFilter> =
-                        gateway_configuration
-                            .access_control_filters()
-                            .iter()
-                            .map(|f| (f.key().clone(), f.clone()))
-                            .collect();
+                if let ReadyState::Ready(filters) = await_ready!(http_filter_definitions_rx) {
+                    let filters = filters
+                        .iter()
+                        .filter_map(|f| match f {
+                            HttpFilterDefinition::AccessControl(filter) => {
+                                Some((filter.key().clone(), filter.clone()))
+                            }
+                            _ => None,
+                        })
+                        .collect();
+
                     tx.set(filters).await;
                 }
-                continue_on!(gateway_configuration_rx.changed());
+                continue_on!(http_filter_definitions_rx.changed());
             }
         });
 
     rx
 }
 
-pub fn access_control_filters_handlers(
+pub fn http_access_control_filter_handlers(
     task_builder: &TaskBuilder,
-    gateway_configuration_rx: &Receiver<GatewayConfiguration>,
+    http_filter_definitions_rx: &Receiver<Vec<HttpFilterDefinition>>,
 ) -> Receiver<AccessControlFilterHandlers> {
-    let (tx, rx) = signal(stringify!(access_control_filters_handlers));
-    let config_rx = access_control_filters_config(task_builder, gateway_configuration_rx);
+    let (tx, rx) = signal(stringify!(http_access_control_filter_handlers));
+    let filters_rx = http_access_control_filters(task_builder, http_filter_definitions_rx);
 
     task_builder
-        .new_task(stringify!(access_control_filters_handlers))
+        .new_task(stringify!(http_access_control_filter_handlers))
         .spawn(async move {
             loop {
-                if let ReadyState::Ready(config) = await_ready!(config_rx) {
-                    let handlers = config
+                if let ReadyState::Ready(filters) = await_ready!(filters_rx) {
+                    let handlers = filters
                         .iter()
                         .map(|(key, filter)| {
-                            (key.clone(), AccessControlFilterHandler::builder().build())
+                            let handler = HttpAccessControlFilterHandler::from(filter);
+                            (key.clone(), Arc::new(handler))
                         })
                         .collect();
                     tx.set(handlers).await;
                 }
-                continue_on!(config_rx.changed());
+                continue_on!(filters_rx.changed());
             }
         });
     rx

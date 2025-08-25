@@ -27,7 +27,7 @@ impl HttpHeaderMatch {
     pub fn exactly<H: Into<HeaderName>, V: Into<HeaderValue>>(header: H, value: V) -> Self {
         let value: HeaderValue = value.into();
         Self {
-            kind: HttpHeaderMatchKind::Exact,
+            kind: HttpHeaderMatchKind::ExactValue,
             header: header.into(),
             value: value.to_str().expect("Invalid header value").to_string(),
         }
@@ -35,7 +35,7 @@ impl HttpHeaderMatch {
 
     pub fn matches<H: Into<HeaderName>, P: AsRef<str>>(header: H, pattern: P) -> Self {
         Self {
-            kind: HttpHeaderMatchKind::RegularExpression,
+            kind: HttpHeaderMatchKind::ValueMatching,
             header: header.into(),
             value: pattern.as_ref().to_string(),
         }
@@ -45,6 +45,6 @@ impl HttpHeaderMatch {
 #[derive(Validate, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum HttpHeaderMatchKind {
-    Exact,
-    RegularExpression,
+    ExactValue,
+    ValueMatching,
 }

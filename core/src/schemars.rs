@@ -1,4 +1,4 @@
-use schemars::{json_schema, Schema, SchemaGenerator};
+use schemars::{Schema, SchemaGenerator, json_schema};
 
 pub fn cidr_array(_: &mut SchemaGenerator) -> Schema {
     json_schema!({
@@ -67,10 +67,26 @@ pub fn scheme(_: &mut SchemaGenerator) -> Schema {
     })
 }
 
+pub fn url(_: &mut SchemaGenerator) -> Schema {
+    json_schema!({
+        "type": "string",
+        "format": "uri"
+    })
+}
+
 pub fn status_code(_: &mut SchemaGenerator) -> Schema {
     json_schema!({
         "type": "integer",
         "minimum": 100,
         "maximum": 599
+    })
+}
+
+pub fn dns_name(_: &mut SchemaGenerator) -> Schema {
+    json_schema!({
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 253,
+        "pattern": "^(?=.{1,253}$)(?!-)[A-Za-z0-9-]{1,63}(?<!-)\\.(?!-)(?:[A-Za-z0-9-]{1,63}\\.)*(?<!-)[A-Za-z]{2,63}$"
     })
 }

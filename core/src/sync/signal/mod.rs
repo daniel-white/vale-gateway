@@ -131,7 +131,7 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
     use tokio::time::{timeout, Duration};
-    use tokio_test::{assert_pending, assert_ready};
+    use tokio_test::assert_pending;
 
     #[tokio::test]
     async fn test_signal_channel() {

@@ -1,13 +1,15 @@
-use getset::Getters;
+use getset::{CopyGetters, Getters};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_valid::Validate;
 use std::net::SocketAddr;
 
-#[derive(Validate, Getters, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Validate, CopyGetters, Getters, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct HttpBackend {
-    #[getset(get = "pub")]
+    #[getset(get_copy = "pub")]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     weight: Option<i32>,
 

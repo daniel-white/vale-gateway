@@ -37,7 +37,7 @@ pub struct HttpQueryParamMatch {
 impl HttpQueryParamMatch {
     pub fn exactly<N: Into<HttpQueryParamName>, V: AsRef<str>>(name: N, value: V) -> Self {
         Self {
-            kind: HttpQueryParamMatchKind::Exact,
+            kind: HttpQueryParamMatchKind::ExactValue,
             name: name.into(),
             value: value.as_ref().to_string(),
         }
@@ -45,7 +45,7 @@ impl HttpQueryParamMatch {
 
     pub fn matches<N: Into<HttpQueryParamName>, P: AsRef<str>>(name: N, pattern: P) -> Self {
         Self {
-            kind: HttpQueryParamMatchKind::RegularExpression,
+            kind: HttpQueryParamMatchKind::ValueMatching,
             name: name.into(),
             value: pattern.as_ref().to_string(),
         }
@@ -55,8 +55,8 @@ impl HttpQueryParamMatch {
 #[derive(Validate, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum HttpQueryParamMatchKind {
-    Exact,
-    RegularExpression,
+    ExactValue,
+    ValueMatching,
 }
 
 #[derive(
@@ -70,6 +70,12 @@ pub struct HttpQueryParamName(
     #[getset(get = "pub")]
     String,
 );
+
+impl HttpQueryParamName {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
 
 impl From<&str> for HttpQueryParamName {
     fn from(value: &str) -> Self {

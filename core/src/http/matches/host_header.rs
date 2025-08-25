@@ -1,4 +1,5 @@
 use getset::Getters;
+use hickory_proto::rr::{IntoName, Name};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_valid::Validate;
@@ -13,7 +14,8 @@ pub struct HttpHostHeaderMatch {
     kind: HttpHostHeaderMatchKind,
 
     #[getset(get = "pub")]
-    value: String,
+    #[schemars(schema_with = "crate::schemars::dns_name")]
+    name: Name,
 }
 
 impl HttpHostHeaderMatch {
@@ -32,18 +34,22 @@ impl HttpHostHeaderMatchBuilder {
         self.result.expect("HttpHostHeaderMatch is not fully built")
     }
 
-    pub fn exactly<H: Into<String>>(&mut self, host: H) -> &mut Self {
+    pub fn fully_qualified<N: IntoName>(&mut self, name: N) -> &mut Self {
+        let mut name: Name = name.into_name().unwrap();
+        name.set_fqdn(true);
         self.result = Some(HttpHostHeaderMatch {
-            kind: HttpHostHeaderMatchKind::Exact,
-            value: host.into(),
+            kind: HttpHostHeaderMatchKind::FullyQualified,
+            name,
         });
         self
     }
 
-    pub fn with_suffix<S: Into<String>>(&mut self, suffix: S) -> &mut Self {
+    pub fn in_zone<Z: IntoName>(&mut self, zone: Z) -> &mut Self {
+        let mut zone: Name = zone.into_name().unwrap();
+        zone.set_fqdn(false);
         self.result = Some(HttpHostHeaderMatch {
-            kind: HttpHostHeaderMatchKind::Suffix,
-            value: suffix.into(),
+            kind: HttpHostHeaderMatchKind::InZone,
+            name: zone,
         });
         self
     }
@@ -52,6 +58,6 @@ impl HttpHostHeaderMatchBuilder {
 #[derive(Validate, Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum HttpHostHeaderMatchKind {
-    Exact,
-    Suffix,
+    FullyQualified,
+    InZone,
 }

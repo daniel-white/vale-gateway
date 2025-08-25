@@ -1,11 +1,8 @@
 use super::backends::{HttpBackend, HttpBackendBuilder};
-use crate::http::filters::access_control::HttpAccessControlFilterRef;
-use crate::http::filters::client_addrs::HttpClientAddrsFilterRef;
-use crate::http::filters::error_response::HttpErrorResponseFilterRef;
 use crate::http::filters::header_modifier::HttpHeaderModifierFilter;
-use crate::http::filters::redirect::HttpRedirectFilter;
+use crate::http::filters::redirect_response::HttpRedirectResponseFilter;
 use crate::http::filters::static_response::HttpStaticResponseFilterRef;
-use crate::http::filters::uri_rewrite::HttpUpstreamUriRewrite;
+use crate::http::filters::upstream_uri_rewrite::HttpUpstreamUriRewriteFilter;
 use crate::http::matches::{HttpRequestMatches, HttpRouteRuleMatchesBuilder};
 use getset::Getters;
 use schemars::JsonSchema;
@@ -15,14 +12,11 @@ use serde_valid::Validate;
 #[derive(Validate, Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum HttpRouteRuleFilter {
-    UpstreamUriRewrite(HttpUpstreamUriRewrite),
+    UpstreamUriRewrite(HttpUpstreamUriRewriteFilter),
     UpstreamRequestHeaderModifier(HttpHeaderModifierFilter),
-    Redirect(HttpRedirectFilter),
+    RedirectResponse(HttpRedirectResponseFilter),
     ResponseHeaderModifier(HttpHeaderModifierFilter),
     StaticResponse(HttpStaticResponseFilterRef),
-    AccessControl(HttpAccessControlFilterRef),
-    ClientAddrs(HttpClientAddrsFilterRef),
-    ErrorResponse(HttpErrorResponseFilterRef),
 }
 
 #[derive(Validate, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash, JsonSchema)]
