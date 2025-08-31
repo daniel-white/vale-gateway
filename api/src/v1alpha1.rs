@@ -1,3 +1,9 @@
+use gateway_api::httproutes::{
+    HTTPRouteRulesBackendRefsFiltersRequestHeaderModifier,
+    HTTPRouteRulesBackendRefsFiltersRequestRedirect, HTTPRouteRulesFilters,
+    HTTPRouteRulesFiltersRequestHeaderModifier, HTTPRouteRulesFiltersRequestRedirect,
+    HTTPRouteRulesFiltersResponseHeaderModifier, HTTPRouteRulesFiltersType,
+};
 use ipnet::IpNet;
 use k8s_openapi::api::{apps::v1::DeploymentStrategy, core::v1::ServiceSpec};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::{Condition, Time};
@@ -141,10 +147,56 @@ pub struct GatewayConfiguration {
     pub instrumentation: Option<GatewayInstrumentation>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub error_responses: Option<ErrorResponses>,
+    pub listeners: Option<GatewayListener>,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug, JsonSchema, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GatewayListener {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub http: Option<GatewayListenerHttp>,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug, JsonSchema, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GatewayListenerHttp {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub filters: Vec<GatewayListenerHttpFilters>,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GatewayListenerHttpFilters {
+    #[serde(rename = "type")]
+    pub r#type: GatewayListenerHttpFilterType,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub client_addresses: Option<ClientAddresses>,
+    pub request_header_modifier: Option<HTTPRouteRulesFiltersRequestHeaderModifier>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response_header_modifier: Option<HTTPRouteRulesFiltersResponseHeaderModifier>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_redirect: Option<HTTPRouteRulesFiltersRequestRedirect>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub static_response: Option<Ref>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub access_control: Option<Ref>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error_response: Option<Ref>,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq)]
+pub enum GatewayListenerHttpFilterType {
+    RequestHeaderModifier,
+    ResponseHeaderModifier,
+    RequestRedirect,
+    StaticResponse,
+    AccessControl,
+    ErrorResponse,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, JsonSchema, Default, PartialEq)]
@@ -228,17 +280,27 @@ pub struct GatewayInstrumentationOpenTelemetryTraceIdRatioBased {
 #[derive(Default, Deserialize, Serialize, Clone, Debug, PartialEq, JsonSchema, IntoStaticStr)]
 #[serde(rename_all = "PascalCase")]
 #[strum(serialize_all = "PascalCase")]
-pub enum ErrorResponseKind {
+pub enum ErrorResponseFilterKind {
     #[default]
     Empty,
     Html,
     ProblemDetail,
 }
 
-#[derive(Default, Deserialize, Serialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(CustomResource, Deserialize, Serialize, Clone, Debug, PartialEq, JsonSchema)]
+#[kube(
+    kind = "ErrorResponseFilter",
+    group = "vale-gateway.whitefamily.in",
+    version = "v1alpha1",
+    namespaced,
+    singular = "errorresponsefilter",
+    plural = "errorresponsefilters"
+)]
+#[kube(derive = "PartialEq")]
+#[kube(status = "ErrorResponseFilterStatus")]
 #[serde(rename_all = "camelCase")]
-pub struct ErrorResponses {
-    pub kind: ErrorResponseKind,
+pub struct ErrorResponseFilterSpec {
+    pub kind: ErrorResponseFilterKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub problem_detail: Option<ProblemDetailErrorResponse>,
 }
@@ -250,30 +312,70 @@ pub struct ProblemDetailErrorResponse {
     pub authority: Option<String>,
 }
 
-#[derive(Default, Deserialize, Serialize, Clone, Debug, PartialEq, JsonSchema, IntoStaticStr)]
+#[derive(Default, Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ErrorResponseFilterStatus {
+    /// Conditions describe the current conditions of the `ErrorResponseFilter`
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conditions: Option<Vec<Condition>>,
+
+    /// `AttachedRoutes` indicates the number of routes that are using this filter
+    #[serde(default)]
+    pub attached_routes: i32,
+
+    /// `LastUpdated` indicates when the status was last updated
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_updated: Option<Time>,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, JsonSchema, IntoStaticStr)]
 #[serde(rename_all = "PascalCase")]
 #[strum(serialize_all = "PascalCase")]
-pub enum ClientAddressesSource {
-    #[default]
-    None,
+pub enum ClientAddressFilterSource {
     Header,
     Proxies,
 }
 
-#[derive(Default, Deserialize, Serialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(CustomResource, Deserialize, Serialize, Clone, Debug, PartialEq, JsonSchema)]
+#[kube(
+    kind = "ClientAddressFilter",
+    group = "vale-gateway.whitefamily.in",
+    version = "v1alpha1",
+    namespaced,
+    singular = "clientaddressfilter",
+    plural = "clientaddressfilters"
+)]
+#[kube(derive = "PartialEq")]
+#[kube(status = "ClientAddressFilterStatus")]
 #[serde(rename_all = "camelCase")]
-pub struct ClientAddresses {
-    pub source: ClientAddressesSource,
+pub struct ClientAddressFilterSpec {
+    pub source: ClientAddressFilterSource,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub header: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proxies: Option<ClientAddressesProxies>,
+    pub proxies: Option<ClientAddressFilterProxies>,
+}
+
+#[derive(Default, Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientAddressFilterStatus {
+    /// Conditions describe the current conditions of the `ErrorResponseFilter`
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conditions: Option<Vec<Condition>>,
+
+    /// `AttachedRoutes` indicates the number of routes that are using this filter
+    #[serde(default)]
+    pub attached_routes: i32,
+
+    /// `LastUpdated` indicates when the status was last updated
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_updated: Option<Time>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq, IntoStaticStr)]
 #[serde(rename_all = "kebab-case")]
 #[strum(serialize_all = "kebab-case")]
-pub enum ProxyIpAddressHeaders {
+pub enum ClientAddressFilterProxiesTrustedHeaders {
     Forwarded,
     XForwardedFor,
     XForwardedHost,
@@ -283,7 +385,7 @@ pub enum ProxyIpAddressHeaders {
 
 #[derive(Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct ClientAddressesProxies {
+pub struct ClientAddressFilterProxies {
     #[serde(default = "trusted_private_ranges_default")]
     pub trust_local_ranges: bool,
 
@@ -298,15 +400,15 @@ pub struct ClientAddressesProxies {
         default = "trusted_headers_default",
         skip_serializing_if = "Vec::is_empty"
     )]
-    pub trusted_headers: Vec<ProxyIpAddressHeaders>,
+    pub trusted_headers: Vec<ClientAddressFilterProxiesTrustedHeaders>,
 }
 
 fn trusted_private_ranges_default() -> bool {
     true
 }
 
-fn trusted_headers_default() -> Vec<ProxyIpAddressHeaders> {
-    vec![ProxyIpAddressHeaders::XForwardedFor]
+fn trusted_headers_default() -> Vec<ClientAddressFilterProxiesTrustedHeaders> {
+    vec![ClientAddressFilterProxiesTrustedHeaders::XForwardedFor]
 }
 
 pub fn cidr_array_schema(_: &mut SchemaGenerator) -> Schema {

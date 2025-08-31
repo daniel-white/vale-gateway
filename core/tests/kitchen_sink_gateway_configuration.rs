@@ -36,8 +36,14 @@ fn kitchen_sink_gateway_configuration() {
     // Representative values for filters
     let mut header_mod = HttpHeaderModifierFilter::builder();
     header_mod
-        .add_header("x-add-header", HeaderValue::from_static("add-value"))
-        .set_header("x-set-header", HeaderValue::from_static("set-value"))
+        .add_header(
+            HeaderName::from_static("x-add-header"),
+            HeaderValue::from_static("add-value"),
+        )
+        .set_header(
+            HeaderName::from_static("x-add-header"),
+            HeaderValue::from_static("set-value"),
+        )
         .remove_header(HeaderName::from_static("x-remove-header"));
     let header_mod = header_mod.build();
 
@@ -75,11 +81,11 @@ fn kitchen_sink_gateway_configuration() {
     let error_response_problem_detail = HttpErrorResponseFilter::builder()
         .key("error-key-problem-detail")
         .kind(HttpErrorResponseKind::ProblemDetail)
-        .problem_detail(
+        .problem_detail(Some(
             HttpProblemDetailErrorResponse::builder()
                 .authority(Url::from_str("https://example.com/").unwrap())
                 .build(),
-        )
+        ))
         .build();
 
     let static_body = HttpStaticResponseBody::builder()

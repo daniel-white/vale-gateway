@@ -10,6 +10,7 @@ use getset::Getters;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_valid::Validate;
+use std::sync::Arc;
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -20,9 +21,6 @@ pub enum HttpListenerProtocol {
 #[derive(Validate, Getters, Debug, PartialEq, Eq, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct HttpListener {
-    #[getset(get = "pub")]
-    name: String,
-
     #[getset(get = "pub")]
     port: Port,
 
@@ -39,7 +37,6 @@ pub struct HttpListener {
 impl HttpListener {
     pub fn builder() -> HttpListenerBuilder {
         HttpListenerBuilder {
-            name: None,
             port: None,
             filters: Vec::new(),
             filter_definitions: Vec::new(),
@@ -50,7 +47,6 @@ impl HttpListener {
 
 #[derive(Debug)]
 pub struct HttpListenerBuilder {
-    name: Option<String>,
     port: Option<Port>,
     filters: Vec<HttpListenerFilter>,
     filter_definitions: Vec<HttpFilterDefinition>,
@@ -60,7 +56,6 @@ pub struct HttpListenerBuilder {
 impl HttpListenerBuilder {
     pub fn build(self) -> HttpListener {
         HttpListener {
-            name: self.name.expect("Listener name is not set"),
             port: self.port.expect("Listener port is not set"),
             filters: self.filters,
             filter_definitions: self.filter_definitions,
@@ -70,12 +65,6 @@ impl HttpListenerBuilder {
                 .map(HttpRouteBuilder::build)
                 .collect(),
         }
-    }
-
-    pub fn name<N: Into<String>>(&mut self, name: N) -> &mut Self {
-        let name = name.into();
-        self.name = Some(name);
-        self
     }
 
     pub fn port<P: Into<Port>>(&mut self, port: P) -> &mut Self {
@@ -120,8 +109,8 @@ pub enum HttpListenerFilter {
 #[derive(Validate, Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum HttpFilterDefinition {
-    StaticResponse(HttpStaticResponseFilter),
-    AccessControl(HttpAccessControlFilter),
-    ClientAddr(HttpClientAddrFilter),
-    ErrorResponse(HttpErrorResponseFilter),
+    StaticResponse(Arc<HttpStaticResponseFilter>),
+    AccessControl(Arc<HttpAccessControlFilter>),
+    ClientAddr(Arc<HttpClientAddrFilter>),
+    ErrorResponse(Arc<HttpErrorResponseFilter>),
 }

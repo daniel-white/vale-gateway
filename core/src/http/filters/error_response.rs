@@ -47,7 +47,7 @@ pub struct HttpErrorResponseFilter {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[getset(get = "pub")]
-    #[builder(default, setter(strip_option))]
+    #[builder(default)]
     problem_detail: Option<HttpProblemDetailErrorResponse>,
 }
 
@@ -58,7 +58,7 @@ pub struct HttpErrorResponseFilter {
 pub struct HttpProblemDetailErrorResponse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[getset(get = "pub")]
-    #[builder(setter(into, strip_option), default)]
+    #[builder(setter(into), default)]
     #[schemars(schema_with = "crate::schemars::url")]
     authority: Option<Url>,
 }

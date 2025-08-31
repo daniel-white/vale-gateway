@@ -9,9 +9,9 @@ use self::filters::{
     filter_gateways, filter_http_routes,
 };
 use self::sync::{
-    SyncGatewayConfigmapsParams, sync_gateway_class_status, sync_gateway_configmaps,
-    sync_gateway_deployments, sync_gateway_services, sync_gateway_status, sync_http_route_status,
-    sync_static_response_filter_status,
+    sync_gateway_class_status, sync_gateway_configmaps, sync_gateway_deployments,
+    sync_gateway_services, sync_gateway_status, sync_http_route_status, sync_static_response_filter_status,
+    SyncGatewayConfigmapsParams,
 };
 use self::transformers::{
     bind_static_responses_cache, collect_extension_filters_by_gateway, collect_gateway_instances,
@@ -34,7 +34,8 @@ use thiserror::Error;
 pub use transformers::StaticResponsesCache;
 use typed_builder::TypedBuilder;
 use vg_api::v1alpha1::{
-    AccessControlFilter, GatewayClassParameters, GatewayParameters, StaticResponseFilter,
+    AccessControlFilter, ErrorResponseFilter, GatewayClassParameters, GatewayParameters,
+    StaticResponseFilter,
 };
 use vg_core::sync::signal::Receiver;
 use vg_core::task::Builder as TaskBuilder;
@@ -88,6 +89,8 @@ pub fn spawn_controllers(task_builder: &TaskBuilder, params: SpawnControllersPar
         watch_objects!(options, task_builder, StaticResponseFilter, kube_client_rx);
     let access_control_filters_rx =
         watch_objects!(options, task_builder, AccessControlFilter, kube_client_rx);
+    let error_response_filters_rx =
+        watch_objects!(options, task_builder, ErrorResponseFilter, kube_client_rx);
 
     let gateway_class_rx = filter_gateway_classes(task_builder, &gateway_classes_rx);
     let gateway_class_parameters_rx = filter_gateway_class_parameters(

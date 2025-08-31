@@ -5826,6 +5826,7 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "typed-builder",
+ "url",
  "vg-api",
  "vg-build",
  "vg-core",

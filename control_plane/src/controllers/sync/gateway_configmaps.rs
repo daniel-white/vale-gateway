@@ -21,14 +21,12 @@ use tokio::sync::mpsc::UnboundedSender;
 use tracing::{debug, error, info, warn};
 use typed_builder::TypedBuilder;
 use vg_api::v1alpha1::{
-    AccessControlFilter, AccessControlFilterEffect, ClientAddressesSource, ErrorResponseKind,
-    ProxyIpAddressHeaders, StaticResponseFilter,
+    AccessControlFilter, AccessControlFilterEffect, ClientAddressFilterProxiesTrustedHeaders,
+    ClientAddressesSource, ErrorResponseFilterKind, StaticResponseFilter,
 };
 
-use crate::kubernetes::adapters::http::rules;
-use crate::kubernetes::adapters::http::rules::{
-    add_http_route_rules_filters, add_http_route_rules_matches,
-};
+use crate::http::routes::rules;
+use crate::http::routes::rules::{add_http_route_rules_filters, add_http_route_rules_matches};
 use vg_core::gateways::{Gateway, GatewayBuilder};
 use vg_core::http::filters::client_addr::HttpProxyHeaders;
 use vg_core::http::matches::{HttpMethodMatch, HttpRouteRuleMatchesBuilder};
@@ -493,13 +491,13 @@ fn set_error_responses_strategy(
         .unwrap_or_default();
 
     let error_responses = match error_responses.kind {
-        ErrorResponseKind::Empty => ConfigErrorResponses::builder()
+        ErrorResponseFilterKind::Empty => ConfigErrorResponses::builder()
             .kind(ConfigErrorResponseKind::Empty)
             .build(),
-        ErrorResponseKind::Html => ConfigErrorResponses::builder()
+        ErrorResponseFilterKind::Html => ConfigErrorResponses::builder()
             .kind(ConfigErrorResponseKind::Html)
             .build(),
-        ErrorResponseKind::ProblemDetail => {
+        ErrorResponseFilterKind::ProblemDetail => {
             let problem_detail = match error_responses.problem_detail {
                 Some(problem_detail) => ProblemDetailErrorResponse::builder()
                     .authority(problem_detail.authority)

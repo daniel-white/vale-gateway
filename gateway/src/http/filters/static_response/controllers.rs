@@ -16,7 +16,7 @@ use vg_core::{await_ready, continue_on, ReadyState};
 fn http_static_response_filters(
     task_builder: &TaskBuilder,
     http_filter_definitions_rx: &Receiver<Vec<HttpFilterDefinition>>,
-) -> Receiver<HashMap<HttpStaticResponseFilterKey, HttpStaticResponseFilter>> {
+) -> Receiver<HashMap<HttpStaticResponseFilterKey, Arc<HttpStaticResponseFilter>>> {
     let (tx, rx) = signal(stringify!(http_static_response_filters));
     let http_filter_definitions_rx = http_filter_definitions_rx.clone();
 
@@ -46,7 +46,7 @@ fn http_static_response_filters(
 
 fn http_static_response_filter_body_cache(
     task_builder: &TaskBuilder,
-    filters_rx: &Receiver<HashMap<HttpStaticResponseFilterKey, HttpStaticResponseFilter>>,
+    filters_rx: &Receiver<HashMap<HttpStaticResponseFilterKey, Arc<HttpStaticResponseFilter>>>,
 ) -> HttpStaticResponseFilterBodyCache {
     let cache = HttpStaticResponseFilterBodyCache::new();
 

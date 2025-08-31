@@ -44,3 +44,4 @@ kube-leader-election = { git = "https://github.com/daniel-white/kube-leader-elec
 strum = { workspace = true }
 axum-health = "0.1"
 typed-builder = { workspace = true }
+url = "2.5.4"

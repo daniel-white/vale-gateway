@@ -1,18 +1,54 @@
-use crate::kubernetes::adapters::http::filters::header_modifier::{
+use crate::http::filters::header_modifier::{
     convert_request_header_modifier, convert_response_header_modifier,
 };
-use crate::kubernetes::adapters::http::filters::response_redirect::convert_request_redirect;
-use crate::kubernetes::adapters::http::filters::static_response::convert_static_response_ref;
-use crate::kubernetes::adapters::http::filters::upstream_uri_rewrite::convert_url_rewrite;
-use gateway_api::httproutes::{HTTPRoute, HTTPRouteRules, HTTPRouteRulesFiltersType, HTTPRouteRulesMatches, HTTPRouteRulesMatchesHeadersType, HTTPRouteRulesMatchesMethod, HTTPRouteRulesMatchesPathType, HTTPRouteRulesMatchesQueryParamsType};
+use crate::http::filters::response_redirect::convert_request_redirect;
+use crate::http::filters::static_response::convert_static_response_ref;
+use crate::http::filters::upstream_uri_rewrite::convert_url_rewrite;
+use gateway_api::httproutes::{
+    HTTPRoute, HTTPRouteRules, HTTPRouteRulesFiltersType, HTTPRouteRulesMatches,
+    HTTPRouteRulesMatchesHeadersType, HTTPRouteRulesMatchesMethod, HTTPRouteRulesMatchesPathType,
+    HTTPRouteRulesMatchesQueryParamsType,
+};
 use http::{HeaderName, HeaderValue};
+use std::str::FromStr;
 use tracing::warn;
 use vg_core::http::filters::ExtensionFilterKind;
 use vg_core::http::matches::{HttpMethodMatch, HttpRouteRuleMatchesBuilder};
 use vg_core::http::routes::rules::{HttpRouteRuleBuilder, HttpRouteRuleFilter};
-use std::str::FromStr;
 
-pub fn add_http_route_rules_filters(
+pub fn convert_http_route_rule(
+    route: &HTTPRoute,
+    (rule, rule_idx): (&HTTPRouteRules, usize),
+    builder: &mut HttpRouteRuleBuilder,
+) {
+    add_http_route_rules_filters(route, (rule, rule_idx), builder);
+    add_http_route_rules_matches(rule, builder);
+
+    // if let Some(backends) = &rule.backend_refs {
+    //     for backend in backends {
+    //         if let Some(service) = &backend.service {
+    //             let name = service.name.as_str();
+    //             let port = backend.port.unwrap_or(80) as u16;
+    //             let weight = backend.weight.unwrap_or(1);
+    //
+    //             builder.add_backend(name, port, weight);
+    //         } else {
+    //             warn!(
+    //                 "Unsupported backend_ref {:?} for HTTPRoute {:?} at rule index {}",
+    //                 backend, route.metadata.name, rule_idx
+    //             );
+    //         }
+    //     }
+    // } else {
+    //     warn!(
+    //         "No backend_refs specified for HTTPRoute {:?} at rule index {}",
+    //         route.metadata.name, rule_idx
+    //     );
+    //     return None;
+    // }
+}
+
+fn add_http_route_rules_filters(
     route: &HTTPRoute,
     (rule, rule_idx): (&HTTPRouteRules, usize),
     builder: &mut HttpRouteRuleBuilder,
@@ -82,7 +118,7 @@ pub fn add_http_route_rules_filters(
     }
 }
 
-pub fn add_http_route_rules_matches(rule: &HTTPRouteRules, builder: &mut HttpRouteRuleBuilder) {
+fn add_http_route_rules_matches(rule: &HTTPRouteRules, builder: &mut HttpRouteRuleBuilder) {
     if let Some(matches) = &rule.matches {
         for matches in matches {
             builder.add_match(|builder| {
@@ -95,10 +131,7 @@ pub fn add_http_route_rules_matches(rule: &HTTPRouteRules, builder: &mut HttpRou
     }
 }
 
-fn add_method_match(
-    matches: &HTTPRouteRulesMatches,
-    builder: &mut HttpRouteRuleMatchesBuilder,
-) {
+fn add_method_match(matches: &HTTPRouteRulesMatches, builder: &mut HttpRouteRuleMatchesBuilder) {
     if let Some(method) = &matches.method {
         let method = match method {
             HTTPRouteRulesMatchesMethod::Get => HttpMethodMatch::Get,
@@ -137,10 +170,7 @@ fn add_path_match(matches: &HTTPRouteRulesMatches, builder: &mut HttpRouteRuleMa
     }
 }
 
-fn add_header_matches(
-    matches: &HTTPRouteRulesMatches,
-    builder: &mut HttpRouteRuleMatchesBuilder,
-) {
+fn add_header_matches(matches: &HTTPRouteRulesMatches, builder: &mut HttpRouteRuleMatchesBuilder) {
     for header in matches.headers.iter().flatten() {
         match header
             .r#type
@@ -171,7 +201,8 @@ fn add_query_params_matches(
             .unwrap_or(&HTTPRouteRulesMatchesQueryParamsType::Exact)
         {
             HTTPRouteRulesMatchesQueryParamsType::Exact => {
-                builder.add_exact_query_param(query_param.name.as_str(), query_param.value.as_str());
+                builder
+                    .add_exact_query_param(query_param.name.as_str(), query_param.value.as_str());
             }
             HTTPRouteRulesMatchesQueryParamsType::RegularExpression => {
                 builder.add_query_param_matching(
@@ -182,4 +213,3 @@ fn add_query_params_matches(
         }
     }
 }
-

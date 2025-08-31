@@ -13,7 +13,7 @@ pub type AccessControlFilterHandlers =
 fn http_access_control_filters(
     task_builder: &TaskBuilder,
     http_filter_definitions_rx: &Receiver<Vec<HttpFilterDefinition>>,
-) -> Receiver<HashMap<HttpAccessControlFilterKey, HttpAccessControlFilter>> {
+) -> Receiver<HashMap<HttpAccessControlFilterKey, Arc<HttpAccessControlFilter>>> {
     let (tx, rx) = signal(stringify!(http_access_control_filters));
     let http_filter_definitions_rx = http_filter_definitions_rx.clone();
 

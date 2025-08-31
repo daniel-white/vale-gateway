@@ -10,7 +10,7 @@ use vg_core::{await_ready, continue_on, ReadyState};
 fn http_client_addr_filters(
     task_builder: &TaskBuilder,
     http_filter_definitions_rx: &Receiver<Vec<HttpFilterDefinition>>,
-) -> Receiver<HashMap<HttpClientAddrFilterKey, HttpClientAddrFilter>> {
+) -> Receiver<HashMap<HttpClientAddrFilterKey, Arc<HttpClientAddrFilter>>> {
     let (tx, rx) = signal(stringify!(http_client_addr_filters));
     let http_filter_definitions_rx = http_filter_definitions_rx.clone();
 

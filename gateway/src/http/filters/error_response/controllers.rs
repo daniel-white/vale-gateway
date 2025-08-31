@@ -1,9 +1,7 @@
 use crate::http::filters::error_response::handler::HttpErrorResponseFilterHandler;
 use std::collections::HashMap;
 use std::sync::Arc;
-use vg_core::http::filters::error_response::{
-    HttpErrorResponseFilter, HttpErrorResponseFilterKey,
-};
+use vg_core::http::filters::error_response::{HttpErrorResponseFilter, HttpErrorResponseFilterKey};
 use vg_core::http::listeners::HttpFilterDefinition;
 use vg_core::sync::signal::{signal, Receiver};
 use vg_core::task::Builder as TaskBuilder;
@@ -12,7 +10,7 @@ use vg_core::{await_ready, continue_on, ReadyState};
 fn http_error_responses_filters(
     task_builder: &TaskBuilder,
     http_filter_definitions_rx: &Receiver<Vec<HttpFilterDefinition>>,
-) -> Receiver<HashMap<HttpErrorResponseFilterKey, HttpErrorResponseFilter>> {
+) -> Receiver<HashMap<HttpErrorResponseFilterKey, Arc<HttpErrorResponseFilter>>> {
     let (tx, rx) = signal(stringify!(http_error_responses_filters));
     let http_filter_definitions_rx = http_filter_definitions_rx.clone();
 
@@ -67,5 +65,3 @@ pub fn http_error_response_filter_handlers(
 
     rx
 }
-
-
