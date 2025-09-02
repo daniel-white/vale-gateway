@@ -24,6 +24,12 @@ pub struct HttpErrorResponseFilterRef {
     key: HttpErrorResponseFilterKey,
 }
 
+impl From<HttpErrorResponseFilterKey> for HttpErrorResponseFilterRef {
+    fn from(key: HttpErrorResponseFilterKey) -> Self {
+        Self { key }
+    }
+}
+
 #[derive(Default, Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum HttpErrorResponseKind {

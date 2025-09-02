@@ -12,7 +12,7 @@ use gateway_api::httproutes::{
 use http::{HeaderName, HeaderValue};
 use std::str::FromStr;
 use tracing::warn;
-use vg_core::http::filters::ExtensionFilterKind;
+use vg_core::http::filters::HttpExtensionFilterKind;
 use vg_core::http::matches::{HttpMethodMatch, HttpRouteRuleMatchesBuilder};
 use vg_core::http::routes::rules::{HttpRouteRuleBuilder, HttpRouteRuleFilter};
 
@@ -83,8 +83,8 @@ fn add_http_route_rules_filters(
                 if let Some(extension_ref) = &filter.extension_ref
                     && extension_ref.group == "vale-gateway.whitefamily.in"
                 {
-                    match ExtensionFilterKind::try_from(extension_ref.kind.as_str()) {
-                        Ok(ExtensionFilterKind::StaticResponse) => {
+                    match HttpExtensionFilterKind::try_from(extension_ref.kind.as_str()) {
+                        Ok(HttpExtensionFilterKind::StaticResponse) => {
                             let filter = convert_static_response_ref(extension_ref);
                             builder.add_filter(HttpRouteRuleFilter::StaticResponse(filter));
                         }

@@ -26,6 +26,12 @@ pub struct HttpClientAddrFilterRef {
     key: HttpClientAddrFilterKey,
 }
 
+impl From<HttpClientAddrFilterKey> for HttpClientAddrFilterRef {
+    fn from(key: HttpClientAddrFilterKey) -> Self {
+        Self { key }
+    }
+}
+
 #[derive(Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum HttpClientAddrSource {

@@ -10,7 +10,9 @@ pub mod upstream_uri_rewrite;
 
 #[derive(Debug, Clone, PartialEq, Eq, EnumString, IntoStaticStr)]
 #[strum(serialize_all = "camelCase")]
-pub enum ExtensionFilterKind {
+pub enum HttpExtensionFilterKind {
     StaticResponse,
     AccessControl,
+    ErrorResponse,
+    ClientAddress,
 }

@@ -1,9 +1,9 @@
 use crate::http::filters::access_control::{HttpAccessControlFilter, HttpAccessControlFilterRef};
-use crate::http::filters::client_addr::{HttpClientAddrFilter, HttpClientAddrFilterRef};
-use crate::http::filters::error_response::{HttpErrorResponseFilter, HttpErrorResponseFilterRef};
+use crate::http::filters::client_addr::{HttpClientAddrFilter, HttpClientAddrFilterKey, HttpClientAddrFilterRef};
+use crate::http::filters::error_response::{HttpErrorResponseFilter, HttpErrorResponseFilterKey, HttpErrorResponseFilterRef};
 use crate::http::filters::header_modifier::HttpHeaderModifierFilter;
 use crate::http::filters::redirect_response::HttpRedirectResponseFilter;
-use crate::http::filters::static_response::HttpStaticResponseFilter;
+use crate::http::filters::static_response::{HttpStaticResponseFilter, HttpStaticResponseFilterKey};
 use crate::http::routes::{HttpRoute, HttpRouteBuilder, HttpRouteKey};
 use crate::net::Port;
 use getset::Getters;
@@ -104,6 +104,15 @@ pub enum HttpListenerFilter {
     AccessControl(HttpAccessControlFilterRef),
     ClientAddr(HttpClientAddrFilterRef),
     ErrorResponse(HttpErrorResponseFilterRef),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum HttpFilterDefinitionKey {
+    StaticResponse(HttpStaticResponseFilterKey),
+    AccessControl(HttpStaticResponseFilterKey),
+    ClientAddr(HttpClientAddrFilterKey),
+    ErrorResponse(HttpErrorResponseFilterKey),
 }
 
 #[derive(Validate, Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]

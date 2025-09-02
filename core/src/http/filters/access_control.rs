@@ -26,6 +26,12 @@ pub struct HttpAccessControlFilterRef {
     key: HttpAccessControlFilterKey,
 }
 
+impl From<HttpAccessControlFilterKey> for HttpAccessControlFilterRef {
+    fn from(key: HttpAccessControlFilterKey) -> Self {
+        Self { key }
+    }
+}
+
 #[derive(
     Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq, Getters, TypedBuilder, Eq,
 )]

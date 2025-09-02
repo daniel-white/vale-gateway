@@ -180,10 +180,10 @@ pub struct GatewayListenerHttpFilters {
     pub request_redirect: Option<HTTPRouteRulesFiltersRequestRedirect>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub static_response: Option<Ref>,
-
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub access_control: Option<Ref>,
+    
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_address: Option<Ref>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error_response: Option<Ref>,
@@ -194,7 +194,7 @@ pub enum GatewayListenerHttpFilterType {
     RequestHeaderModifier,
     ResponseHeaderModifier,
     RequestRedirect,
-    StaticResponse,
+    ClientAddress,
     AccessControl,
     ErrorResponse,
 }
