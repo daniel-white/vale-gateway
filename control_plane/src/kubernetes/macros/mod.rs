@@ -1,2 +1,2 @@
-mod sync_objects;
+pub mod sync_objects;
 pub mod watch_objects;

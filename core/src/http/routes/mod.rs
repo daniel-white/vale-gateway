@@ -19,7 +19,7 @@ impl<S: Into<String>> From<S> for HttpRouteKey {
     }
 }
 
-#[derive(Validate, Getters, Debug, PartialEq, Eq, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Validate, Getters, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct HttpRoute {
     #[getset(get = "pub")]
@@ -81,10 +81,11 @@ impl HttpRouteBuilder {
     pub fn add_rule<K, F>(&mut self, key: K, factory: F) -> &mut Self
     where
         K: Into<HttpRouteRuleKey>,
-        F: FnOnce(&mut HttpRouteRuleBuilder),
+        F: FnOnce(&HttpRouteRuleKey, &mut HttpRouteRuleBuilder),
     {
-        let mut builder = HttpRouteRule::builder(key);
-        factory(&mut builder);
+        let key = key.into();
+        let mut builder = HttpRouteRule::builder(key.clone());
+        factory(&key, &mut builder);
 
         self.rule_builders.push(builder);
         self

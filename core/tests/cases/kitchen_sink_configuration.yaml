@@ -72,4 +72,19 @@ httpListener:
                 - kind: exactValue
                   header: content-type
                   value: application/json
-          backends: [ ]
+          backends:
+            - weight: 80
+              port: 9090
+              kind: Service
+              name: my-service
+              namespace: default
+  backends:
+  - kind: Service
+    name: my-service
+    namespace: default
+    endpoints:
+    - node: here
+      zone: us-east-1a
+      addrs:
+      - 127.1.1.2
+      - 192.168.27.4

@@ -4,12 +4,12 @@ use crate::http::filters::header_modifier::{
 };
 use crate::http::filters::response_redirect::convert_request_redirect;
 use crate::http::filters::upstream_uri_rewrite::convert_url_rewrite;
-use gateway_api::gateways::{Gateway, GatewayListeners};
 use gateway_api::httproutes::{HTTPRoute, HTTPRouteRulesFilters, HTTPRouteRulesFiltersType};
 use getset::Getters;
 use std::collections::HashMap;
+use std::sync::Arc;
 use vg_api::v1alpha1::{
-    GatewayListener, GatewayListenerHttpFilterType, GatewayListenerHttpFilters,
+    GatewayListenerHttp, GatewayListenerHttpFilterType, GatewayListenerHttpFilters,
 };
 use vg_core::http::filters::access_control::HttpAccessControlFilterKey;
 use vg_core::http::filters::client_addr::HttpClientAddrFilterKey;
@@ -18,6 +18,7 @@ use vg_core::http::filters::static_response::HttpStaticResponseFilterKey;
 use vg_core::http::filters::HttpExtensionFilterKind;
 use vg_core::http::listeners::{HttpFilterDefinition, HttpFilterDefinitionKey, HttpListenerFilter};
 use vg_core::http::routes::rules::{HttpRouteRuleFilter, HttpRouteRuleKey};
+use crate::http::routes::controllers::HttpRouteInfo;
 
 #[derive(Debug, Getters)]
 pub struct HttpFilters {
@@ -40,20 +41,14 @@ impl HttpFilters {
 }
 
 pub async fn collect_http_filters(
-    gateway: &Gateway,
-    listener: &GatewayListeners,
-    listener_configuration: &GatewayListener,
-    routes: &Vec<HTTPRoute>,
+    http_listener: &GatewayListenerHttp,
+    routes: &Vec<HttpRouteInfo>,
     extension_filters: &HttpExtensionFilters,
-) -> Option<HttpFilters> {
+) -> HttpFilters {
     let mut filters = HttpFilters::new();
-    let Some(http_listener) = listener_configuration.http.as_ref() else {
-        return None;
-    };
 
     for filter in &http_listener.filters {
-        if let Some((filter, definition)) =
-            collect_listener_filter(filter, extension_filters).await
+        if let Some((filter, definition)) = collect_listener_filter(filter, extension_filters).await
         {
             filters.listener_filters.push(filter);
             if let Some((key, definition)) = definition {
@@ -62,7 +57,8 @@ pub async fn collect_http_filters(
         }
     }
 
-    for http_route in routes {
+    for route_info in routes.iter() {
+        let http_route: Arc<HTTPRoute> = route_info.http_route();
         for (rule_idx, rule) in http_route
             .spec
             .rules
@@ -72,9 +68,9 @@ pub async fn collect_http_filters(
             .enumerate()
         {
             let rule_key: HttpRouteRuleKey = format!(
-                "{}-{}-rule{}",
-                http_route.metadata.namespace.as_ref().unwrap(),
-                http_route.metadata.name.as_ref().unwrap(),
+                "{}-{}-rule-{}",
+                http_route.metadata.namespace.as_deref().unwrap(),
+                http_route.metadata.name.as_deref().unwrap(),
                 rule_idx
             )
             .into();
@@ -84,10 +80,13 @@ pub async fn collect_http_filters(
                 .or_insert_with(Vec::new);
 
             for filter in rule.filters.as_ref().unwrap_or(&Vec::new()) {
-                let (filter, definition) = match collect_http_route_rule_filter(filter, http_route, extension_filters).await {
-                    Some(value) => value,
-                    None => continue,
-                };
+                let (filter, definition) =
+                    match collect_http_route_rule_filter(filter, route_info, extension_filters)
+                        .await
+                    {
+                        Some(value) => value,
+                        None => continue,
+                    };
 
                 rule_filters.push(filter);
                 if let Some((key, definition)) = definition {
@@ -97,10 +96,17 @@ pub async fn collect_http_filters(
         }
     }
 
-    Some(filters)
+    filters
 }
 
-async fn collect_http_route_rule_filter(filter: &HTTPRouteRulesFilters, http_route: &HTTPRoute, extension_filters: &HttpExtensionFilters) -> Option<(HttpRouteRuleFilter, Option<(HttpFilterDefinitionKey, HttpFilterDefinition)>)> {
+async fn collect_http_route_rule_filter(
+    filter: &HTTPRouteRulesFilters,
+    route_info: &HttpRouteInfo,
+    extension_filters: &HttpExtensionFilters,
+) -> Option<(
+    HttpRouteRuleFilter,
+    Option<(HttpFilterDefinitionKey, HttpFilterDefinition)>,
+)> {
     let (filter, definition) = match filter.r#type {
         HTTPRouteRulesFiltersType::RequestHeaderModifier => {
             if let Some(filter) = &filter.request_header_modifier {
@@ -141,14 +147,15 @@ async fn collect_http_route_rule_filter(filter: &HTTPRouteRulesFilters, http_rou
             if let Some(extension_ref) = &filter.extension_ref
                 && extension_ref.group == "vale-gateway.whitefamily.in"
             {
+                let http_route = route_info.http_route();
                 match HttpExtensionFilterKind::try_from(extension_ref.kind.as_str()) {
                     Ok(HttpExtensionFilterKind::StaticResponse) => {
                         let key: HttpStaticResponseFilterKey = format!(
                             "{}-{}",
-                            http_route.metadata.namespace.unwrap(),
+                            http_route.metadata.namespace.as_ref().unwrap(),
                             &extension_ref.name
                         )
-                            .into();
+                        .into();
                         if let Some(filter) =
                             extension_filters.get_static_response_filter(&key).await
                         {
@@ -263,7 +270,7 @@ async fn collect_listener_filter(
                     (
                         HttpListenerFilter::AccessControl(key.clone().into()),
                         Some((
-                            HttpFilterDefinitionKey::AccessControl(key.into()),
+                            HttpFilterDefinitionKey::AccessControl(key),
                             HttpFilterDefinition::AccessControl(filter),
                         )),
                     )

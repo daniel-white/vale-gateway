@@ -4,7 +4,7 @@ use tracing::error;
 use vg_core::sync::signal::{signal, Receiver};
 use vg_core::task::Builder as TaskBuilder;
 
-pub mod adapters;
+pub mod macros;
 pub mod objects;
 
 #[derive(Clone)]

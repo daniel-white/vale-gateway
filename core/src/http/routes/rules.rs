@@ -1,4 +1,4 @@
-use super::backends::{HttpBackend, HttpBackendBuilder};
+use super::backends::HttpRouteBackend;
 use crate::http::filters::header_modifier::HttpHeaderModifierFilter;
 use crate::http::filters::redirect_response::HttpRedirectResponseFilter;
 use crate::http::filters::static_response::HttpStaticResponseFilterRef;
@@ -8,14 +8,15 @@ use getset::Getters;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_valid::Validate;
+use std::sync::Arc;
 
 #[derive(Validate, Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum HttpRouteRuleFilter {
-    UpstreamUriRewrite(HttpUpstreamUriRewriteFilter),
-    UpstreamRequestHeaderModifier(HttpHeaderModifierFilter),
-    RedirectResponse(HttpRedirectResponseFilter),
-    ResponseHeaderModifier(HttpHeaderModifierFilter),
+    UpstreamUriRewrite(Arc<HttpUpstreamUriRewriteFilter>),
+    UpstreamRequestHeaderModifier(Arc<HttpHeaderModifierFilter>),
+    RedirectResponse(Arc<HttpRedirectResponseFilter>),
+    ResponseHeaderModifier(Arc<HttpHeaderModifierFilter>),
     StaticResponse(HttpStaticResponseFilterRef),
 }
 
@@ -28,7 +29,7 @@ impl<S: AsRef<str>> From<S> for HttpRouteRuleKey {
     }
 }
 
-#[derive(Validate, Getters, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Validate, Getters, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct HttpRouteRule {
     #[getset(get = "pub")]
@@ -40,7 +41,7 @@ pub struct HttpRouteRule {
 
     #[getset(get = "pub")]
     #[validate(max_items = 16)]
-    backends: Vec<HttpBackend>,
+    backends: Vec<HttpRouteBackend>,
 
     #[getset(get = "pub")]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -53,7 +54,7 @@ impl HttpRouteRule {
         HttpRouteRuleBuilder {
             key: key.into(),
             match_builders: Vec::new(),
-            backend_builders: Vec::new(),
+            backends: Vec::new(),
             filters: Vec::new(),
         }
     }
@@ -63,7 +64,7 @@ impl HttpRouteRule {
 pub struct HttpRouteRuleBuilder {
     key: HttpRouteRuleKey,
     match_builders: Vec<HttpRouteRuleMatchesBuilder>,
-    backend_builders: Vec<HttpBackendBuilder>,
+    backends: Vec<HttpRouteBackend>,
     filters: Vec<HttpRouteRuleFilter>,
 }
 
@@ -76,11 +77,7 @@ impl HttpRouteRuleBuilder {
                 .into_iter()
                 .map(HttpRouteRuleMatchesBuilder::build)
                 .collect(),
-            backends: self
-                .backend_builders
-                .into_iter()
-                .map(HttpBackendBuilder::build)
-                .collect(),
+            backends: self.backends,
             filters: self.filters,
         }
     }
@@ -95,13 +92,8 @@ impl HttpRouteRuleBuilder {
         self
     }
 
-    pub fn add_backend<F>(&mut self, factory: F) -> &mut Self
-    where
-        F: FnOnce(&mut HttpBackendBuilder),
-    {
-        let mut builder = HttpBackend::builder();
-        factory(&mut builder);
-        self.backend_builders.push(builder);
+    pub fn add_backend(&mut self, backend: HttpRouteBackend) -> &mut Self {
+        self.backends.push(backend);
         self
     }
 

@@ -1,3 +1,4 @@
+use std::ffi::{OsStr, OsString};
 use getset::Getters;
 use schemars::{JsonSchema};
 use serde::{Deserialize, Serialize};
@@ -49,6 +50,13 @@ impl FromStr for Port {
             Ok(port) => Ok(Self::new(port)),
             Err(_) => Err(()),
         }
+    }
+}
+
+impl From<OsString> for Port {
+    fn from(s: OsString) -> Self {
+        let s = s.to_str().unwrap_or("1");
+        s.parse::<Port>().unwrap_or(Port::new(NonZeroU16::new(1).unwrap()))
     }
 }
 
