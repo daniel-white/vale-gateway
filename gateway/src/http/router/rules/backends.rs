@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
-use vg_core::http::routes::backends::HttpBackend;
+use vg_core::http::routes::backends::HttpRouteBackend;
 
 #[derive(Getters, CopyGetters, Debug, PartialEq, Eq)]
 pub struct HttpRouteRuleBackend {
@@ -26,7 +26,7 @@ impl HttpRouteRuleBackend {
         }
     }
 
-    pub fn from(backend: &HttpBackend, location: Arc<TopologyLocation>) -> Self {
+    pub fn from(backend: &HttpRouteBackend, location: Arc<TopologyLocation>) -> Self {
         let mut builder = Self::builder(location);
 
         if let Some(weight) = backend.weight() {
@@ -38,7 +38,7 @@ impl HttpRouteRuleBackend {
                 .node(endpoint.node().clone())
                 .zone(endpoint.zone().clone())
                 .build();
-            
+
             builder.add_endpoint(*endpoint.addr(), location);
         }
 

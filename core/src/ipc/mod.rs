@@ -9,36 +9,14 @@ use std::net::SocketAddr;
 use strum::{AsRefStr, IntoStaticStr};
 use typed_builder::TypedBuilder;
 
-#[derive(Validate, Getters, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Validate, Getters, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, TypedBuilder)]
 #[serde(rename_all = "camelCase")]
 pub struct IpcConfiguration {
     #[getset(get = "pub")]
+    #[builder(setter(into))]
     addr: SocketAddr,
 }
 
-impl IpcConfiguration {
-    pub fn builder() -> IpcConfigurationBuilder {
-        IpcConfigurationBuilder { addr: None }
-    }
-}
-
-#[derive(Debug)]
-pub struct IpcConfigurationBuilder {
-    addr: Option<SocketAddr>,
-}
-
-impl IpcConfigurationBuilder {
-    pub fn addr<A: Into<SocketAddr>>(&mut self, addr: A) -> &mut Self {
-        self.addr = Some(addr.into());
-        self
-    }
-
-    pub fn build(self) -> IpcConfiguration {
-        IpcConfiguration {
-            addr: self.addr.expect("Missing ipc addr"),
-        }
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]

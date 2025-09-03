@@ -1,24 +1,25 @@
 pub mod endpoints;
 pub mod events;
 mod gateways;
+mod instances;
 
 use crate::controllers::StaticResponsesCache;
 use crate::ipc::endpoints::{
-    SpawnIpcEndpointError, SpawnIpcEndpointParameters, spawn_ipc_endpoint,
+    spawn_ipc_endpoint, SpawnIpcEndpointError, SpawnIpcEndpointParameters,
 };
 use crate::ipc::events::EventSender;
 use crate::ipc::gateways::{
-    GatewayConfigurationManager, GatewayConfigurationManagerInsertError,
-    create_gateway_configuration_services,
+    create_gateway_configuration_services, GatewayConfigurationManager,
+    GatewayConfigurationManagerInsertError,
 };
-use crate::kubernetes::KubeClientCell;
 use crate::kubernetes::objects::ObjectRef;
+use crate::kubernetes::KubeClientCell;
 use crate::options::Options;
 use getset::{CopyGetters, Getters};
 use std::sync::Arc;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use vg_core::config::gateway::types::GatewayConfiguration;
+use vg_api::v1alpha1::GatewayConfiguration;
 use vg_core::ipc::{Event, GatewayEvent, Ref as IpcRef};
 use vg_core::net::Port;
 use vg_core::sync::signal::Receiver;

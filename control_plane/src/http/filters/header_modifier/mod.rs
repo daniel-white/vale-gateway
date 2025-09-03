@@ -2,10 +2,11 @@ use gateway_api::httproutes::{HTTPRouteRulesFiltersRequestHeaderModifier, HTTPRo
 use http::{HeaderName, HeaderValue};
 use vg_core::http::filters::header_modifier::HttpHeaderModifierFilter;
 use std::str::FromStr;
+use std::sync::Arc;
 
 pub fn convert_request_header_modifier(
     modifier: &HTTPRouteRulesFiltersRequestHeaderModifier,
-) -> HttpHeaderModifierFilter {
+) -> Arc<HttpHeaderModifierFilter> {
     let mut builder = HttpHeaderModifierFilter::builder();
 
     for add in modifier.add.clone().unwrap_or_default() {
@@ -25,12 +26,12 @@ pub fn convert_request_header_modifier(
         builder.remove_header(name);
     }
 
-    builder.build()
+    Arc::new(builder.build())
 }
 
 pub fn convert_response_header_modifier(
     modifier: &HTTPRouteRulesFiltersResponseHeaderModifier,
-) -> HttpHeaderModifierFilter {
+) -> Arc<HttpHeaderModifierFilter> {
     let mut builder = HttpHeaderModifierFilter::builder();
 
     for add in modifier.add.clone().unwrap_or_default() {
@@ -50,5 +51,5 @@ pub fn convert_response_header_modifier(
         builder.remove_header(name);
     }
 
-    builder.build()
+    Arc::new(builder.build())
 }

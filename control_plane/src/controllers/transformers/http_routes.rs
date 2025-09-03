@@ -4,15 +4,15 @@ use gateway_api::apis::standard::gateways::Gateway;
 use gateway_api::apis::standard::httproutes::HTTPRoute;
 use getset::{CopyGetters, Getters};
 use k8s_openapi::api::core::v1::Service;
-use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{debug, info};
 use typed_builder::TypedBuilder;
 use vg_core::net::Port;
-use vg_core::sync::signal::{Receiver, signal};
+use vg_core::sync::signal::{signal, Receiver};
 use vg_core::task::Builder as TaskBuilder;
-use vg_core::{ReadyState, await_ready, continue_on};
+use vg_core::{await_ready, continue_on, ReadyState};
 
 #[derive(Debug, TypedBuilder, Getters, CopyGetters, Clone, Hash, PartialEq, Eq)]
 pub struct HttpRouteBackend {
@@ -49,8 +49,6 @@ pub fn collect_http_route_backends(
                             for (backend_idx, backend_ref) in
                                 rule.backend_refs.iter().flatten().enumerate()
                             {
-                                #[allow(clippy::single_match_else)]
-                                // We'll likely add more kinds later
                                 if let Some("Service") = backend_ref.kind.as_deref() {
                                     let service_ref = ObjectRef::of_kind::<Service>()
                                         .namespace(
@@ -72,56 +70,6 @@ pub fn collect_http_route_backends(
                         }
                     }
                     tx.set(http_route_backends).await;
-                }
-
-                continue_on!(http_routes_rx.changed());
-            }
-        });
-
-    rx
-}
-
-pub fn collect_http_routes_by_gateway(
-    task_builder: &TaskBuilder,
-    http_routes_rx: &Receiver<Objects<HTTPRoute>>,
-) -> Receiver<HashMap<ObjectRef, Vec<Arc<HTTPRoute>>>> {
-    let (tx, rx) = signal("collected_http_routes_by_gateway");
-    let http_routes_rx = http_routes_rx.clone();
-
-    task_builder
-        .new_task("collect_http_routes_by_gateway")
-        .spawn(async move {
-            loop {
-                if let ReadyState::Ready(http_routes) = await_ready!(http_routes_rx) {
-                    info!("Collecting HTTPRoutes by Gateway");
-                    let mut new_routes: HashMap<ObjectRef, Vec<Arc<HTTPRoute>>> = HashMap::new();
-
-                    for (http_route_ref, _, http_route) in http_routes.iter() {
-                        info!("Collecting HTTPRoute: object.ref={}", http_route_ref);
-
-                        for parent_ref in http_route.spec.parent_refs.iter().flatten() {
-                            let gateway_ref = ObjectRef::of_kind::<Gateway>()
-                                .namespace(
-                                    parent_ref
-                                        .namespace
-                                        .clone()
-                                        .or_else(|| http_route_ref.namespace().clone()),
-                                )
-                                .name(&parent_ref.name)
-                                .build();
-
-                            match new_routes.entry(gateway_ref) {
-                                Entry::Occupied(mut entry) => {
-                                    entry.get_mut().push(http_route.clone());
-                                }
-                                Entry::Vacant(entry) => {
-                                    entry.insert(vec![http_route.clone()]);
-                                }
-                            }
-                        }
-                    }
-
-                    tx.set(new_routes).await;
                 }
 
                 continue_on!(http_routes_rx.changed());

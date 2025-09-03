@@ -47,6 +47,12 @@ pub struct HttpStaticResponseFilterRef {
     key: HttpStaticResponseFilterKey,
 }
 
+impl From<HttpStaticResponseFilterKey> for HttpStaticResponseFilterRef {
+    fn from(key: HttpStaticResponseFilterKey) -> Self {
+        Self { key }
+    }
+}
+
 #[derive(
     Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq, Getters, TypedBuilder, Eq,
 )]

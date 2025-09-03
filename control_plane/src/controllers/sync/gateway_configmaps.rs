@@ -26,7 +26,7 @@ use vg_api::v1alpha1::{
 };
 
 use crate::http::routes::rules;
-use crate::http::routes::rules::{add_http_route_rules_filters, add_http_route_rules_matches};
+use crate::http::routes::rules::{add_http_route_rule_filters, add_http_route_rule_matches};
 use vg_core::gateways::{Gateway, GatewayBuilder};
 use vg_core::http::filters::client_addr::HttpProxyHeaders;
 use vg_core::http::matches::{HttpMethodMatch, HttpRouteRuleMatchesBuilder};
@@ -341,98 +341,6 @@ fn add_backend(backend: &Backend, target: &mut HttpRouteRuleBuilder) {
             }
         }
     });
-}
-
-#[allow(clippy::too_many_lines)]
-fn process_http_routes(
-    gateway_ref: &ObjectRef,
-    gateway_instance: &GatewayInstanceConfiguration,
-    http_routes: &HashMap<ObjectRef, Vec<Arc<HTTPRoute>>>,
-    backends: &HashMap<ObjectRef, Backend>,
-    gateway_configuration: &mut GatewayConfigurationBuilder,
-) {
-    // Find routes that reference this gateway
-    for http_routes_for_ref in http_routes.values() {
-        for http_route in http_routes_for_ref {
-            // Check if this route references our gateway
-            let references_this_gateway =
-                http_route
-                    .spec
-                    .parent_refs
-                    .as_ref()
-                    .is_some_and(|parent_refs| {
-                        parent_refs.iter().any(|parent_ref| {
-                            parent_ref.name == *gateway_ref.name()
-                                && parent_ref.namespace.as_ref().unwrap_or(
-                                    &http_route.metadata.namespace.clone().unwrap_or_default(),
-                                ) == gateway_ref.namespace().as_ref().unwrap_or(&String::new())
-                        })
-                    });
-
-            if !references_this_gateway {
-                continue;
-            }
-
-            gateway_configuration.add_http_route(|r| {
-                add_host_header_matches_for_route(http_route, r);
-
-                // Process rules - handle the Option<Vec<HTTPRouteRules>> properly
-                if let Some(rules) = &http_route.spec.rules {
-                    for (rule_idx, rule) in rules.iter().enumerate() {
-                        let rule_id = format_rule_id(gateway_instance.gateway(), http_route, rule_idx)
-                            .unwrap_or_else(|| format!("rule-{rule_idx}"));
-
-                        r.add_rule(rule_id, |builder| {
-                            add_http_route_rules_filters(http_route, (rule, rule_idx), builder);
-                            add_http_route_rules_matches(rule, builder);
-
-                            // Process backend references
-                            if let Some(backend_refs) = &rule.backend_refs {
-                                for backend_ref in backend_refs {
-                                    let source_ref = ObjectRef::of_kind::<Service>()
-                                        .namespace(
-                                            backend_ref.namespace.clone().or_else(|| {
-                                                http_route.metadata.namespace.clone()
-                                            }),
-                                        )
-                                        .name(&backend_ref.name)
-                                        .build();
-
-                                    match backends.get(&source_ref) {
-                                        Some(source) => {
-                                            add_backend(source, builder);
-                                        }
-                                        None => {
-                                            warn!(
-                                                "Backend reference {} not found for HTTPRoute {:?} at rule index {}",
-                                                backend_ref.name, http_route.metadata.name, rule_idx
-                                            );
-                                        }
-                                    }
-                                }
-                            }
-                        });
-                    }
-                }
-            });
-        }
-    }
-}
-
-fn add_host_header_matches_for_route(route: &Arc<HTTPRoute>, builder: &mut HttpRouteBuilder) {
-    for hostname in route.spec.hostnames.iter().flatten() {
-        builder.add_host_header_match(|builder| {});
-
-        match map_hostname_match_to_type(Some(hostname)) {
-            Some(HostnameMatchType::Exact(hostname)) => {
-                builder.a(hostname);
-            }
-            Some(HostnameMatchType::Suffix(hostname)) => {
-                builder.add_host_header_with_suffix(hostname);
-            }
-            None => {}
-        }
-    }
 }
 
 fn set_ipc(

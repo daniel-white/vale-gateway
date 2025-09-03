@@ -16,17 +16,20 @@
 )]
 
 mod cli;
-mod controllers;
+//mod controllers;
 
+//mod backends;
+pub mod gateways;
 mod health;
 pub mod http;
 mod instrumentation;
 pub mod ipc;
 pub mod kubernetes;
 mod options;
+mod services;
 
-use crate::controllers::{spawn_controllers, SpawnControllersParams, StaticResponsesCache};
-use crate::ipc::{spawn_ipc, SpawnIpcError, SpawnIpcParameters};
+//use crate::controllers::{spawn_controllers, SpawnControllersParams, StaticResponsesCache};
+use crate::ipc::SpawnIpcError;
 use crate::kubernetes::start_kubernetes_client;
 use crate::options::Options;
 use clap::Parser;
@@ -59,37 +62,36 @@ async fn main() -> Result<(), MainError> {
     init_instrumentation(&task_builder, "vg-control-plane");
 
     let kube_client_rx = start_kubernetes_client(&task_builder);
-    let static_responses_cache = StaticResponsesCache::default();
 
-    // IPC is half 1 - it is what the gateway use to ensure that they have the latest configuration
-    let ipc_services = {
-        let params = SpawnIpcParameters::builder()
-            .options(options.clone())
-            .port(args.port())
-            .kube_client_rx(kube_client_rx.clone())
-            .static_responses_cache(static_responses_cache.clone())
-            .build();
+    // // IPC is half 1 - it is what the gateway use to ensure that they have the latest configuration
+    // let ipc_services = {
+    //     let params = SpawnIpcParameters::builder()
+    //         .options(options.clone())
+    //         .port(args.port())
+    //         .kube_client_rx(kube_client_rx.clone())
+    //         .static_responses_cache(static_responses_cache.clone())
+    //         .build();
+    //
+    //     spawn_ipc(&task_builder, params)
+    //         .await
+    //         .inspect_err(|err| error!("Failed to spawn IPC services: {}", err))?
+    // };
 
-        spawn_ipc(&task_builder, params)
-            .await
-            .inspect_err(|err| error!("Failed to spawn IPC services: {}", err))?
-    };
-
-    // Controllers are half 2 - they are responsible for ensuring that the configuration is up to date
-    // through various controllers
-    {
-        let params = SpawnControllersParams::builder()
-            .options(options)
-            .kube_client_rx(kube_client_rx)
-            .ipc_services(Arc::new(ipc_services))
-            .pod_namespace(args.pod_namespace())
-            .pod_name(args.pod_name())
-            .instance_name(args.instance_name())
-            .static_responses_cache(static_responses_cache)
-            .build();
-
-        spawn_controllers(&task_builder, params);
-    }
+    // // Controllers are half 2 - they are responsible for ensuring that the configuration is up to date
+    // // through various controllers
+    // {
+    //     let params = SpawnControllersParams::builder()
+    //         .options(options)
+    //         .kube_client_rx(kube_client_rx)
+    //         .ipc_services(Arc::new(ipc_services))
+    //         .pod_namespace(args.pod_namespace())
+    //         .pod_name(args.pod_name())
+    //         .instance_name(args.instance_name())
+    //         .static_responses_cache(static_responses_cache)
+    //         .build();
+    //
+    //     spawn_controllers(&task_builder, params);
+    // }
 
     task_builder.join_all().await;
 
