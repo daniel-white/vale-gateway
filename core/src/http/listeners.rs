@@ -19,7 +19,6 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_valid::Validate;
 use std::net::IpAddr;
-use std::ops::Deref;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
 
@@ -29,7 +28,7 @@ pub enum HttpListenerProtocol {
     Http,
 }
 
-#[derive(Validate, Getters, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Validate, Getters, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct HttpListener {
     #[getset(get = "pub")]

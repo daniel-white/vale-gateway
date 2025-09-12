@@ -1,55 +1,14 @@
-use gateway_api::httproutes::{HTTPRouteRulesFiltersRequestHeaderModifier, HTTPRouteRulesFiltersResponseHeaderModifier};
+use gateway_api::common::HeaderModifier;
 use http::{HeaderName, HeaderValue};
+use tracing::warn;
 use vg_core::http::filters::header_modifier::HttpHeaderModifierFilter;
-use std::str::FromStr;
-use std::sync::Arc;
 
-pub fn convert_request_header_modifier(
-    modifier: &HTTPRouteRulesFiltersRequestHeaderModifier,
-) -> Arc<HttpHeaderModifierFilter> {
-    let mut builder = HttpHeaderModifierFilter::builder();
-
-    for add in modifier.add.clone().unwrap_or_default() {
-        let name = HeaderName::from_str(add.name.as_str()).unwrap();
-        let value = HeaderValue::from_str(add.value.as_str()).unwrap();
-        builder.add_header(name, value);
-    }
-
-    for set in &modifier.set.clone().unwrap_or_default() {
-        let name = HeaderName::from_str(set.name.as_str()).unwrap();
-        let value = HeaderValue::from_str(set.value.as_str()).unwrap();
-        builder.set_header(name, value);
-    }
-
-    for name in &modifier.remove.clone().unwrap_or_default() {
-        let name = HeaderName::from_str(name.as_str()).unwrap();
-        builder.remove_header(name);
-    }
-
-    Arc::new(builder.build())
+pub fn convert_request_header_modifier(_modifier: &HeaderModifier) -> HttpHeaderModifierFilter {
+    warn!("Request header modifier conversion is not yet implemented for the new gateway API");
+    HttpHeaderModifierFilter::builder().build()
 }
 
-pub fn convert_response_header_modifier(
-    modifier: &HTTPRouteRulesFiltersResponseHeaderModifier,
-) -> Arc<HttpHeaderModifierFilter> {
-    let mut builder = HttpHeaderModifierFilter::builder();
-
-    for add in modifier.add.clone().unwrap_or_default() {
-        let name = HeaderName::from_str(add.name.as_str()).unwrap();
-        let value = HeaderValue::from_str(add.value.as_str()).unwrap();
-        builder.add_header(name, value);
-    }
-
-    for set in &modifier.set.clone().unwrap_or_default() {
-        let name = HeaderName::from_str(set.name.as_str()).unwrap();
-        let value = HeaderValue::from_str(set.value.as_str()).unwrap();
-        builder.set_header(name, value);
-    }
-
-    for name in &modifier.remove.clone().unwrap_or_default() {
-        let name = HeaderName::from_str(name.as_str()).unwrap();
-        builder.remove_header(name);
-    }
-
-    Arc::new(builder.build())
+pub fn convert_response_header_modifier(_modifier: &HeaderModifier) -> HttpHeaderModifierFilter {
+    warn!("Response header modifier conversion is not yet implemented for the new gateway API");
+    HttpHeaderModifierFilter::builder().build()
 }

@@ -12,6 +12,7 @@ macro_rules! watch_objects {
         use kube::api::ListParams;
         use kube::runtime::Controller;
         use kube::runtime::controller::Action;
+        use kube::runtime::watcher::Config;
         use vg_core::sync::signal::{Sender, signal};
         use std::fmt::Debug;
         use std::future::ready;

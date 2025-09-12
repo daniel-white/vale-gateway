@@ -19,6 +19,6 @@ tracing-subscriber = { workspace = true }
 serde = { workspace = true }
 tokio-stream = { workspace = true }
 chrono = { workspace = true }
-gateway-api = "0.16"
+gateway-api = { workspace = true }
 tabled = "0.20.0"
 terminal_size = "0.3"

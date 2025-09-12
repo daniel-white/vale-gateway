@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+assertables.workspace = true
 axum = { workspace = true }
 axum-tracing-opentelemetry = "0.30"
 axum-otel-metrics = "0.12.0"
@@ -16,14 +17,14 @@ dashmap = { workspace = true }
 futures = { workspace = true }
 hickory-proto = { workspace = true }
 http = { workspace = true }
-gateway-api = "0.16"
+gateway-api = { workspace = true }
 getset = { workspace = true }
 gtmpl = { version = "0.7", features = ["gtmpl_dynamic_template"] }
 gtmpl_derive = "0.5"
 gtmpl_value = "0.5"
 ipnet = { workspace = true }
 itertools = { workspace = true }
-k8s-openapi = { workspace = true, features = ["v1_32"] }
+k8s-openapi = { workspace = true }
 kube = { workspace = true }
 opentelemetry = { workspace = true }
 opentelemetry-semantic-conventions = { workspace = true }
@@ -45,3 +46,4 @@ strum = { workspace = true }
 axum-health = "0.1"
 typed-builder = { workspace = true }
 url = "2.5.4"
+

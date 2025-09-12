@@ -14,8 +14,6 @@
     clippy::struct_field_names,
     mismatched_lifetime_syntaxes
 )]
-
-pub mod config;
 pub mod crypto;
 pub mod gateways;
 pub mod http;

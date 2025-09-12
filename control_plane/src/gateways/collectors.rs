@@ -1,5 +1,5 @@
-use crate::kubernetes::objects::{ObjectRef, Objects};
 use crate::kubernetes::KubeClientCell;
+use crate::kubernetes::objects::{ObjectRef, Objects};
 use crate::options::Options;
 use crate::watch_objects;
 use gateway_api::apis::standard::gatewayclasses::GatewayClass;
@@ -12,9 +12,9 @@ use tracing::{debug, info, warn};
 use typed_builder::TypedBuilder;
 use vg_api::constants::GATEWAY_CLASS_CONTROLLER_NAME;
 use vg_api::v1alpha1::{GatewayClassParameters, GatewayParameters};
-use vg_core::sync::signal::{signal, Receiver};
+use vg_core::sync::signal::{Receiver, signal};
 use vg_core::task::Builder as TaskBuilder;
-use vg_core::{await_ready, continue_on, ReadyState};
+use vg_core::{ReadyState, await_ready, continue_on};
 
 #[derive(Debug, PartialEq, TypedBuilder, Getters)]
 pub struct Gateways {
@@ -43,6 +43,10 @@ impl Gateways {
                 v.1.clone(),
             )
         })
+    }
+
+    pub fn instances(&self) -> &HashMap<ObjectRef, (Arc<Gateway>, Arc<GatewayParameters>)> {
+        &self.instances
     }
 }
 

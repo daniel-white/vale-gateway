@@ -4,11 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-gateway-api = "0.16"
+gateway-api = { workspace = true }
 ipnet = { workspace = true }
-k8s-openapi = { workspace = true, features = ["v1_32"] }
+k8s-openapi = { workspace = true }
 kube = { workspace = true }
-schemars = { version = "0.8" }
+schemars = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 strum = { workspace = true }

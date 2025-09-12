@@ -1,13 +1,13 @@
-use crate::http::filters::collector::HttpFilters;
+use crate::http::filters::collector::HttpRouteFilters;
+use crate::http::routes::controllers::HttpRouteInfo;
 use crate::http::routes::rules::convert_http_route_rule;
 use vg_core::http::routes::HttpRouteBuilder;
-use crate::http::routes::controllers::HttpRouteInfo;
 
 pub fn convert_http_route(
     builder: &mut HttpRouteBuilder,
     key: &str,
     route: &HttpRouteInfo,
-    http_filters: &HttpFilters,
+    http_filters: &HttpRouteFilters,
 ) {
     let http_route = route.http_route();
     let http_route_spec = &http_route.spec;

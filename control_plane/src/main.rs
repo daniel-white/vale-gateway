@@ -63,35 +63,42 @@ async fn main() -> Result<(), MainError> {
 
     let kube_client_rx = start_kubernetes_client(&task_builder);
 
-    // // IPC is half 1 - it is what the gateway use to ensure that they have the latest configuration
-    // let ipc_services = {
-    //     let params = SpawnIpcParameters::builder()
-    //         .options(options.clone())
-    //         .port(args.port())
-    //         .kube_client_rx(kube_client_rx.clone())
-    //         .static_responses_cache(static_responses_cache.clone())
-    //         .build();
-    //
-    //     spawn_ipc(&task_builder, params)
-    //         .await
-    //         .inspect_err(|err| error!("Failed to spawn IPC services: {}", err))?
-    // };
+    // Start IPC services for gateway communication
+    let ipc_services = {
+        use crate::http::filters::static_response::cache::StaticResponsesCache;
+        use crate::ipc::{SpawnIpcParameters, spawn_ipc};
 
-    // // Controllers are half 2 - they are responsible for ensuring that the configuration is up to date
-    // // through various controllers
-    // {
-    //     let params = SpawnControllersParams::builder()
-    //         .options(options)
-    //         .kube_client_rx(kube_client_rx)
-    //         .ipc_services(Arc::new(ipc_services))
-    //         .pod_namespace(args.pod_namespace())
-    //         .pod_name(args.pod_name())
-    //         .instance_name(args.instance_name())
-    //         .static_responses_cache(static_responses_cache)
-    //         .build();
-    //
-    //     spawn_controllers(&task_builder, params);
-    // }
+        let static_responses_cache = StaticResponsesCache::default();
+        let params = SpawnIpcParameters::builder()
+            .options(options.clone())
+            .port(args.port())
+            .kube_client_rx(kube_client_rx.clone())
+            .static_responses_cache(static_responses_cache)
+            .build();
+
+        spawn_ipc(&task_builder, params)
+            .await
+            .inspect_err(|err| error!("Failed to spawn IPC services: {}", err))?
+    };
+
+    // Create IPC configuration for gateway instances
+    let ipc_config = Arc::new(
+        vg_core::ipc::IpcConfiguration::builder()
+            .addr(std::net::SocketAddr::from((
+                [127, 0, 0, 1],
+                u16::from(ipc_services.port()),
+            )))
+            .build(),
+    );
+
+    // Start the gateway orchestrator - handles configuration merging and resource management
+    crate::gateways::GatewayOrchestrator::spawn_all(
+        &task_builder,
+        options,
+        &kube_client_rx,
+        ipc_config,
+        Arc::new(ipc_services),
+    );
 
     task_builder.join_all().await;
 

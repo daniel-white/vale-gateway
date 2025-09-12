@@ -1,12 +1,9 @@
 use crate::kubernetes::objects::ObjectRef;
 use dashmap::DashMap;
 use dashmap::mapref::one::Ref;
-use std::io::{BufWriter, IntoInnerError};
-use std::string::FromUtf8Error;
 use std::sync::Arc;
 use thiserror::Error;
-use vg_core::config::gateway::serde::{WriteError, write_configuration};
-use vg_core::config::gateway::types::GatewayConfiguration;
+use vg_api::v1alpha1::GatewayConfiguration;
 
 pub fn create_gateway_configuration_services()
 -> (GatewayConfigurationReader, GatewayConfigurationManager) {
@@ -44,12 +41,8 @@ pub struct GatewayConfigurationManager {
 
 #[derive(Debug, Error)]
 pub enum GatewayConfigurationManagerInsertError {
-    #[error("Failed to write configuration to buffer")]
-    Write(#[from] WriteError),
-    #[error("Failed to extract buffer from BufWriter")]
-    Buffer(#[from] IntoInnerError<BufWriter<Vec<u8>>>),
-    #[error("Failed to convert buffer to string")]
-    Utf8(#[from] FromUtf8Error),
+    #[error("Failed to serialize configuration to YAML")]
+    Serialize(#[from] serde_yaml::Error),
 }
 
 impl GatewayConfigurationManager {
@@ -58,10 +51,7 @@ impl GatewayConfigurationManager {
         gateway_ref: ObjectRef,
         configuration: GatewayConfiguration,
     ) -> Result<(), GatewayConfigurationManagerInsertError> {
-        let mut buf = BufWriter::new(Vec::new());
-        write_configuration(&configuration, &mut buf)?;
-        let buf = buf.into_inner()?;
-        let yaml = String::from_utf8(buf)?;
+        let yaml = serde_yaml::to_string(&configuration)?;
         self.configurations.insert(gateway_ref, yaml);
         Ok(())
     }

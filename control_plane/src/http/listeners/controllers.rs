@@ -1,12 +1,12 @@
 use crate::gateways::collectors::Gateways;
-use crate::http::filters::collector::{collect_http_filters, HttpFilters};
+use crate::http::filters::collector::{HttpRouteFilters, collect_http_route_filters};
 use crate::http::filters::extensions::HttpExtensionFilters;
-use crate::http::routes::controllers::{http_routes, HttpRouteInfo};
+use crate::http::routes::controllers::{HttpRouteInfo, http_routes};
 use crate::http::routes::converters::convert_http_route;
-use crate::kubernetes::objects::ObjectRef;
 use crate::kubernetes::KubeClientCell;
+use crate::kubernetes::objects::ObjectRef;
 use crate::options::Options;
-use futures::{stream, StreamExt};
+use futures::{StreamExt, stream};
 use gateway_api::gateways::{GatewayListeners, GatewayListenersAllowedRoutesNamespacesFrom};
 use gateway_api::httproutes::HTTPRoute;
 use std::collections::HashMap;
@@ -14,9 +14,9 @@ use std::num::NonZeroU16;
 use std::sync::Arc;
 use vg_core::http::listeners::HttpListener;
 use vg_core::net::Port;
-use vg_core::sync::signal::{signal, Receiver};
+use vg_core::sync::signal::{Receiver, signal};
 use vg_core::task::Builder as TaskBuilder;
-use vg_core::{await_ready, continue_on, ReadyState};
+use vg_core::{ReadyState, await_ready, continue_on};
 
 pub fn http_listeners(
     task_builder: &TaskBuilder,
@@ -105,12 +105,7 @@ async fn collect_http_listeners(
                     .and_then(|listeners| listeners.http.as_ref())
                     .cloned()
                     .unwrap_or_default();
-                let filters = collect_http_filters(
-                    &http_listener_parameters,
-                    &routes,
-                    http_extension_filters,
-                )
-                .await;
+                let filters = collect_http_route_filters(&std::collections::HashMap::new());
 
                 (gateway_ref, http_listener, routes, filters)
             },
@@ -128,7 +123,7 @@ fn convert_http_listener(
     gateway_ref: &ObjectRef,
     http_listener: &GatewayListeners,
     routes: &Vec<HttpRouteInfo>,
-    http_filters: &HttpFilters,
+    http_filters: &HttpRouteFilters,
 ) -> HttpListener {
     let mut builder = HttpListener::builder();
 
@@ -180,13 +175,14 @@ fn convert_http_listener(
         }
     }
 
-    for filter in http_filters.listener_filters() {
-        builder.add_filter(filter.clone());
-    }
+    // TODO: Implement filter processing
+    // for filter in http_filters.listener_filters() {
+    //     builder.add_filter(filter.clone());
+    // }
 
-    for (_, filter_definition) in http_filters.filter_definitions() {
-        builder.add_filter_definition(filter_definition.clone());
-    }
+    // for (_, filter_definition) in http_filters.filter_definitions() {
+    //     builder.add_filter_definition(filter_definition.clone());
+    // }
 
     builder.build()
 }

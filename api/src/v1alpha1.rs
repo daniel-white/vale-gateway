@@ -1,17 +1,9 @@
-use gateway_api::httproutes::{
-    HTTPRouteRulesBackendRefsFiltersRequestHeaderModifier,
-    HTTPRouteRulesBackendRefsFiltersRequestRedirect, HTTPRouteRulesFilters,
-    HTTPRouteRulesFiltersRequestHeaderModifier, HTTPRouteRulesFiltersRequestRedirect,
-    HTTPRouteRulesFiltersResponseHeaderModifier, HTTPRouteRulesFiltersType,
-};
+use gateway_api::common::{HeaderModifier, RequestRedirect};
 use ipnet::IpNet;
 use k8s_openapi::api::{apps::v1::DeploymentStrategy, core::v1::ServiceSpec};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::{Condition, Time};
 use kube::CustomResource;
-use schemars::gen::SchemaGenerator;
-use schemars::schema::SingleOrVec::Single;
-use schemars::schema::{InstanceType, Schema, SchemaObject};
-use schemars::JsonSchema;
+use schemars::{json_schema, JsonSchema, Schema, SchemaGenerator};
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
 use strum::IntoStaticStr;
@@ -171,17 +163,17 @@ pub struct GatewayListenerHttpFilters {
     pub r#type: GatewayListenerHttpFilterType,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub request_header_modifier: Option<HTTPRouteRulesFiltersRequestHeaderModifier>,
+    pub request_header_modifier: Option<HeaderModifier>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub response_header_modifier: Option<HTTPRouteRulesFiltersResponseHeaderModifier>,
+    pub response_header_modifier: Option<HeaderModifier>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub request_redirect: Option<HTTPRouteRulesFiltersRequestRedirect>,
+    pub request_redirect: Option<RequestRedirect>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub access_control: Option<Ref>,
-    
+
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub client_address: Option<Ref>,
 
@@ -413,24 +405,17 @@ fn trusted_headers_default() -> Vec<ClientAddressFilterProxiesTrustedHeaders> {
 
 pub fn cidr_array_schema(_: &mut SchemaGenerator) -> Schema {
     // Create schema for a single CIDR
-    let item_schema = {
-        let schema = SchemaObject {
-            instance_type: Some(InstanceType::String.into()),
-            format: Some("cidr".to_string()),
-            ..Default::default()
-        };
-        Schema::Object(schema)
-    };
+    let item_schema = json_schema!({
+        "type": "string",
+        "format": "cidr",
+    });
 
     // Create schema for array of CIDRs
-    let mut schema = SchemaObject::default();
-    schema.instance_type = Some(InstanceType::Array.into());
-    schema.array = Some(Box::new(schemars::schema::ArrayValidation {
-        items: Some(Single(Box::new(item_schema))),
-        ..Default::default()
-    }));
-
-    Schema::Object(schema)
+    json_schema!({
+        "type": "array",
+        "items": item_schema,
+        "uniqueItems": true,
+    })
 }
 
 #[derive(Default, CustomResource, Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq)]

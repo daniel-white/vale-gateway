@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: vale-gateway
+    app.kubernetes.io/instance: {{ .gateway_name | quote }}
+    app.kubernetes.io/component: gateway
+    app.kubernetes.io/managed-by: vale-gateway-controller
+spec:
+  type: {{ .service_type | default "ClusterIP" }}
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: vale-gateway
+    app.kubernetes.io/instance: {{ .gateway_name | quote }}

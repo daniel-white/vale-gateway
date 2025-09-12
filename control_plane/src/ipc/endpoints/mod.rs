@@ -5,8 +5,8 @@ mod liveness_check;
 
 use self::get_gateway_configuration::get_gateway_configuration;
 use self::get_gateway_events::get_gateway_events;
-use crate::controllers::StaticResponsesCache;
 use crate::health::KubernetesApiHealthIndicator;
+use crate::http::filters::static_response::cache::StaticResponsesCache;
 use crate::ipc::endpoints::get_static_response::get_static_response;
 use crate::ipc::endpoints::liveness_check::liveness_check;
 use crate::ipc::events::EventStreamFactory;
@@ -27,7 +27,7 @@ use std::sync::Arc;
 use thiserror::Error;
 use tokio::net::TcpListener;
 use tokio::select;
-use tracing::info;
+use tracing::{error, info};
 use typed_builder::TypedBuilder;
 use vg_core::instrumentation::trace_id;
 use vg_core::net::Port;
@@ -102,22 +102,35 @@ pub async fn spawn_ipc_endpoint(
     let endpoint = params.endpoint();
     let tcp_listener = TcpListener::bind(endpoint).await?;
 
-    task_builder
-        .new_task("ipc_endpoint")
-        .spawn(async move {
-            select! {
-                _ = axum::serve(tcp_listener, router(initial_state, health)) => info!("IPC service stopped"),
-                _ = tokio::signal::ctrl_c() => info!("Received shutdown signal, stopping IPC service")
-            }
-        });
+    info!("IPC HTTP service starting on {}", endpoint);
 
+    task_builder.new_task("ipc_endpoint").spawn(async move {
+        let app = router(initial_state, health);
+
+        select! {
+            result = axum::serve(tcp_listener, app) => {
+                match result {
+                    Ok(_) => info!("IPC HTTP service stopped gracefully"),
+                    Err(e) => error!("IPC HTTP service error: {}", e),
+                }
+            },
+            _ = tokio::signal::ctrl_c() => {
+                info!("Received shutdown signal, stopping IPC HTTP service");
+            }
+        }
+    });
+
+    info!("IPC HTTP service spawned successfully on {}", endpoint);
     Ok(())
 }
 
 fn router(state: IpcEndpointState, health: Health) -> Router {
     Router::new()
+        // Health check endpoints
         .route("/healthz/liveness", get(liveness_check))
         .route("/healthz/readiness", get(axum_health::health))
+        
+        // IPC endpoints for gateway communication
         .route(
             "/ipc/namespaces/{gateway_namespace}/gateways/{gateway_name}/configuration",
             get(get_gateway_configuration),
@@ -130,8 +143,15 @@ fn router(state: IpcEndpointState, health: Health) -> Router {
             "/ipc/namespaces/{gateway_namespace}/gateways/{gateway_name}/static_responses/{static_response_filter_id}",
             get(get_static_response),
         )
+        
+        // API info endpoint
+        .route("/api/info", get(api_info))
+        
+        // Fallback handlers
         .fallback(not_found)
         .method_not_allowed_fallback(method_not_allowed)
+        
+        // State and middleware
         .with_state(state)
         .layer(HttpMetricsLayerBuilder::default().build())
         .layer(OtelAxumLayer::default())
@@ -163,4 +183,25 @@ async fn method_not_allowed() -> impl IntoResponse {
     }
 
     problem
+}
+
+async fn api_info() -> impl IntoResponse {
+    use axum::Json;
+    use serde_json::json;
+    
+    Json(json!({
+        "service": "vale-gateway-control-plane",
+        "version": env!("CARGO_PKG_VERSION"),
+        "endpoints": {
+            "health": {
+                "liveness": "/healthz/liveness",
+                "readiness": "/healthz/readiness"
+            },
+            "ipc": {
+                "configuration": "/ipc/namespaces/{namespace}/gateways/{name}/configuration",
+                "events": "/ipc/namespaces/{namespace}/gateways/{name}/events",
+                "static_responses": "/ipc/namespaces/{namespace}/gateways/{name}/static_responses/{filter_id}"
+            }
+        }
+    }))
 }

@@ -1,4 +1,4 @@
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsString;
 use getset::Getters;
 use schemars::{JsonSchema};
 use serde::{Deserialize, Serialize};

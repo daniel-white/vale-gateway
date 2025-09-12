@@ -30,17 +30,11 @@ impl HttpRouteRuleBackend {
         let mut builder = Self::builder(location);
 
         if let Some(weight) = backend.weight() {
-            builder.with_weight(weight);
+            builder.with_weight(weight as i32);
         }
 
-        for endpoint in backend.endpoints() {
-            let location = TopologyLocation::builder()
-                .node(endpoint.node().clone())
-                .zone(endpoint.zone().clone())
-                .build();
-
-            builder.add_endpoint(*endpoint.addr(), location);
-        }
+        // TODO: Implement endpoint resolution from backend reference
+        // The HttpRouteBackend now contains service references instead of direct endpoints
 
         builder.build()
     }

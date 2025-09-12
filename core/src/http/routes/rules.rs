@@ -29,7 +29,7 @@ impl<S: AsRef<str>> From<S> for HttpRouteRuleKey {
     }
 }
 
-#[derive(Validate, Getters, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Validate, Getters, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct HttpRouteRule {
     #[getset(get = "pub")]

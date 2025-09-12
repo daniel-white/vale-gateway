@@ -1,4 +1,4 @@
-mod filters;
+pub mod filters;
 
 pub mod listeners;
 mod routes;

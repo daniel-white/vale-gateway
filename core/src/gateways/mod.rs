@@ -1,8 +1,8 @@
-use crate::http::listeners::{HttpListener, HttpListenerBuilder};
+use crate::http::listeners::HttpListener;
 use crate::ipc::IpcConfiguration;
+use ::serde::{Deserialize, Serialize};
 use getset::{CloneGetters, CopyGetters, Getters};
 use schemars::JsonSchema;
-use ::serde::{Deserialize, Serialize};
 use serde_valid::Validate;
 use std::sync::Arc;
 use strum::EnumString;

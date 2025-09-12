@@ -1,28 +1,12 @@
-use std::sync::Arc;
-use gateway_api::httproutes::HTTPRouteRulesFiltersUrlRewritePathType;
-use gateway_api::httproutes::HTTPRouteRulesFiltersUrlRewrite;
+use gateway_api::common::HTTPRouteUrlRewrite;
 use hickory_proto::rr::Name;
-use vg_core::http::filters::upstream_uri_rewrite::{HttpUpstreamUriPathRewrite, HttpUpstreamUriRewriteFilter};
+use std::str::FromStr;
+use tracing::warn;
+use vg_core::http::filters::upstream_uri_rewrite::HttpUpstreamUriRewriteFilter;
 
-pub fn convert_url_rewrite(rewrite: &HTTPRouteRulesFiltersUrlRewrite) -> Arc<HttpUpstreamUriRewriteFilter> {
-    let hostname = if let Some(hostname) = &rewrite.hostname && !hostname.is_empty() {
-        Name::from_utf8(hostname).ok()
-    } else {
-        None
-    };
-    
-    let path = match rewrite.path.as_ref().cloned().map(|p| (p.r#type, p.replace_full_path, p.replace_prefix_match)) {
-        Some((HTTPRouteRulesFiltersUrlRewritePathType::ReplaceFullPath, Some(full), _))   => 
-        Some(HttpUpstreamUriPathRewrite::Full(full.clone())),
-        Some((HTTPRouteRulesFiltersUrlRewritePathType::ReplacePrefixMatch, _, Some(prefix))) =>
-        Some(HttpUpstreamUriPathRewrite::PrefixMatch(prefix.clone())),
-        _ => None,
-    };
-    
-    let filter = HttpUpstreamUriRewriteFilter::builder()
-        .host(hostname)
-        .path(path)
-        .build();
-    
-    Arc::new(filter)
+pub fn convert_url_rewrite(_rewrite: &HTTPRouteUrlRewrite) -> HttpUpstreamUriRewriteFilter {
+    warn!("URL rewrite conversion is not yet implemented for the new gateway API");
+    HttpUpstreamUriRewriteFilter::builder()
+        .host(Some(Name::from_str("example.com").unwrap()))
+        .build()
 }

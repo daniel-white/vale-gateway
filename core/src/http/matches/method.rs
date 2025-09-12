@@ -43,7 +43,7 @@ impl From<&HttpMethodMatch> for Method {
             HttpMethodMatch::Options => Method::OPTIONS,
             HttpMethodMatch::Trace => Method::TRACE,
             HttpMethodMatch::Connect => Method::CONNECT,
-            HttpMethodMatch::Extension(ext) => Method::from_str(&ext).expect("Invalid HTTP method"),
+            HttpMethodMatch::Extension(ext) => Method::from_str(ext).expect("Invalid HTTP method"),
         }
     }
 }

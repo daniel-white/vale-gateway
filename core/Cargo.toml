@@ -20,6 +20,7 @@ http = { workspace = true }
 http-serde-ext = "1"
 ipnet = { workspace = true }
 itertools = { workspace = true }
+k8s-openapi = { workspace = true }
 notify = "8"
 opentelemetry = { workspace = true }
 opentelemetry_sdk = { version = "0.30", features = ["metrics", "trace", "logs"] }
@@ -30,6 +31,7 @@ opentelemetry-semantic-conventions = { workspace = true }
 rustls = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 serde_valid = { version = "1", features = ["yaml"] }
 serde_yaml = { workspace = true }
 strum = { workspace = true }
@@ -41,8 +43,9 @@ tracing-subscriber = { workspace = true, features = ["json"] }
 tracing-opentelemetry = "0.31"
 unicase = { workspace = true }
 typed-builder = { workspace = true }
-serde_with = { version = "3", features = ["schemars_0_9"] }
+serde_with = { version = "3", features = ["schemars_1"] }
 url = { workspace = true }
+vg-api = { path = "../api" }
 
 [dev-dependencies]
 tokio-test = { workspace = true }

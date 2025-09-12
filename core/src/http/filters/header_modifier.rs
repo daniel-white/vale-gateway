@@ -1,5 +1,4 @@
 use getset::Getters;
-use http::header::IntoHeaderName;
 use http::{HeaderMap, HeaderName, HeaderValue};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

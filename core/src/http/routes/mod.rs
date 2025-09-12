@@ -19,7 +19,7 @@ impl<S: Into<String>> From<S> for HttpRouteKey {
     }
 }
 
-#[derive(Validate, Getters, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Validate, Getters, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct HttpRoute {
     #[getset(get = "pub")]

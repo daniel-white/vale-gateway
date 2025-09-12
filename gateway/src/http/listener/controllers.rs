@@ -1,14 +1,14 @@
 use crate::http::filters::HttpFilterHandlers;
 use crate::http::listener::filters::{
-    collect_http_listener_filter_handlers, HttpListenerFilterHandler,
+    HttpListenerFilterHandler, collect_http_listener_filter_handlers,
 };
 use std::sync::Arc;
 use vg_core::gateways::Gateway;
 use vg_core::http::listeners::{HttpListener, HttpListenerFilter};
 use vg_core::http::routes::HttpRoute;
-use vg_core::sync::signal::{signal, Receiver};
+use vg_core::sync::signal::{Receiver, signal};
 use vg_core::task::Builder as TaskBuilder;
-use vg_core::{await_ready, continue_on, ReadyState};
+use vg_core::{ReadyState, await_ready, continue_on};
 
 pub fn http_listener(
     task_builder: &TaskBuilder,
@@ -22,7 +22,7 @@ pub fn http_listener(
         .spawn(async move {
             loop {
                 if let ReadyState::Ready(gateway) = await_ready!(gateway_rx) {
-                    let http_listener = gateway.http_listener().clone();
+                    let http_listener = gateway.http_listener().as_ref().map(|arc| (**arc).clone());
                     tx.set(http_listener).await;
                 }
                 continue_on!(gateway_rx.changed());
@@ -46,8 +46,7 @@ pub fn http_listener_routes(
                 if let ReadyState::Ready(http_listener) = await_ready!(http_listener_rx) {
                     let filters = http_listener
                         .as_ref()
-                        .map(|listener| listener.routes())
-                        .cloned()
+                        .map(|listener| listener.routes().clone())
                         .unwrap_or_default();
                     tx.set(filters).await;
                 }
