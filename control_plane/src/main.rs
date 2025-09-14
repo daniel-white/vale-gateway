@@ -27,6 +27,7 @@ pub mod ipc;
 pub mod kubernetes;
 mod options;
 mod services;
+mod watchdog;
 
 //use crate::controllers::{spawn_controllers, SpawnControllersParams, StaticResponsesCache};
 use crate::ipc::SpawnIpcError;
