@@ -214,7 +214,7 @@ mod tests {
         assert!(service.is_maintenance_mode());
         assert_eq!(
             service.config().detection_interval(),
-            &Duration::from_secs(10)
+            Duration::from_secs(10)
         );
     }
 
@@ -258,9 +258,9 @@ mod tests {
         assert!(service.update_config(new_config).is_ok());
         assert_eq!(
             service.config().detection_interval(),
-            &Duration::from_secs(15)
+            Duration::from_secs(15)
         );
-        assert_eq!(service.config().max_concurrent_restorations(), &5);
+        assert_eq!(service.config().max_concurrent_restorations(), 5);
     }
 
     #[test]

@@ -10,12 +10,12 @@ use typed_builder::TypedBuilder;
 #[derive(Debug, Clone, Serialize, Deserialize, Getters, CopyGetters, MutGetters, TypedBuilder)]
 pub struct WatchdogConfiguration {
     /// Whether the watchdog service is enabled
-    #[getset(get = "pub", get_mut = "pub")]
+    #[getset(get_copy = "pub", get_mut = "pub")]
     #[builder(default = true)]
     enabled: bool,
 
     /// Whether the watchdog is in maintenance mode (suspended operations)
-    #[getset(get = "pub", get_mut = "pub")]
+    #[getset(get_copy = "pub", get_mut = "pub")]
     #[builder(default = false)]
     maintenance_mode: bool,
 
@@ -25,7 +25,7 @@ pub struct WatchdogConfiguration {
     detection_interval: Duration,
 
     /// Maximum time to wait for a restoration operation
-    #[getset(get = "pub", get_mut = "pub")]
+    #[getset(get_copy = "pub", get_mut = "pub")]
     #[builder(default_code = "Duration::from_secs(30)")]
     restoration_timeout: Duration,
 
@@ -35,22 +35,22 @@ pub struct WatchdogConfiguration {
     retry_policy: RetryPolicy,
 
     /// Whether to log all drift detection events (can be verbose)
-    #[getset(get = "pub", get_mut = "pub")]
+    #[getset(get_copy = "pub", get_mut = "pub")]
     #[builder(default = true)]
     log_drift_events: bool,
 
     /// Whether to log all restoration events
-    #[getset(get = "pub", get_mut = "pub")]
+    #[getset(get_copy = "pub", get_mut = "pub")]
     #[builder(default = true)]
     log_restoration_events: bool,
 
     /// Whether to log critical alerts for repeated failures
-    #[getset(get = "pub", get_mut = "pub")]
+    #[getset(get_copy = "pub", get_mut = "pub")]
     #[builder(default = true)]
     log_critical_alerts: bool,
 
     /// Maximum number of concurrent restoration operations
-    #[getset(get = "pub", get_mut = "pub")]
+    #[getset(get_copy = "pub", get_mut = "pub")]
     #[builder(default = 10)]
     max_concurrent_restorations: usize,
 
@@ -77,7 +77,7 @@ impl WatchdogConfiguration {
 
     /// Check if the watchdog should be active (enabled and not in maintenance mode)
     pub fn is_active(&self) -> bool {
-        *self.enabled() && !*self.maintenance_mode()
+        self.enabled() && !self.maintenance_mode()
     }
 
     /// Validate the configuration
@@ -90,11 +90,11 @@ impl WatchdogConfiguration {
             return Err("Restoration timeout must be greater than zero".to_string());
         }
 
-        if *self.max_concurrent_restorations() == 0 {
+        if self.max_concurrent_restorations() == 0 {
             return Err("Max concurrent restorations must be greater than zero".to_string());
         }
 
-        if *self.retry_policy().max_attempts() == 0 {
+        if self.retry_policy().max_attempts() == 0 {
             return Err("Retry policy max attempts must be greater than zero".to_string());
         }
 
@@ -139,8 +139,8 @@ pub struct RuntimeWatchdogConfiguration {
 impl RuntimeWatchdogConfiguration {
     /// Create a new runtime configuration
     pub fn new(config: WatchdogConfiguration) -> Self {
-        let maintenance_mode = Arc::new(AtomicBool::new(*config.maintenance_mode()));
-        let enabled = Arc::new(AtomicBool::new(*config.enabled()));
+        let maintenance_mode = Arc::new(AtomicBool::new(config.maintenance_mode()));
+        let enabled = Arc::new(AtomicBool::new(config.enabled()));
 
         Self {
             config: Arc::new(config),
@@ -159,8 +159,8 @@ impl RuntimeWatchdogConfiguration {
         new_config.validate()?;
 
         self.maintenance_mode
-            .store(*new_config.maintenance_mode(), Ordering::Relaxed);
-        self.enabled.store(*new_config.enabled(), Ordering::Relaxed);
+            .store(new_config.maintenance_mode(), Ordering::Relaxed);
+        self.enabled.store(new_config.enabled(), Ordering::Relaxed);
         self.config = Arc::new(new_config);
 
         Ok(())
@@ -211,12 +211,12 @@ mod tests {
     #[test]
     fn test_watchdog_configuration_default() {
         let config = WatchdogConfiguration::default();
-        assert!(*config.enabled());
-        assert!(!*config.maintenance_mode());
+        assert!(config.enabled());
+        assert!(!config.maintenance_mode());
         assert!(config.is_active());
-        assert_eq!(config.detection_interval(), &Duration::from_secs(5));
-        assert_eq!(config.restoration_timeout(), &Duration::from_secs(30));
-        assert_eq!(config.retry_policy().max_attempts(), &3);
+        assert_eq!(config.detection_interval(), Duration::from_secs(5));
+        assert_eq!(config.restoration_timeout(), Duration::from_secs(30));
+        assert_eq!(config.retry_policy().max_attempts(), 3);
         assert!(!config.managed_resource_labels().is_empty());
     }
 
@@ -261,10 +261,10 @@ mod tests {
     #[test]
     fn test_watchdog_configuration_for_testing() {
         let config = WatchdogConfiguration::for_testing();
-        assert!(config.detection_interval() < &Duration::from_secs(1));
-        assert!(config.restoration_timeout() < &Duration::from_secs(5));
-        assert_eq!(config.retry_policy().max_attempts(), &2);
-        assert_eq!(config.max_concurrent_restorations(), &2);
+        assert!(config.detection_interval() < Duration::from_secs(1));
+        assert!(config.restoration_timeout() < Duration::from_secs(5));
+        assert_eq!(config.retry_policy().max_attempts(), 2);
+        assert_eq!(config.max_concurrent_restorations(), 2);
     }
 
     #[test]
@@ -306,7 +306,7 @@ mod tests {
         assert!(runtime_config.is_maintenance_mode());
         assert_eq!(
             runtime_config.config().detection_interval(),
-            &Duration::from_secs(10)
+            Duration::from_secs(10)
         );
     }
 

@@ -1,4 +1,4 @@
-use getset::{Getters, MutGetters};
+use getset::{CopyGetters, Getters, MutGetters};
 use k8s_openapi::chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -196,25 +196,25 @@ impl RestorationEvent {
 }
 
 /// Retry policy configuration for restoration operations
-#[derive(Debug, Clone, Serialize, Deserialize, Getters, MutGetters, TypedBuilder)]
+#[derive(Debug, Clone, Serialize, Deserialize, CopyGetters, Getters, MutGetters, TypedBuilder)]
 pub struct RetryPolicy {
     /// Maximum number of retry attempts
-    #[getset(get = "pub", get_mut = "pub")]
+    #[getset(get_copy = "pub", get_mut = "pub")]
     #[builder(default = 3)]
     max_attempts: u32,
 
     /// Base delay between retries
-    #[getset(get = "pub", get_mut = "pub")]
+    #[getset(get_copy = "pub", get_mut = "pub")]
     #[builder(default_code = "Duration::from_secs(1)")]
     base_delay: Duration,
 
     /// Maximum delay between retries
-    #[getset(get = "pub", get_mut = "pub")]
+    #[getset(get_copy = "pub", get_mut = "pub")]
     #[builder(default_code = "Duration::from_secs(30)")]
     max_delay: Duration,
 
     /// Multiplier for exponential backoff
-    #[getset(get = "pub", get_mut = "pub")]
+    #[getset(get_copy = "pub", get_mut = "pub")]
     #[builder(default = 2.0)]
     backoff_multiplier: f64,
 }
@@ -237,12 +237,12 @@ impl RetryPolicy {
 
         let delay = Duration::from_secs_f64(delay_secs.min(self.max_delay().as_secs_f64()));
 
-        std::cmp::min(delay, *self.max_delay())
+        std::cmp::min(delay, self.max_delay())
     }
 
     /// Check if we should retry for the given attempt number
     pub fn should_retry(&self, attempt: u32) -> bool {
-        attempt <= *self.max_attempts()
+        attempt <= self.max_attempts()
     }
 }
 
@@ -355,9 +355,9 @@ mod tests {
     #[test]
     fn test_retry_policy_default() {
         let policy = RetryPolicy::default();
-        assert_eq!(policy.max_attempts(), &3);
-        assert_eq!(policy.base_delay(), &Duration::from_secs(1));
-        assert_eq!(policy.max_delay(), &Duration::from_secs(30));
+        assert_eq!(policy.max_attempts(), 3);
+        assert_eq!(policy.base_delay(), Duration::from_secs(1));
+        assert_eq!(policy.max_delay(), Duration::from_secs(30));
         assert!((policy.backoff_multiplier() - 2.0).abs() < f64::EPSILON);
     }
 
