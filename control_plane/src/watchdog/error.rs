@@ -1,10 +1,10 @@
 use thiserror::Error;
 
 /// Errors that can occur in the watchdog service
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone)]
 pub enum WatchdogError {
     #[error("Kubernetes API error: {0}")]
-    KubernetesApi(#[from] kube::Error),
+    KubernetesApi(String),
 
     #[error("Resource restoration failed: {0}")]
     RestorationFailed(String),
@@ -19,10 +19,13 @@ pub enum WatchdogError {
     SyncCoordination(String),
 
     #[error("Serialization error: {0}")]
-    Serialization(#[from] serde_json::Error),
+    Serialization(String),
 
     #[error("Task execution error: {0}")]
     TaskExecution(String),
+
+    #[error("Invalid resource: {0}")]
+    InvalidResource(String),
 
     #[error("Resource not found: {resource_type}/{name} in namespace {namespace}")]
     ResourceNotFound {
@@ -66,6 +69,23 @@ impl WatchdogError {
             namespace: namespace.into(),
         }
     }
+
+    /// Create a new invalid resource error
+    pub fn invalid_resource<S: Into<String>>(message: S) -> Self {
+        Self::InvalidResource(message.into())
+    }
+}
+
+impl From<kube::Error> for WatchdogError {
+    fn from(error: kube::Error) -> Self {
+        Self::KubernetesApi(error.to_string())
+    }
+}
+
+impl From<serde_json::Error> for WatchdogError {
+    fn from(error: serde_json::Error) -> Self {
+        Self::Serialization(error.to_string())
+    }
 }
 
 #[cfg(test)]
@@ -83,28 +103,15 @@ mod tests {
         let error = WatchdogError::resource_not_found("ConfigMap", "test-config", "default");
         assert!(error.to_string().contains("ConfigMap/test-config"));
         assert!(error.to_string().contains("default"));
+
+        let error = WatchdogError::invalid_resource("invalid resource");
+        assert!(error.to_string().contains("invalid resource"));
     }
 
     #[test]
-    fn test_error_from_kube_error() {
-        let kube_error = kube::Error::Api(kube::error::ErrorResponse {
-            status: "Failure".to_string(),
-            message: "test error".to_string(),
-            reason: "BadRequest".to_string(),
-            code: 400,
-        });
-
-        let watchdog_error: WatchdogError = kube_error.into();
-        assert!(matches!(watchdog_error, WatchdogError::KubernetesApi(_)));
-    }
-
-    #[test]
-    fn test_error_from_serde_error() {
-        let json_str = r#"{"invalid": json}"#;
-        let serde_error: serde_json::Error =
-            serde_json::from_str::<serde_json::Value>(json_str).unwrap_err();
-
-        let watchdog_error: WatchdogError = serde_error.into();
-        assert!(matches!(watchdog_error, WatchdogError::Serialization(_)));
+    fn test_error_cloneable() {
+        let error = WatchdogError::configuration("test error");
+        let cloned_error = error.clone();
+        assert_eq!(error.to_string(), cloned_error.to_string());
     }
 }

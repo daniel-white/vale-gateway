@@ -27,7 +27,7 @@
     - Write unit tests for restoration logic and retry mechanisms
     - _Requirements: 1.4, 1.5, 4.1, 4.2, 5.1, 5.2_
 
-- [ ] 
+- [4]
     4. Implement generic resource watcher framework
 
     - Create ResourceWatcher generic struct that can monitor any Kubernetes resource type

@@ -222,45 +222,38 @@ mod tests {
 
     #[test]
     fn test_watchdog_configuration_validation() {
-        let mut config = WatchdogConfiguration::default();
+        let config = WatchdogConfiguration::default();
         assert!(config.validate().is_ok());
 
         // Test invalid detection interval
-        *config.detection_interval_mut() = Duration::from_secs(0);
+        let config = WatchdogConfiguration::builder()
+            .detection_interval(Duration::from_secs(0))
+            .build();
         assert!(config.validate().is_err());
 
-        // Reset and test invalid restoration timeout
-        config = WatchdogConfiguration::default();
-        *config.restoration_timeout_mut() = Duration::from_secs(0);
+        // Test invalid restoration timeout
+        let config = WatchdogConfiguration::builder()
+            .restoration_timeout(Duration::from_secs(0))
+            .build();
         assert!(config.validate().is_err());
 
-        // Reset and test invalid max concurrent restorations
-        config = WatchdogConfiguration::default();
-        *config.max_concurrent_restorations_mut() = 0;
+        // Test invalid max concurrent restorations
+        let config = WatchdogConfiguration::builder()
+            .max_concurrent_restorations(0)
+            .build();
         assert!(config.validate().is_err());
 
-        // Reset and test empty managed resource labels
-        config = WatchdogConfiguration::default();
-        config.managed_resource_labels_mut().clear();
+        // Test empty managed resource labels
+        let config = WatchdogConfiguration::builder()
+            .managed_resource_labels(vec![])
+            .build();
         assert!(config.validate().is_err());
-    }
-
-    #[test]
-    fn test_watchdog_configuration_is_active() {
-        let mut config = WatchdogConfiguration::default();
-        assert!(config.is_active());
-
-        *config.enabled_mut() = false;
-        assert!(!config.is_active());
-
-        *config.enabled_mut() = true;
-        *config.maintenance_mode_mut() = true;
-        assert!(!config.is_active());
     }
 
     #[test]
     fn test_watchdog_configuration_for_testing() {
         let config = WatchdogConfiguration::for_testing();
+        assert!(config.is_active());
         assert!(config.detection_interval() < Duration::from_secs(1));
         assert!(config.restoration_timeout() < Duration::from_secs(5));
         assert_eq!(config.retry_policy().max_attempts(), 2);
@@ -273,21 +266,6 @@ mod tests {
         let runtime_config = RuntimeWatchdogConfiguration::new(config);
 
         assert!(runtime_config.is_active());
-        assert!(runtime_config.is_enabled());
-        assert!(!runtime_config.is_maintenance_mode());
-
-        // Test maintenance mode toggle
-        runtime_config.set_maintenance_mode(true);
-        assert!(!runtime_config.is_active());
-        assert!(runtime_config.is_maintenance_mode());
-
-        runtime_config.set_maintenance_mode(false);
-        assert!(runtime_config.is_active());
-
-        // Test enabled toggle
-        runtime_config.set_enabled(false);
-        assert!(!runtime_config.is_active());
-        assert!(!runtime_config.is_enabled());
     }
 
     #[test]

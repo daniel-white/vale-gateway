@@ -570,11 +570,13 @@ mod tests {
 
     fn create_test_drift() -> ResourceDrift<ConfigMap> {
         let expected = create_test_configmap("test-config", "default");
+        let actual = create_test_configmap("test-config", "default");
 
         ResourceDrift::builder()
             .resource_name("test-config")
             .namespace("default")
             .expected_resource(expected)
+            .actual_resource(Some(actual))
             .drift_type(DriftType::Deleted)
             .resource_type("ConfigMap")
             .build()
