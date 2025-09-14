@@ -1,14 +1,19 @@
+use getset::Getters;
 use kube::Client;
 use std::ops::Deref;
 use tracing::error;
+use typed_builder::TypedBuilder;
 use vg_core::sync::signal::{signal, Receiver};
 use vg_core::task::Builder as TaskBuilder;
 
 pub mod macros;
 pub mod objects;
 
-#[derive(Clone)]
-pub struct KubeClientCell(Client);
+#[derive(Clone, TypedBuilder, Getters)]
+pub struct KubeClientCell {
+    #[getset(get = "pub")]
+    client: Client,
+}
 
 impl PartialEq for KubeClientCell {
     fn eq(&self, _other: &Self) -> bool {
@@ -20,13 +25,13 @@ impl Deref for KubeClientCell {
     type Target = Client;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.client()
     }
 }
 
 impl From<KubeClientCell> for Client {
     fn from(client_cell: KubeClientCell) -> Self {
-        client_cell.0
+        client_cell.client().clone()
     }
 }
 
@@ -38,10 +43,9 @@ pub fn start_kubernetes_client(task_builder: &TaskBuilder) -> Receiver<KubeClien
         .spawn(async move {
             match Client::try_default().await {
                 Ok(client) => {
-                    let client_cell = KubeClientCell(client);
+                    let client_cell = KubeClientCell::builder().client(client).build();
                     tx.set(client_cell).await;
-                    let tx = Box::new(tx);
-                    Box::leak(tx); // Leak the sender to keep it alive
+                    Box::leak(Box::new(tx)); // Leak the sender to keep it alive
                 }
                 Err(e) => error!("Failed to create Kubernetes client: {}", e),
             }

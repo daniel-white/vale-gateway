@@ -1,23 +1,28 @@
 use crate::kubernetes::objects::ObjectRef;
-use dashmap::DashMap;
 use dashmap::mapref::one::Ref;
+use dashmap::DashMap;
+use getset::Getters;
 use std::sync::Arc;
 use thiserror::Error;
+use typed_builder::TypedBuilder;
 use vg_api::v1alpha1::GatewayConfiguration;
 
 pub fn create_gateway_configuration_services()
 -> (GatewayConfigurationReader, GatewayConfigurationManager) {
     let configurations = Arc::new(DashMap::new());
     (
-        GatewayConfigurationReader {
-            configurations: configurations.clone(),
-        },
-        GatewayConfigurationManager { configurations },
+        GatewayConfigurationReader::builder()
+            .configurations(configurations.clone())
+            .build(),
+        GatewayConfigurationManager::builder()
+            .configurations(configurations)
+            .build(),
     )
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, TypedBuilder, Getters)]
 pub struct GatewayConfigurationReader {
+    #[getset(get = "pub")]
     configurations: Arc<DashMap<ObjectRef, String>>,
 }
 
@@ -34,8 +39,9 @@ impl GatewayConfigurationReader {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, TypedBuilder, Getters)]
 pub struct GatewayConfigurationManager {
+    #[getset(get = "pub")]
     configurations: Arc<DashMap<ObjectRef, String>>,
 }
 

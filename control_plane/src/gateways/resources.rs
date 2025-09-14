@@ -1,4 +1,4 @@
-use getset::{CloneGetters, Getters, MutGetters};
+use getset::{CloneGetters, Getters};
 use k8s_openapi::api::apps::v1::Deployment;
 use k8s_openapi::api::core::v1::{ConfigMap, Service};
 use serde::{Deserialize, Serialize};
@@ -7,9 +7,7 @@ use typed_builder::TypedBuilder;
 use vg_api::v1alpha1::{GatewayConfiguration, GatewayInstrumentationOpenTelemetry};
 
 /// Complete configuration for a gateway instance including all Kubernetes resources
-#[derive(
-    Clone, Debug, PartialEq, Serialize, Deserialize, Getters, CloneGetters, MutGetters, TypedBuilder,
-)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder)]
 pub struct GatewayResourceConfiguration {
     /// The gateway instance name
     #[getset(get = "pub")]
@@ -22,15 +20,15 @@ pub struct GatewayResourceConfiguration {
     namespace: String,
 
     /// Kubernetes Deployment configuration
-    #[getset(get = "pub", get_mut = "pub")]
+    #[getset(get = "pub")]
     deployment: Deployment,
 
     /// Kubernetes Service configuration
-    #[getset(get = "pub", get_mut = "pub")]
+    #[getset(get = "pub")]
     service: Service,
 
     /// Kubernetes `ConfigMap` configuration
-    #[getset(get = "pub", get_mut = "pub")]
+    #[getset(get = "pub")]
     config_map: ConfigMap,
 
     /// Container image repository
@@ -52,18 +50,16 @@ pub struct GatewayResourceConfiguration {
     open_telemetry: Option<GatewayInstrumentationOpenTelemetry>,
 
     /// Additional metadata for the gateway
-    #[getset(get = "pub", get_mut = "pub")]
+    #[getset(get = "pub")]
     #[builder(default)]
     metadata: GatewayResourceMetadata,
 }
 
 /// Additional metadata for gateway resources
-#[derive(
-    Clone, Debug, PartialEq, Serialize, Deserialize, Default, Getters, MutGetters, TypedBuilder,
-)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default, Getters, TypedBuilder)]
 pub struct GatewayResourceMetadata {
     /// Labels to apply to all resources
-    #[getset(get = "pub", get_mut = "pub")]
+    #[getset(get = "pub")]
     #[builder(default)]
     labels: HashMap<String, String>,
 
@@ -110,7 +106,7 @@ impl GatewayResourceConfiguration {
     }
 
     /// Apply common labels to all resources
-    pub fn apply_common_labels(&mut self) {
+    pub fn with_common_labels(self) -> Self {
         let name = self.name().clone();
         let common_labels = [
             ("app.kubernetes.io/name", "vale-gateway"),
@@ -119,35 +115,44 @@ impl GatewayResourceConfiguration {
             ("app.kubernetes.io/managed-by", "vale-gateway-controller"),
         ];
 
-        // Apply to metadata
-        for (key, value) in &common_labels {
-            self.metadata_mut()
-                .labels_mut()
-                .insert((*key).to_string(), (*value).to_string());
-        }
-
-        // Apply to deployment
-        let metadata = &mut self.deployment_mut().metadata;
-        if let Some(labels) = &mut metadata.labels {
-            for (key, value) in &common_labels {
-                labels.insert((*key).to_string(), (*value).to_string());
-            }
-        }
-
-        // Apply to service
-        let metadata = &mut self.service_mut().metadata;
-        if let Some(labels) = &mut metadata.labels {
-            for (key, value) in &common_labels {
-                labels.insert((*key).to_string(), (*value).to_string());
-            }
-        }
-
-        // Apply to config map
-        let metadata = &mut self.config_map_mut().metadata;
-        if let Some(labels) = &mut metadata.labels {
-            for (key, value) in &common_labels {
-                labels.insert((*key).to_string(), (*value).to_string());
-            }
+        Self {
+            metadata: {
+                let mut metadata = self.metadata.clone();
+                for (key, value) in &common_labels {
+                    metadata
+                        .labels
+                        .insert((*key).to_string(), (*value).to_string());
+                }
+                metadata
+            },
+            deployment: {
+                let mut deployment = self.deployment.clone();
+                if let Some(labels) = &mut deployment.metadata.labels {
+                    for (key, value) in &common_labels {
+                        labels.insert((*key).to_string(), (*value).to_string());
+                    }
+                }
+                deployment
+            },
+            service: {
+                let mut service = self.service.clone();
+                if let Some(labels) = &mut service.metadata.labels {
+                    for (key, value) in &common_labels {
+                        labels.insert((*key).to_string(), (*value).to_string());
+                    }
+                }
+                service
+            },
+            config_map: {
+                let mut config_map = self.config_map.clone();
+                if let Some(labels) = &mut config_map.metadata.labels {
+                    for (key, value) in &common_labels {
+                        labels.insert((*key).to_string(), (*value).to_string());
+                    }
+                }
+                config_map
+            },
+            ..self
         }
     }
 

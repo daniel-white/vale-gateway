@@ -1,17 +1,25 @@
 use crate::kubernetes::KubeClientCell;
 use async_trait::async_trait;
 use axum_health::{HealthDetail, HealthIndicator};
-use kube::Api;
+use getset::Getters;
 use kube::api::ListParams;
-use tracing::{Instrument, info_span};
+use kube::Api;
+use tracing::{info_span, Instrument};
+use typed_builder::TypedBuilder;
 use vg_api::v1alpha1::GatewayClassParameters;
 use vg_core::sync::signal::Receiver;
 
-pub struct KubernetesApiHealthIndicator(Receiver<KubeClientCell>);
+#[derive(TypedBuilder, Getters)]
+pub struct KubernetesApiHealthIndicator {
+    #[getset(get = "pub")]
+    kube_client_rx: Receiver<KubeClientCell>,
+}
 
 impl KubernetesApiHealthIndicator {
     pub fn new(kube_client_rx: &Receiver<KubeClientCell>) -> Self {
-        Self(kube_client_rx.clone())
+        Self::builder()
+            .kube_client_rx(kube_client_rx.clone())
+            .build()
     }
 }
 
@@ -22,7 +30,7 @@ impl HealthIndicator for KubernetesApiHealthIndicator {
     }
 
     async fn details(&self) -> HealthDetail {
-        if let Some(kube_client) = self.0.get().await.as_deref().cloned() {
+        if let Some(kube_client) = self.kube_client_rx().get().await.as_deref().cloned() {
             let api = Api::<GatewayClassParameters>::all(kube_client);
             match api
                 .list(&ListParams::default())
@@ -37,9 +45,9 @@ impl HealthIndicator for KubernetesApiHealthIndicator {
                 }
             }
         } else {
-            let mut heath = HealthDetail::down();
-            heath.with_detail("error".to_string(), "Kube client not available".to_string());
-            heath
+            let mut health = HealthDetail::down();
+            health.with_detail("error".to_string(), "Kube client not available".to_string());
+            health
         }
     }
 }

@@ -1,5 +1,5 @@
 use crate::watchdog::RetryPolicy;
-use getset::{CopyGetters, Getters, MutGetters};
+use getset::{CopyGetters, Getters};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -7,30 +7,30 @@ use std::time::Duration;
 use typed_builder::TypedBuilder;
 
 /// Configuration for the watchdog service
-#[derive(Debug, Clone, Serialize, Deserialize, Getters, CopyGetters, MutGetters, TypedBuilder)]
+#[derive(Debug, Clone, Serialize, Deserialize, Getters, CopyGetters, TypedBuilder)]
 pub struct WatchdogConfiguration {
     /// Whether the watchdog service is enabled
-    #[getset(get_copy = "pub", get_mut = "pub")]
+    #[getset(get_copy = "pub")]
     #[builder(default = true)]
     enabled: bool,
 
     /// Whether the watchdog is in maintenance mode (suspended operations)
-    #[getset(get_copy = "pub", get_mut = "pub")]
+    #[getset(get_copy = "pub")]
     #[builder(default = false)]
     maintenance_mode: bool,
 
     /// How often to check for configuration drift
-    #[getset(get_copy = "pub", get_mut = "pub")]
+    #[getset(get_copy = "pub")]
     #[builder(default_code = "Duration::from_secs(5)")]
     detection_interval: Duration,
 
     /// Maximum time to wait for a restoration operation
-    #[getset(get_copy = "pub", get_mut = "pub")]
+    #[getset(get_copy = "pub")]
     #[builder(default_code = "Duration::from_secs(30)")]
     restoration_timeout: Duration,
 
     /// Retry policy for failed restoration operations
-    #[getset(get = "pub", get_mut = "pub")]
+    #[getset(get = "pub")]
     #[builder(default)]
     retry_policy: RetryPolicy,
 

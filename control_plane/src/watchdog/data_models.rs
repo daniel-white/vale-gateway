@@ -26,7 +26,7 @@ impl std::fmt::Display for DriftType {
 }
 
 /// Represents detected configuration drift in a resource
-#[derive(Debug, Clone, Serialize, Deserialize, Getters, MutGetters, TypedBuilder)]
+#[derive(Debug, Clone, Serialize, Deserialize, Getters, TypedBuilder)]
 pub struct ResourceDrift<T> {
     /// Name of the resource that drifted
     #[getset(get = "pub")]
@@ -39,11 +39,11 @@ pub struct ResourceDrift<T> {
     namespace: String,
 
     /// The actual resource state (if it exists)
-    #[getset(get = "pub", get_mut = "pub")]
+    #[getset(get = "pub")]
     actual_resource: Option<T>,
 
     /// The expected resource state
-    #[getset(get = "pub", get_mut = "pub")]
+    #[getset(get = "pub")]
     expected_resource: T,
 
     /// Type of drift detected

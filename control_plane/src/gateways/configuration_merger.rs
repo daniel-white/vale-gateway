@@ -200,7 +200,7 @@ impl GatewayConfigurationMergerService {
             .managed(true)
             .build();
 
-        let mut resource_config = GatewayResourceConfiguration::builder()
+        let resource_config = GatewayResourceConfiguration::builder()
             .name(gateway_name)
             .namespace(gateway_namespace)
             .deployment(merged_config.deployment().clone())
@@ -213,10 +213,7 @@ impl GatewayConfigurationMergerService {
             .metadata(metadata)
             .build();
 
-        // Apply common labels
-        resource_config.apply_common_labels();
-
-        resource_config
+        resource_config.with_common_labels()
     }
 }
 
