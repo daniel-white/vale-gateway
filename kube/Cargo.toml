@@ -1,0 +1,23 @@
+[package]
+name = "vg-kube"
+version = "0.0.0"
+edition = "2024"
+
+[lib]
+name = "vg_kube"
+path = "src/lib.rs"
+
+[dependencies]
+gateway-api.workspace = true
+ipnet.workspace = true
+k8s-openapi.workspace = true
+kube = { workspace = true, features = ["kube-derive", "derive"] }
+kube-leader-election.workspace = true
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+strum.workspace = true
+typed-builder.workspace = true
+
+[build-dependencies]
+serde_yaml.workspace = true

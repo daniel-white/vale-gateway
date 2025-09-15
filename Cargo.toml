@@ -1,0 +1,19 @@
+[workspace]
+resolver = "3"
+members = [
+    "build",
+    "kube",
+]
+
+[workspace.dependencies]
+gateway-api = { git = "https://github.com/daniel-white/gateway-api-rs.git", branch = "deps" }
+ipnet = { version = "2", features = ["serde"] }
+k8s-openapi = { version = "0.26", features = ["v1_34"] }
+kube = "2"
+kube-leader-election = { git = "https://github.com/daniel-white/kube-leader-election.git", branch = "feat/change-result-type" }
+schemars = "1"
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = "1"
+serde_yaml = "0.9"
+strum = { version = "0.27", features = ["derive"] }
+typed-builder = "0.22"

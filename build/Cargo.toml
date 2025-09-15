@@ -1,0 +1,17 @@
+[package]
+name = "vg-build"
+version = "0.0.0"
+edition = "2024"
+
+[dependencies]
+
+[build-dependencies]
+kube.workspace = true
+schemars.workspace = true
+serde.workspace = true
+serde_yaml.workspace = true
+vg-kube.path = "../kube"
+
+[lib]
+name = "vg_build"
+path = "src/lib.rs"
