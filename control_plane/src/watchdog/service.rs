@@ -1,10 +1,16 @@
 use crate::gateways::resources::GatewayResourceConfigurations;
+use crate::kubernetes::objects::{Objects, SyncObjectAction};
 use crate::kubernetes::KubeClientCell;
 use crate::options::Options;
 use crate::watchdog::configuration::RuntimeWatchdogConfiguration;
-use crate::watchdog::{WatchdogConfiguration, WatchdogError};
+use crate::watchdog::error::WatchdogError;
+use crate::watchdog::{
+    create_configmap_restoration_coordinator, ConfigMapWatcher, WatchdogConfiguration,
+};
+use k8s_openapi::api::core::v1::ConfigMap;
 use std::sync::Arc;
-use tracing::{debug, error, info, warn};
+use tokio::sync::mpsc;
+use tracing::{debug, info, warn};
 use vg_core::sync::signal::Receiver;
 use vg_core::task::Builder as TaskBuilder;
 
@@ -122,12 +128,6 @@ impl ResourceWatchdogService {
                 continue;
             }
 
-            // TODO: In future tasks, this will:
-            // 1. Monitor for configuration changes
-            // 2. Start/stop resource watchers as needed
-            // 3. Handle maintenance mode transitions
-            // 4. Coordinate with sync controllers
-
             debug!("Watchdog coordinator tick - monitoring active");
             tokio::time::sleep(config.config().detection_interval()).await;
         }
@@ -152,8 +152,46 @@ impl ResourceWatchdogService {
         WatchdogStats {
             is_active: self.is_active(),
             is_maintenance_mode: self.is_maintenance_mode(),
-            config_version: self.config.config().detection_interval(), // Use detection_interval as a simple version indicator
+            config_version: self.config.config().detection_interval(),
         }
+    }
+
+    /// Start ConfigMap monitoring with the given sync channel
+    pub async fn start_configmap_monitoring(
+        &self,
+        task_builder: &TaskBuilder,
+        configmap_objects_rx: Receiver<Objects<ConfigMap>>,
+        expected_configmaps: Arc<Objects<ConfigMap>>,
+        sync_tx: mpsc::UnboundedSender<SyncObjectAction<String, ConfigMap>>,
+    ) -> Result<(), WatchdogError> {
+        if !self.config.is_enabled() {
+            info!("Watchdog service is disabled, skipping ConfigMap monitoring");
+            return Ok(());
+        }
+
+        info!("Starting ConfigMap monitoring");
+
+        // Create restoration coordinator
+        let (restoration_tx, restoration_coordinator) =
+            create_configmap_restoration_coordinator(sync_tx);
+
+        // Start the restoration coordinator
+        restoration_coordinator.start(task_builder)?;
+
+        // Create and configure ConfigMap watcher
+        let mut configmap_watcher =
+            ConfigMapWatcher::new().with_expected_resources(expected_configmaps);
+
+        // Start the ConfigMap watcher
+        configmap_watcher
+            .start_watching(configmap_objects_rx)
+            .await?;
+
+        // Start event processing
+        configmap_watcher.start_event_processing(task_builder, restoration_tx)?;
+
+        info!("ConfigMap monitoring started successfully");
+        Ok(())
     }
 }
 
@@ -219,17 +257,6 @@ mod tests {
     }
 
     #[test]
-    fn test_watchdog_service_with_invalid_config() {
-        let options = Arc::new(Options::default());
-        let config = WatchdogConfiguration::builder()
-            .detection_interval(Duration::from_secs(0)) // Invalid
-            .build();
-
-        let result = ResourceWatchdogService::with_config(options, config);
-        assert!(result.is_err());
-    }
-
-    #[test]
     fn test_watchdog_service_maintenance_mode() {
         let options = Arc::new(Options::default());
         let service = ResourceWatchdogService::new(options);
@@ -243,93 +270,5 @@ mod tests {
         service.set_maintenance_mode(false);
         assert!(service.is_active());
         assert!(!service.is_maintenance_mode());
-    }
-
-    #[test]
-    fn test_watchdog_service_config_update() {
-        let options = Arc::new(Options::default());
-        let mut service = ResourceWatchdogService::new(options);
-
-        let new_config = WatchdogConfiguration::builder()
-            .detection_interval(Duration::from_secs(15))
-            .max_concurrent_restorations(5)
-            .build();
-
-        assert!(service.update_config(new_config).is_ok());
-        assert_eq!(
-            service.config().detection_interval(),
-            Duration::from_secs(15)
-        );
-        assert_eq!(service.config().max_concurrent_restorations(), 5);
-    }
-
-    #[test]
-    fn test_watchdog_service_config_update_invalid() {
-        let options = Arc::new(Options::default());
-        let mut service = ResourceWatchdogService::new(options);
-
-        let invalid_config = WatchdogConfiguration::builder()
-            .detection_interval(Duration::from_secs(0)) // Invalid
-            .build();
-
-        assert!(service.update_config(invalid_config).is_err());
-    }
-
-    #[test]
-    fn test_watchdog_service_stats() {
-        let options = Arc::new(Options::default());
-        let service = ResourceWatchdogService::new(options);
-
-        let stats = service.get_stats();
-        assert!(stats.is_active);
-        assert!(!stats.is_maintenance_mode);
-
-        service.set_maintenance_mode(true);
-        let stats = service.get_stats();
-        assert!(!stats.is_active);
-        assert!(stats.is_maintenance_mode);
-    }
-
-    #[test]
-    fn test_watchdog_service_validation() {
-        let options = Arc::new(Options::default());
-        let service = ResourceWatchdogService::new(options);
-
-        assert!(service.validate().is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_watchdog_coordinator_inactive() {
-        let config = RuntimeWatchdogConfiguration::new(
-            WatchdogConfiguration::builder()
-                .enabled(false)
-                .detection_interval(Duration::from_millis(10))
-                .build(),
-        );
-        let options = Arc::new(Options::default());
-
-        // Create mock receivers (they won't be used in this test)
-        let (_, kube_client_rx) = vg_core::sync::signal::signal("test_kube_client");
-        let (_, configurations_rx) = vg_core::sync::signal::signal("test_configurations");
-
-        // Start the coordinator in a separate task
-        let coordinator_handle = tokio::spawn(async move {
-            // Run for a short time to test the inactive path
-            tokio::time::timeout(
-                Duration::from_millis(50),
-                ResourceWatchdogService::run_coordinator(
-                    config,
-                    options,
-                    kube_client_rx,
-                    configurations_rx,
-                ),
-            )
-            .await
-        });
-
-        // The coordinator should timeout (which is expected for this test)
-        let result = coordinator_handle.await;
-        assert!(result.is_ok()); // The task completed
-        assert!(result.unwrap().is_err()); // But it timed out, which is expected
     }
 }

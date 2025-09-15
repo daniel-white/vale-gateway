@@ -2,9 +2,16 @@
 
 ## Overview
 
-The Kubernetes Resource Watchdog is a service that continuously monitors gateway-managed Kubernetes resources (ConfigMaps, Services, and Deployments) and automatically restores them to their expected state when unauthorized changes are detected. The watchdog integrates with the existing gateway synchronization system to provide real-time drift detection and correction.
+The Kubernetes Resource Watchdog is a service that continuously monitors gateway-managed Kubernetes resources (
+ConfigMaps, Services, and Deployments) and automatically restores them to their expected state when unauthorized changes
+are detected. The watchdog integrates with the existing gateway synchronization system to provide real-time drift
+detection and correction.
 
-The service operates as a separate controller within the control plane that uses Kubernetes watch APIs to monitor resource changes and coordinates with existing sync controllers to avoid conflicts during restoration operations.
+The service operates as a separate controller within the control plane that uses Kubernetes watch APIs to monitor
+resource changes and coordinates with existing sync controllers to avoid conflicts during restoration operations.
+
+We should value immutable data types using TypeBuilder and getset crates. No get_mut should be used. Prefer copy if the
+type supports it.
 
 ## Architecture
 
@@ -74,9 +81,9 @@ impl ResourceWatchdogService {
 Generic watcher for specific resource types:
 
 ```rust
-pub struct ResourceWatcher<T> 
-where 
-    T: Clone + Debug + DeserializeOwned + Resource<Scope = NamespaceResourceScope>,
+pub struct ResourceWatcher<T>
+where
+    T: Clone + Debug + DeserializeOwned + Resource<Scope=NamespaceResourceScope>,
 {
     resource_type: PhantomData<T>,
     drift_detector: DriftDetector<T>,
@@ -108,7 +115,7 @@ impl<T> DriftDetector<T> {
         actual: &T,
         expected: &T,
     ) -> Option<ResourceDrift<T>>;
-    
+
     pub fn is_managed_resource(&self, resource: &T) -> bool;
 }
 ```
@@ -232,16 +239,16 @@ pub trait ResourceOwnershipValidator: Send + Sync {
 pub enum WatchdogError {
     #[error("Kubernetes API error: {0}")]
     KubernetesApi(#[from] kube::Error),
-    
+
     #[error("Resource restoration failed: {0}")]
     RestorationFailed(String),
-    
+
     #[error("Configuration error: {0}")]
     Configuration(String),
-    
+
     #[error("Ownership validation failed: {0}")]
     OwnershipValidation(String),
-    
+
     #[error("Sync coordination error: {0}")]
     SyncCoordination(String),
 }
@@ -282,51 +289,51 @@ impl Default for RetryPolicy {
 ### Unit Tests
 
 1. **DriftDetector Tests**:
-   - Test drift detection for modified resources
-   - Test drift detection for deleted resources
-   - Test ownership validation logic
-   - Test edge cases (malformed resources, missing labels)
+    - Test drift detection for modified resources
+    - Test drift detection for deleted resources
+    - Test ownership validation logic
+    - Test edge cases (malformed resources, missing labels)
 
 2. **RestorationCoordinator Tests**:
-   - Test successful restoration operations
-   - Test retry logic with various failure scenarios
-   - Test sync coordination mechanisms
-   - Test timeout handling
+    - Test successful restoration operations
+    - Test retry logic with various failure scenarios
+    - Test sync coordination mechanisms
+    - Test timeout handling
 
 3. **Configuration Tests**:
-   - Test configuration parsing and validation
-   - Test maintenance mode toggling
-   - Test invalid configuration handling
+    - Test configuration parsing and validation
+    - Test maintenance mode toggling
+    - Test invalid configuration handling
 
 ### Integration Tests
 
 1. **End-to-End Watchdog Tests**:
-   - Create gateway resources and verify monitoring starts
-   - Modify resources and verify drift detection
-   - Delete resources and verify recreation
-   - Test maintenance mode functionality
+    - Create gateway resources and verify monitoring starts
+    - Modify resources and verify drift detection
+    - Delete resources and verify recreation
+    - Test maintenance mode functionality
 
 2. **Sync Controller Integration**:
-   - Test coordination between watchdog and existing sync controllers
-   - Verify no conflicts during simultaneous operations
-   - Test priority handling (sync controllers take precedence)
+    - Test coordination between watchdog and existing sync controllers
+    - Verify no conflicts during simultaneous operations
+    - Test priority handling (sync controllers take precedence)
 
 3. **Kubernetes API Integration**:
-   - Test with real Kubernetes cluster
-   - Verify watch event handling
-   - Test API error scenarios and recovery
+    - Test with real Kubernetes cluster
+    - Verify watch event handling
+    - Test API error scenarios and recovery
 
 ### Performance Tests
 
 1. **Scale Testing**:
-   - Test with large numbers of gateway resources (100+)
-   - Measure detection latency under load
-   - Verify resource usage remains acceptable
+    - Test with large numbers of gateway resources (100+)
+    - Measure detection latency under load
+    - Verify resource usage remains acceptable
 
 2. **Stress Testing**:
-   - Test rapid resource modifications
-   - Test concurrent restoration operations
-   - Verify system stability under stress
+    - Test rapid resource modifications
+    - Test concurrent restoration operations
+    - Verify system stability under stress
 
 ### Test Utilities
 
@@ -349,30 +356,35 @@ impl WatchdogTestHarness {
 ## Implementation Phases
 
 ### Phase 1: Core Infrastructure
+
 - Implement basic watchdog service structure
 - Create resource watcher framework
 - Implement drift detection logic
 - Add basic logging and error handling
 
 ### Phase 2: Resource Monitoring
+
 - Implement ConfigMap monitoring
-- Implement Service monitoring  
+- Implement Service monitoring
 - Implement Deployment monitoring
 - Add ownership validation
 
 ### Phase 3: Restoration Logic
+
 - Implement restoration coordinator
 - Add retry mechanisms with exponential backoff
 - Implement sync controller coordination
 - Add maintenance mode support
 
 ### Phase 4: Advanced Features
+
 - Add comprehensive audit logging
 - Implement performance optimizations
 - Add configuration management
 - Implement advanced error recovery
 
 ### Phase 5: Testing and Validation
+
 - Complete unit test coverage
 - Implement integration tests
 - Add performance benchmarks

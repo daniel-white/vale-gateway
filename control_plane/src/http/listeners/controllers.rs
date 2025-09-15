@@ -1,12 +1,12 @@
 use crate::gateways::collectors::Gateways;
-use crate::http::filters::collector::{HttpRouteFilters, collect_http_route_filters};
+use crate::http::filters::collector::{collect_http_route_filters, HttpRouteFilters};
 use crate::http::filters::extensions::HttpExtensionFilters;
-use crate::http::routes::controllers::{HttpRouteInfo, http_routes};
+use crate::http::routes::controllers::{http_routes, HttpRouteInfo};
 use crate::http::routes::converters::convert_http_route;
-use crate::kubernetes::KubeClientCell;
 use crate::kubernetes::objects::ObjectRef;
+use crate::kubernetes::KubeClientCell;
 use crate::options::Options;
-use futures::{StreamExt, stream};
+use futures::{stream, StreamExt};
 use gateway_api::gateways::{GatewayListeners, GatewayListenersAllowedRoutesNamespacesFrom};
 use gateway_api::httproutes::HTTPRoute;
 use std::collections::HashMap;
@@ -14,9 +14,9 @@ use std::num::NonZeroU16;
 use std::sync::Arc;
 use vg_core::http::listeners::HttpListener;
 use vg_core::net::Port;
-use vg_core::sync::signal::{Receiver, signal};
+use vg_core::sync::signal::{signal, Receiver};
 use vg_core::task::Builder as TaskBuilder;
-use vg_core::{ReadyState, await_ready, continue_on};
+use vg_core::{await_ready, continue_on, ReadyState};
 
 pub fn http_listeners(
     task_builder: &TaskBuilder,
@@ -152,7 +152,7 @@ fn convert_http_listener(
                     })
                     .cloned()
                     .collect(),
-                (GatewayListenersAllowedRoutesNamespacesFrom::Selector, Some(selector)) => {
+                (GatewayListenersAllowedRoutesNamespacesFrom::Selector, Some(_selector)) => {
                     // TODO: Optimize by caching label selectors
                     Vec::new()
                 }

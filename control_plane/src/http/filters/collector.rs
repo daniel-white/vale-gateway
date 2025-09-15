@@ -1,5 +1,5 @@
 use crate::http::routes::controllers::HttpRouteInfo;
-use gateway_api::apis::standard::httproutes::{HTTPRoute, HTTPRouteFilter};
+use gateway_api::apis::standard::httproutes::HTTPRouteFilter;
 use getset::Getters;
 use std::collections::HashMap;
 use tracing::warn;

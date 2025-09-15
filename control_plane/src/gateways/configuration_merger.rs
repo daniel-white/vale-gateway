@@ -109,7 +109,7 @@ impl GatewayConfigurationMergerService {
 
                             for (
                                 gateway_ref,
-                                gateway_class,
+                                _gateway_class,
                                 gateway_class_params,
                                 gateway,
                                 gateway_params,
@@ -119,7 +119,7 @@ impl GatewayConfigurationMergerService {
 
                                 let merged_config = Self::merge_single_gateway(
                                     gateway_ref,
-                                    &gateway_class,
+                                    &_gateway_class,
                                     &gateway_class_params,
                                     &gateway,
                                     &gateway_params,

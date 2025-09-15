@@ -9,7 +9,7 @@ use vg_core::http::routes::rules::{HttpRouteRuleBuilder, HttpRouteRuleKey};
 pub fn convert_http_route_rule(
     key: &HttpRouteRuleKey,
     route: &HttpRouteInfo,
-    (rule, rule_idx): (&HTTPRouteRule, usize),
+    (rule, _rule_idx): (&HTTPRouteRule, usize),
     http_filters: &HttpRouteFilters,
     builder: &mut HttpRouteRuleBuilder,
 ) {

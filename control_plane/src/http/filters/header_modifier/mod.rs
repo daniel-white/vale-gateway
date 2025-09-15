@@ -1,5 +1,5 @@
 use gateway_api::common::HeaderModifier;
-use http::{HeaderName, HeaderValue};
+use http::HeaderMap;
 use tracing::warn;
 use vg_core::http::filters::header_modifier::HttpHeaderModifierFilter;
 

@@ -190,7 +190,7 @@ where
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (ObjectRef, ObjectUniqueId, Arc<K>)> + use<K> {
-        let type_name = type_name::<K>();
+        let _type_name = type_name::<K>();
         let v = self
             .by_ref
             .iter()

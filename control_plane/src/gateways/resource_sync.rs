@@ -46,18 +46,18 @@ impl GatewayResourceSyncService {
                             let client: Client = kube_client.clone().into();
                             info!("Syncing {} gateway deployments", configurations.len());
 
-                            for (name, config) in configurations.iter() {
+                            for (_name, config) in configurations.iter() {
                                 if let Err(e) = Self::sync_single_deployment(
                                     client.clone(),
-                                    name,
+                                    _name,
                                     config.deployment(),
                                     config.namespace(),
                                 )
                                 .await
                                 {
-                                    error!("Failed to sync deployment {}: {}", name, e);
+                                    error!("Failed to sync deployment {}: {}", _name, e);
                                 } else {
-                                    debug!("Successfully synced deployment {}", name);
+                                    debug!("Successfully synced deployment {}", _name);
                                 }
                             }
                         }
@@ -88,18 +88,18 @@ impl GatewayResourceSyncService {
                             let client: Client = kube_client.clone().into();
                             info!("Syncing {} gateway services", configurations.len());
 
-                            for (name, config) in configurations.iter() {
+                            for (_name, config) in configurations.iter() {
                                 if let Err(e) = Self::sync_single_service(
                                     client.clone(),
-                                    name,
+                                    _name,
                                     config.service(),
                                     config.namespace(),
                                 )
                                 .await
                                 {
-                                    error!("Failed to sync service {}: {}", name, e);
+                                    error!("Failed to sync service {}: {}", _name, e);
                                 } else {
-                                    debug!("Successfully synced service {}", name);
+                                    debug!("Successfully synced service {}", _name);
                                 }
                             }
                         }
@@ -130,7 +130,7 @@ impl GatewayResourceSyncService {
                             let client: Client = kube_client.clone().into();
                             info!("Syncing {} gateway config maps", configurations.len());
 
-                            for (name, config) in configurations.iter() {
+                            for (_name, config) in configurations.iter() {
                                 let config_map_name = config.config_map_name();
                                 if let Err(e) = Self::sync_single_config_map(
                                     client.clone(),

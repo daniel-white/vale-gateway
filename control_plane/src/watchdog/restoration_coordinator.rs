@@ -630,10 +630,10 @@ mod tests {
         assert!(event.was_successful());
     }
 
-    #[test]
-    fn test_noop_sync_coordinator() {
-        let coordinator = NoOpSyncCoordinator::default();
-        // Basic instantiation test - async methods tested in integration tests
-        assert!(true); // Placeholder for coordinator creation
+    #[tokio::test]
+    async fn test_no_op_sync_coordinator() {
+        let _coordinator = NoOpSyncCoordinator::default();
+        // Basic smoke test - if we get here without panicking, the test passes
+        assert!(true);
     }
 }

@@ -27,7 +27,7 @@
     - Write unit tests for restoration logic and retry mechanisms
     - _Requirements: 1.4, 1.5, 4.1, 4.2, 5.1, 5.2_
 
-- [4]
+- [x]
     4. Implement generic resource watcher framework
 
     - Create ResourceWatcher generic struct that can monitor any Kubernetes resource type
@@ -36,7 +36,7 @@
     - Write unit tests for watcher initialization and event processing
     - _Requirements: 1.1, 1.2, 1.3, 5.4_
 
-- [ ] 
+- [x] 
     5. Create ConfigMap monitoring implementation
 
     - Implement specific ConfigMap watcher using the generic framework

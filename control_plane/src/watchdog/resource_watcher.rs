@@ -9,7 +9,8 @@ use tracing::{debug, error, warn};
 use vg_core::sync::signal::Receiver;
 
 use crate::kubernetes::objects::Objects;
-use crate::watchdog::{DriftDetector, WatchdogError};
+use crate::watchdog::drift_detector::DriftDetector;
+use crate::watchdog::error::WatchdogError;
 
 /// Event types that can occur during resource watching
 #[derive(Debug, Clone)]
@@ -46,10 +47,6 @@ impl Default for WatcherConfig {
 }
 
 /// Generic resource watcher that can monitor any Kubernetes resource type
-///
-/// This watcher integrates with the existing watch_objects macro pattern
-/// and provides drift detection capabilities through event handling.
-/// All data structures are immutable as required.
 pub struct ResourceWatcher<T>
 where
     T: Resource + Clone + Debug + Serialize + DeserializeOwned + Send + Sync + PartialEq + 'static,
@@ -103,15 +100,16 @@ where
         self
     }
 
-    /// Get the event receiver for processing watch events
-    pub fn event_receiver(&mut self) -> &mut mpsc::UnboundedReceiver<WatchEvent<T>> {
-        &mut self.event_receiver
+    /// Take ownership of the event receiver for processing watch events
+    pub fn take_event_receiver(&mut self) -> mpsc::UnboundedReceiver<WatchEvent<T>> {
+        // Create a new channel and replace the existing one
+        let (new_sender, new_receiver) = mpsc::unbounded_channel();
+        let old_receiver = std::mem::replace(&mut self.event_receiver, new_receiver);
+        self.event_sender = new_sender;
+        old_receiver
     }
 
     /// Start watching resources using the existing watch_objects pattern
-    ///
-    /// This method integrates with the existing Kubernetes watching infrastructure
-    /// and provides an event-driven interface for drift detection.
     pub async fn start_watching(
         &self,
         objects_rx: Receiver<Objects<T>>,
@@ -272,8 +270,6 @@ where
                 ) {
                     Ok(Some(drift)) => {
                         warn!("Detected drift: {}", drift.description());
-                        // Drift events would be handled by restoration coordinator
-                        // This is just for logging and monitoring
                     }
                     Ok(None) => {
                         debug!("No drift detected for {}/{}", namespace, resource_name);
@@ -286,11 +282,6 @@ where
                         let _ = event_sender.send(WatchEvent::Error(e));
                     }
                 }
-            } else {
-                debug!(
-                    "No expected resource found for {}/{}, skipping drift detection",
-                    namespace, resource_name
-                );
             }
         }
 
@@ -317,14 +308,12 @@ where
 
     /// Check if two objects are equal (simplified comparison)
     fn objects_equal(obj1: &Arc<T>, obj2: &Arc<T>) -> bool {
-        // For now, compare resource versions as a simple equality check
-        // In a more sophisticated implementation, this could do deep comparison
-        // of specific fields while ignoring metadata like timestamps
         obj1.resource_version() == obj2.resource_version()
     }
 }
 
 /// Builder for creating ResourceWatcher instances with configuration
+#[derive(Default)]
 pub struct ResourceWatcherBuilder<T>
 where
     T: Resource + Clone + Debug + Serialize + DeserializeOwned + Send + Sync + PartialEq + 'static,
@@ -351,39 +340,6 @@ where
         }
     }
 
-    /// Set the label selector for filtering resources
-    pub fn with_label_selector<S: Into<String>>(mut self, selector: S) -> Self {
-        self.config.label_selector = Some(selector.into());
-        self
-    }
-
-    /// Set the namespace to watch (None means all namespaces)
-    pub fn with_namespace<S: Into<String>>(mut self, namespace: Option<S>) -> Self {
-        self.config.namespace = namespace.map(|n| n.into());
-        self
-    }
-
-    /// Enable or disable drift detection
-    pub fn with_drift_detection(mut self, enabled: bool) -> Self {
-        self.config.enable_drift_detection = enabled;
-        self
-    }
-
-    /// Set the drift detector
-    pub fn with_drift_detector(
-        mut self,
-        detector: Arc<dyn DriftDetector<T> + Send + Sync>,
-    ) -> Self {
-        self.drift_detector = Some(detector);
-        self
-    }
-
-    /// Set the expected resources for drift detection
-    pub fn with_expected_resources(mut self, resources: Arc<Objects<T>>) -> Self {
-        self.expected_resources = Some(resources);
-        self
-    }
-
     /// Build the ResourceWatcher
     pub fn build(self) -> ResourceWatcher<T> {
         let mut watcher = ResourceWatcher::new(self.config);
@@ -397,15 +353,5 @@ where
         }
 
         watcher
-    }
-}
-
-impl<T> Default for ResourceWatcherBuilder<T>
-where
-    T: Resource + Clone + Debug + Serialize + DeserializeOwned + Send + Sync + PartialEq + 'static,
-    T::DynamicType: Default,
-{
-    fn default() -> Self {
-        Self::new()
     }
 }
