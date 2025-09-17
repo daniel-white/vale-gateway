@@ -1,5 +1,4 @@
 use kube::CustomResourceExt;
-use schemars::schema_for;
 use std::fs::create_dir_all;
 use std::fs::File;
 use std::io::Write;
