@@ -1,15 +1,17 @@
 use kube::CustomResourceExt;
-use std::fs::create_dir_all;
 use std::fs::File;
+use std::fs::create_dir_all;
 use std::io::Write;
 use std::path::Path;
+use vg_kube::api::v1::parameters::listeners::http::filters::{
+    AccessControlFilter, ClientAddressFilter, ErrorResponseFilter, StaticResponseFilter,
+};
 use vg_kube::api::v1::parameters::{GatewayClassParameters, GatewayParameters};
-use vg_kube::api::v1::parameters::listeners::http::filters::{AccessControlFilter, ClientAddressFilter, ErrorResponseFilter, StaticResponseFilter};
 
 fn main() {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let manifest_dir = Path::new(manifest_dir.as_str());
-    
+
     let out_dir = manifest_dir
         .join("..")
         .join("helm")

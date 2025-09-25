@@ -1,27 +1,30 @@
+use kube::Resource;
+use ouroboros::self_referencing;
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::hash::Hash;
-use kube::Resource;
-use ouroboros::self_referencing;
 
 pub struct ResourceKind<R: Resource>
-where R::DynamicType: 'static + Default
+where
+    R::DynamicType: 'static + Default,
 {
     inner: ResourceKindImpl<R>,
 }
 
-impl <R: Resource> Default for ResourceKind<R>
-where R::DynamicType: 'static + Default
+impl<R: Resource> Default for ResourceKind<R>
+where
+    R::DynamicType: 'static + Default,
 {
     fn default() -> Self {
         Self {
-            inner: Default::default()
+            inner: Default::default(),
         }
     }
 }
 
-impl <R: Resource> ResourceKind<R>
-where R::DynamicType: 'static + Default
+impl<R: Resource> ResourceKind<R>
+where
+    R::DynamicType: 'static + Default,
 {
     pub fn group(&self) -> Option<&str> {
         self.inner.group()
@@ -32,18 +35,20 @@ where R::DynamicType: 'static + Default
     }
 }
 
-impl<R: Resource> Clone for  ResourceKind<R>
-where R::DynamicType: 'static + Default
+impl<R: Resource> Clone for ResourceKind<R>
+where
+    R::DynamicType: 'static + Default,
 {
     fn clone(&self) -> Self {
         Self {
-            inner: Default::default()
+            inner: Default::default(),
         }
     }
 }
 
-impl <R: Resource> Debug for ResourceKind<R>
-where R::DynamicType: 'static + Default
+impl<R: Resource> Debug for ResourceKind<R>
+where
+    R::DynamicType: 'static + Default,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ResourceKind")
@@ -53,21 +58,20 @@ where R::DynamicType: 'static + Default
     }
 }
 
-impl <R: Resource> PartialEq for ResourceKind<R>
-where R::DynamicType: 'static + Default
+impl<R: Resource> PartialEq for ResourceKind<R>
+where
+    R::DynamicType: 'static + Default,
 {
     fn eq(&self, _other: &Self) -> bool {
         true
     }
 }
 
-impl <R: Resource> Eq for ResourceKind<R>
-where R::DynamicType: 'static + Default
-{
-}
+impl<R: Resource> Eq for ResourceKind<R> where R::DynamicType: 'static + Default {}
 
-impl <R: Resource> Hash for ResourceKind<R>
-where R::DynamicType: 'static + Default
+impl<R: Resource> Hash for ResourceKind<R>
+where
+    R::DynamicType: 'static + Default,
 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.group().hash(state);
@@ -77,7 +81,8 @@ where R::DynamicType: 'static + Default
 
 #[self_referencing]
 struct ResourceKindImpl<R: Resource>
-where R::DynamicType: 'static + Default
+where
+    R::DynamicType: 'static + Default,
 {
     dynamic_type: R::DynamicType,
     #[borrows(dynamic_type)]
@@ -89,7 +94,8 @@ where R::DynamicType: 'static + Default
 }
 
 impl<R: Resource> ResourceKindImpl<R>
-where R::DynamicType: 'static + Default
+where
+    R::DynamicType: 'static + Default,
 {
     pub fn group(&self) -> Option<&str> {
         let group = self.borrow_group();
@@ -106,22 +112,23 @@ where R::DynamicType: 'static + Default
 }
 
 impl<R: Resource> Default for ResourceKindImpl<R>
-where R::DynamicType: 'static + Default
+where
+    R::DynamicType: 'static + Default,
 {
     fn default() -> Self {
         ResourceKindImplBuilder {
             dynamic_type: R::DynamicType::default(),
             group_builder: |dt| R::group(dt),
             kind_builder: |dt| R::kind(dt),
-        }.build()
+        }
+        .build()
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use assertables::{assert_none, assert_some_eq_x};
     use super::*;
+    use assertables::{assert_none, assert_some_eq_x};
     use gateway_api::gatewayclasses::GatewayClass;
     use k8s_openapi::api::core::v1::Pod;
 

@@ -1,0 +1,23 @@
+[package]
+name = "vg-http"
+version = "0.0.0"
+edition = "2024"
+
+[dependencies]
+async-trait.workspace = true
+bytes.workspace = true
+ipnet.workspace = true
+hickory-proto.workspace = true
+http.workspace = true
+opentelemetry.workspace = true
+pingora.workspace = true
+problemdetails.workspace = true
+serde_json.workspace = true
+strum.workspace = true
+tracing.workspace = true
+tracing-opentelemetry.workspace = true
+trusted-proxies.workspace = true
+typed-builder.workspace = true
+tokio.workspace = true
+url.workspace = true
+vg-core = { path = "../core" }

@@ -1,6 +1,6 @@
+use k8s_openapi::api::apps::v1::DeploymentStrategy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use k8s_openapi::api::apps::v1::DeploymentStrategy;
 
 #[derive(Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -35,4 +35,3 @@ pub struct GatewayDeploymentImage {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tag: Option<String>,
 }
-

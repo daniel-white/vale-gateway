@@ -10,9 +10,7 @@ pub struct GatewayInstrumentation {
     pub open_telemetry: Option<GatewayInstrumentationOpenTelemetry>,
 }
 
-#[derive(
-    Deserialize, Serialize, Copy, Clone, Debug, JsonSchema, PartialEq,
-)]
+#[derive(Deserialize, Serialize, Copy, Clone, Debug, JsonSchema, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub enum GatewayInstrumentationLogLevel {
     Debug,

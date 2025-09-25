@@ -1,23 +1,25 @@
 mod cluster_scoped;
-mod namespace_scoped;
 mod collection;
 mod kinds;
 mod macros;
+mod namespace_scoped;
 
-use paste::paste;
+use crate::api::v1::parameters::listeners::http::filters::{
+    AccessControlFilter, ClientAddressFilter, ErrorResponseFilter, StaticResponseFilter,
+};
+use crate::api::v1::parameters::{GatewayClassParameters, GatewayParameters};
+use crate::{cluster_scope, namespace_scope};
+pub use cluster_scoped::*;
+pub use collection::*;
 use gateway_api::gatewayclasses::GatewayClass;
 use gateway_api::gateways::Gateway;
 use gateway_api::httproutes::HTTPRoute;
 use k8s_openapi::api::apps::v1::Deployment;
 use k8s_openapi::api::core::v1::{ConfigMap, Service};
 use k8s_openapi::api::discovery::v1::EndpointSlice;
-pub use cluster_scoped::*;
-pub use namespace_scoped::*;
-pub use collection::*;
 pub use kinds::*;
-use crate::api::v1::parameters::{GatewayClassParameters, GatewayParameters};
-use crate::api::v1::parameters::listeners::http::filters::{AccessControlFilter, ClientAddressFilter, ErrorResponseFilter, StaticResponseFilter};
-use crate::{cluster_scope, namespace_scope};
+pub use namespace_scoped::*;
+use paste::paste;
 
 impl ClusterScopedResource for GatewayClass {}
 

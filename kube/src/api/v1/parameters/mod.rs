@@ -1,10 +1,10 @@
-use kube::CustomResource;
-use serde::{Deserialize, Serialize};
-use k8s_openapi::api::core::v1::ServiceSpec;
-use schemars::JsonSchema;
-use instrumentation::GatewayInstrumentation;
-use super::deployments::{GatewayDeployment};
+use super::deployments::GatewayDeployment;
 use crate::api::v1::parameters::listeners::GatewayListener;
+use instrumentation::GatewayInstrumentation;
+use k8s_openapi::api::core::v1::ServiceSpec;
+use kube::CustomResource;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 pub mod instrumentation;
 pub mod listeners;
@@ -63,6 +63,3 @@ pub struct GatewayConfiguration {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub listeners: Option<GatewayListener>,
 }
-
-
-

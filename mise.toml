@@ -1,0 +1,20 @@
+[tools]
+ctlptl = "latest"
+minikube = "1.30"
+rust = "1.90"
+tilt = "0.35"
+
+[tasks.clean]
+run = "cargo clean"
+
+[tasks.fmt]
+run = "cargo fmt --all -- --emit files"
+
+[tasks.clippy]
+run = "cargo clippy --all --fix --allow-dirty -- -D warnings"
+
+[tasks.lint]
+run = [
+    { task = "fmt" },
+    { task = "clippy" }
+]

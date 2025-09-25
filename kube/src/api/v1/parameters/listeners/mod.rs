@@ -1,6 +1,6 @@
+use http::GatewayHttpListener;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use http::GatewayHttpListener;
 
 pub mod http;
 

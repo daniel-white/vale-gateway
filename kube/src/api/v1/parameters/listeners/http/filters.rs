@@ -1,11 +1,11 @@
-use std::net::IpAddr;
-use serde::{Deserialize, Serialize};
-use gateway_api::common::{HeaderModifier, RequestRedirect};
-use schemars::{json_schema, JsonSchema, Schema, SchemaGenerator};
-use kube::CustomResource;
-use k8s_openapi::apimachinery::pkg::apis::meta::v1::{Condition, Time};
-use ipnet::IpNet;
 use crate::api::v1::common::Ref;
+use gateway_api::common::{HeaderModifier, RequestRedirect};
+use ipnet::IpNet;
+use k8s_openapi::apimachinery::pkg::apis::meta::v1::{Condition, Time};
+use kube::CustomResource;
+use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
+use serde::{Deserialize, Serialize};
+use std::net::IpAddr;
 
 #[derive(Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq)]
 #[serde(rename_all = "camelCase")]
