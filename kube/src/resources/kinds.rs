@@ -139,7 +139,7 @@ mod tests {
         assert_eq!(rk.kind(), "GatewayClass");
     }
 
-    #[rstest]
+    #[test]
     fn test_resource_kind_without_group() {
         let rk = ResourceKindImpl::<Pod>::default();
         assert_none!(rk.group());
