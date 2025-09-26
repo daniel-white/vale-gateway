@@ -61,160 +61,118 @@ impl From<ErrorResponseCode> for StatusCode {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::*;
 
-    #[test]
-    fn test_error_code_mapping_to_http_status() {
-        // Test mapping custom error codes to HTTP status codes
-        assert_eq!(
-            StatusCode::from(ErrorResponseCode::NoRoute),
-            StatusCode::NOT_FOUND
-        );
-        assert_eq!(
-            StatusCode::from(ErrorResponseCode::AccessDenied),
-            StatusCode::FORBIDDEN
-        );
-        assert_eq!(
-            StatusCode::from(ErrorResponseCode::MissingConfiguration),
-            StatusCode::INTERNAL_SERVER_ERROR
-        );
-        assert_eq!(
-            StatusCode::from(ErrorResponseCode::UpstreamUnavailable),
-            StatusCode::SERVICE_UNAVAILABLE
-        );
-        assert_eq!(
-            StatusCode::from(ErrorResponseCode::InvalidConfiguration),
-            StatusCode::INTERNAL_SERVER_ERROR
-        );
+    #[rstest]
+    #[case(ErrorResponseCode::NoRoute, StatusCode::NOT_FOUND)]
+    #[case(ErrorResponseCode::AccessDenied, StatusCode::FORBIDDEN)]
+    #[case(
+        ErrorResponseCode::MissingConfiguration,
+        StatusCode::INTERNAL_SERVER_ERROR
+    )]
+    #[case(
+        ErrorResponseCode::UpstreamUnavailable,
+        StatusCode::SERVICE_UNAVAILABLE
+    )]
+    #[case(
+        ErrorResponseCode::InvalidConfiguration,
+        StatusCode::INTERNAL_SERVER_ERROR
+    )]
+    fn test_error_code_mapping_to_http_status(
+        #[case] error_code: ErrorResponseCode,
+        #[case] expected_status: StatusCode,
+    ) {
+        assert_eq!(StatusCode::from(error_code), expected_status);
+    }
+
+    #[rstest]
+    #[case(ErrorResponseCode::NoRoute, "No matching route found")]
+    #[case(ErrorResponseCode::AccessDenied, "Access denied")]
+    #[case(ErrorResponseCode::MissingConfiguration, "Missing configuration")]
+    #[case(ErrorResponseCode::UpstreamUnavailable, "Upstream unavailable")]
+    #[case(ErrorResponseCode::InvalidConfiguration, "Invalid configuration")]
+    fn test_error_code_descriptions(
+        #[case] error_code: ErrorResponseCode,
+        #[case] expected_message: &str,
+    ) {
+        assert_eq!(error_code.message(), expected_message);
+    }
+
+    #[rstest]
+    #[case(StatusCode::BAD_REQUEST, StatusCode::BAD_REQUEST)]
+    #[case(StatusCode::UNAUTHORIZED, StatusCode::UNAUTHORIZED)]
+    #[case(StatusCode::BAD_GATEWAY, StatusCode::BAD_GATEWAY)]
+    fn test_status_code_variant_mapping(
+        #[case] input_status: StatusCode,
+        #[case] expected_status: StatusCode,
+    ) {
+        let error_code = ErrorResponseCode::StatusCode(input_status);
+        assert_eq!(StatusCode::from(error_code), expected_status);
+    }
+
+    #[rstest]
+    #[case(StatusCode::BAD_REQUEST, "Bad Request")]
+    #[case(StatusCode::UNAUTHORIZED, "Unauthorized")]
+    #[case(StatusCode::IM_A_TEAPOT, "I'm a teapot")]
+    fn test_status_code_variant_descriptions(
+        #[case] input_status: StatusCode,
+        #[case] expected_message: &str,
+    ) {
+        let error_code = ErrorResponseCode::StatusCode(input_status);
+        assert_eq!(error_code.message(), expected_message);
     }
 
     #[test]
-    fn test_error_code_descriptions() {
-        // Test the message descriptions for error codes using the new .message() method
-        assert_eq!(
-            ErrorResponseCode::NoRoute.message(),
-            "No matching route found"
-        );
-        assert_eq!(ErrorResponseCode::AccessDenied.message(), "Access denied");
-        assert_eq!(
-            ErrorResponseCode::MissingConfiguration.message(),
-            "Missing configuration"
-        );
-        assert_eq!(
-            ErrorResponseCode::UpstreamUnavailable.message(),
-            "Upstream unavailable"
-        );
-        assert_eq!(
-            ErrorResponseCode::InvalidConfiguration.message(),
-            "Invalid configuration"
-        );
-    }
-
-    #[test]
-    fn test_status_code_variant_mapping() {
-        // Test that StatusCode variant passes through the status code unchanged
-        let custom_status = StatusCode::BAD_REQUEST;
-        let error_code = ErrorResponseCode::StatusCode(custom_status);
-        assert_eq!(StatusCode::from(error_code), StatusCode::BAD_REQUEST);
-
-        let another_status = StatusCode::UNAUTHORIZED;
-        let another_error_code = ErrorResponseCode::StatusCode(another_status);
-        assert_eq!(
-            StatusCode::from(another_error_code),
-            StatusCode::UNAUTHORIZED
-        );
-
-        let server_error = StatusCode::BAD_GATEWAY;
-        let server_error_code = ErrorResponseCode::StatusCode(server_error);
-        assert_eq!(StatusCode::from(server_error_code), StatusCode::BAD_GATEWAY);
-    }
-
-    #[test]
-    fn test_status_code_variant_descriptions() {
-        // Test message descriptions for StatusCode variant using the new .message() method
-        let bad_request_code = ErrorResponseCode::StatusCode(StatusCode::BAD_REQUEST);
-        assert_eq!(bad_request_code.message(), "Bad Request");
-
-        let unauthorized_code = ErrorResponseCode::StatusCode(StatusCode::UNAUTHORIZED);
-        assert_eq!(unauthorized_code.message(), "Unauthorized");
-
-        let teapot_code = ErrorResponseCode::StatusCode(StatusCode::IM_A_TEAPOT);
-        assert_eq!(teapot_code.message(), "I'm a teapot");
-
+    fn test_status_code_variant_descriptions_unknown() {
         // Test with a status code that doesn't have a canonical reason
         let custom_status = StatusCode::from_u16(299).unwrap();
         let custom_code = ErrorResponseCode::StatusCode(custom_status);
         assert_eq!(custom_code.message(), "Unknown error");
     }
 
+    #[rstest]
+    #[case(ErrorResponseCode::NoRoute, "NO_ROUTE")]
+    #[case(ErrorResponseCode::AccessDenied, "ACCESS_DENIED")]
+    #[case(ErrorResponseCode::MissingConfiguration, "MISSING_CONFIGURATION")]
+    #[case(ErrorResponseCode::UpstreamUnavailable, "UPSTREAM_UNAVAILABLE")]
+    #[case(ErrorResponseCode::InvalidConfiguration, "INVALID_CONFIGURATION")]
+    fn test_to_str_error_variants(
+        #[case] error_code: ErrorResponseCode,
+        #[case] expected_str: &str,
+    ) {
+        assert_eq!(error_code.to_str(), expected_str);
+    }
+
+    #[rstest]
+    #[case(StatusCode::BAD_REQUEST, "BAD_REQUEST")]
+    #[case(StatusCode::UNAUTHORIZED, "UNAUTHORIZED")]
+    #[case(StatusCode::IM_A_TEAPOT, "IM_A_TEAPOT")]
+    #[case(StatusCode::NOT_FOUND, "NOT_FOUND")]
+    #[case(StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR")]
+    fn test_to_str_status_code_variants(
+        #[case] status_code: StatusCode,
+        #[case] expected_str: &str,
+    ) {
+        let error_code = ErrorResponseCode::StatusCode(status_code);
+        assert_eq!(error_code.to_str(), expected_str);
+    }
+
     #[test]
-    fn test_to_str() {
-        // Test our custom to_str conversion for all variants
-        assert_eq!(ErrorResponseCode::NoRoute.to_str(), "NO_ROUTE");
-        assert_eq!(ErrorResponseCode::AccessDenied.to_str(), "ACCESS_DENIED");
-        assert_eq!(
-            ErrorResponseCode::MissingConfiguration.to_str(),
-            "MISSING_CONFIGURATION"
-        );
-        assert_eq!(
-            ErrorResponseCode::UpstreamUnavailable.to_str(),
-            "UPSTREAM_UNAVAILABLE"
-        );
-        assert_eq!(
-            ErrorResponseCode::InvalidConfiguration.to_str(),
-            "INVALID_CONFIGURATION"
-        );
-
-        // Test StatusCode variants with canonical reasons
-        let bad_request_code = ErrorResponseCode::StatusCode(StatusCode::BAD_REQUEST);
-        assert_eq!(bad_request_code.to_str(), "BAD_REQUEST");
-
-        let unauthorized_code = ErrorResponseCode::StatusCode(StatusCode::UNAUTHORIZED);
-        assert_eq!(unauthorized_code.to_str(), "UNAUTHORIZED");
-
-        // The famous teapot test - strips the apostrophe!
-        let teapot_code = ErrorResponseCode::StatusCode(StatusCode::IM_A_TEAPOT);
-        assert_eq!(teapot_code.to_str(), "IM_A_TEAPOT");
-
+    fn test_to_str_unknown_status() {
         // Test with a status code that doesn't have a canonical reason
         let custom_status = StatusCode::from_u16(299).unwrap();
         let custom_code = ErrorResponseCode::StatusCode(custom_status);
         assert_eq!(custom_code.to_str(), "UNKNOWN_ERROR");
-
-        // Test more complex status codes
-        let not_found_code = ErrorResponseCode::StatusCode(StatusCode::NOT_FOUND);
-        assert_eq!(not_found_code.to_str(), "NOT_FOUND");
-
-        let internal_server_error_code =
-            ErrorResponseCode::StatusCode(StatusCode::INTERNAL_SERVER_ERROR);
-        assert_eq!(internal_server_error_code.to_str(), "INTERNAL_SERVER_ERROR");
     }
 
-    #[test]
-    fn test_into_static_str() {
-        // Test strum's IntoStaticStr conversion for all variants
-        let no_route_str: &'static str = ErrorResponseCode::NoRoute.into();
-        assert_eq!(no_route_str, "NO_ROUTE");
-
-        let access_denied_str: &'static str = ErrorResponseCode::AccessDenied.into();
-        assert_eq!(access_denied_str, "ACCESS_DENIED");
-
-        let missing_config_str: &'static str = ErrorResponseCode::MissingConfiguration.into();
-        assert_eq!(missing_config_str, "MISSING_CONFIGURATION");
-
-        let upstream_unavailable_str: &'static str = ErrorResponseCode::UpstreamUnavailable.into();
-        assert_eq!(upstream_unavailable_str, "UPSTREAM_UNAVAILABLE");
-
-        let invalid_config_str: &'static str = ErrorResponseCode::InvalidConfiguration.into();
-        assert_eq!(invalid_config_str, "INVALID_CONFIGURATION");
-
-        // Test StatusCode variant - strum will just return "STATUS_CODE"
-        let status_code_str: &'static str =
-            ErrorResponseCode::StatusCode(StatusCode::BAD_REQUEST).into();
-        assert_eq!(status_code_str, "STATUS_CODE");
-
-        // All StatusCode variants return the same string with strum
-        let another_status_str: &'static str =
-            ErrorResponseCode::StatusCode(StatusCode::IM_A_TEAPOT).into();
-        assert_eq!(another_status_str, "STATUS_CODE");
+    #[rstest]
+    #[case(ErrorResponseCode::NoRoute, "NO_ROUTE")]
+    #[case(ErrorResponseCode::AccessDenied, "ACCESS_DENIED")]
+    #[case(ErrorResponseCode::MissingConfiguration, "MISSING_CONFIGURATION")]
+    #[case(ErrorResponseCode::UpstreamUnavailable, "UPSTREAM_UNAVAILABLE")]
+    #[case(ErrorResponseCode::InvalidConfiguration, "INVALID_CONFIGURATION")]
+    fn test_into_static_str(#[case] error_code: ErrorResponseCode, #[case] expected_str: &str) {
+        let result: &'static str = error_code.into();
+        assert_eq!(result, expected_str);
     }
 }
