@@ -26,9 +26,9 @@ impl RedirectResponseFilterHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use assertables::*;
+
+    use http::Method;
     use http::header::HeaderValue;
-    use http::{HeaderMap, Method, Uri};
     use std::str::FromStr;
 
     fn create_empty_parts() -> Parts {

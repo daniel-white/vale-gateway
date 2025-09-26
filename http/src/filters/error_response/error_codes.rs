@@ -10,7 +10,7 @@ pub enum ErrorResponseCode {
     MissingConfiguration,
     UpstreamUnavailable,
     InvalidConfiguration,
-    StatusCode(StatusCode)
+    StatusCode(StatusCode),
 }
 
 impl From<ErrorResponseCode> for StatusCode {
@@ -34,7 +34,9 @@ impl From<ErrorResponseCode> for Cow<'static, str> {
             ErrorResponseCode::MissingConfiguration => "Missing configuration".into(),
             ErrorResponseCode::UpstreamUnavailable => "Upstream unavailable".into(),
             ErrorResponseCode::InvalidConfiguration => "Invalid configuration".into(),
-            ErrorResponseCode::StatusCode(status) => status.canonical_reason().unwrap_or("Unknown error").into(),
+            ErrorResponseCode::StatusCode(status) => {
+                status.canonical_reason().unwrap_or("Unknown error").into()
+            }
         }
     }
 }
@@ -42,10 +44,9 @@ impl From<ErrorResponseCode> for Cow<'static, str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use assertables::*;
 
-    #[tokio::test]
-    async fn test_error_code_mapping_to_http_status() {
+    #[test]
+    fn test_error_code_mapping_to_http_status() {
         // Test mapping custom error codes to HTTP status codes
         assert_eq!(
             StatusCode::from(ErrorResponseCode::NoRoute),
@@ -69,8 +70,8 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn test_error_code_descriptions() {
+    #[test]
+    fn test_error_code_descriptions() {
         // Test the message descriptions for error codes
         let no_route_msg: Cow<'static, str> = ErrorResponseCode::NoRoute.into();
         let access_denied_msg: Cow<'static, str> = ErrorResponseCode::AccessDenied.into();
@@ -86,8 +87,8 @@ mod tests {
         assert_eq!(invalid_config_msg, "Invalid configuration");
     }
 
-    #[tokio::test]
-    async fn test_status_code_variant_mapping() {
+    #[test]
+    fn test_status_code_variant_mapping() {
         // Test that StatusCode variant passes through the status code unchanged
         let custom_status = StatusCode::BAD_REQUEST;
         let error_code = ErrorResponseCode::StatusCode(custom_status);
@@ -95,15 +96,18 @@ mod tests {
 
         let another_status = StatusCode::UNAUTHORIZED;
         let another_error_code = ErrorResponseCode::StatusCode(another_status);
-        assert_eq!(StatusCode::from(another_error_code), StatusCode::UNAUTHORIZED);
+        assert_eq!(
+            StatusCode::from(another_error_code),
+            StatusCode::UNAUTHORIZED
+        );
 
         let server_error = StatusCode::BAD_GATEWAY;
         let server_error_code = ErrorResponseCode::StatusCode(server_error);
         assert_eq!(StatusCode::from(server_error_code), StatusCode::BAD_GATEWAY);
     }
 
-    #[tokio::test]
-    async fn test_status_code_variant_descriptions() {
+    #[test]
+    fn test_status_code_variant_descriptions() {
         // Test message descriptions for StatusCode variant
         let bad_request_code = ErrorResponseCode::StatusCode(StatusCode::BAD_REQUEST);
         let bad_request_msg: Cow<'static, str> = bad_request_code.into();

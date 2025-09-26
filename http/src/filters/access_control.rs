@@ -117,9 +117,7 @@ impl AccessControlFilterHandlerBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use assertables::*;
-    use async_trait::async_trait;
-    use http::{HeaderMap, HeaderValue, Method, Uri};
+
     use std::str::FromStr;
 
     fn ip(s: &str) -> IpAddr {

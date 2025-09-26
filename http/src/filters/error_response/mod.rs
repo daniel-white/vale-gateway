@@ -21,7 +21,7 @@ impl ErrorResponseFilterHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use assertables::*;
+
     use http::StatusCode;
 
     #[tokio::test]

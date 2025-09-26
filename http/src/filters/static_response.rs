@@ -57,7 +57,6 @@ impl StaticResponseFilterHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use assertables::*;
 
     #[tokio::test]
     async fn test_static_response_with_text_body() {
@@ -295,8 +294,6 @@ mod tests {
     #[tokio::test]
     async fn test_static_response_cors_preflight() {
         // Test handling CORS preflight requests with static response
-        use bytes::Bytes;
-        use std::sync::Arc;
 
         #[derive(Debug)]
         struct CorsBodyResolver;

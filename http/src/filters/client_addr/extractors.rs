@@ -160,8 +160,8 @@ impl TrustedProxiesClientAddrExtractorBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use assertables::*;
-    use http::{HeaderMap, HeaderValue, Method, Uri};
+
+    use http::HeaderValue;
     use std::str::FromStr;
 
     fn create_empty_parts() -> Parts {

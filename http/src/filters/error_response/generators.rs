@@ -123,10 +123,8 @@ impl ErrorResponseGenerator for ProblemDetailErrorResponseGenerator {
 mod tests {
     use super::*;
     use crate::filters::error_response::ErrorResponseFilterHandler;
-    use assertables::*;
-    use bytes::Bytes;
-    use http::{HeaderValue, Response, StatusCode};
-    use serde_json::json;
+
+    use http::StatusCode;
 
     #[tokio::test]
     async fn test_json_error_response_generator() {

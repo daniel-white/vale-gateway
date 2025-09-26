@@ -50,16 +50,16 @@ run = "cargo fmt --all -- --check"
 # =============================================================================
 
 [tasks.clippy]
-description = "Run clippy lints in debug mode"
-run = "cargo clippy --all -- -D warnings"
+description = "Run clippy lints in debug mode including tests"
+run = "cargo clippy --all --tests -- -D warnings"
 
 [tasks.clippy-release]
-description = "Run clippy lints in release mode"
-run = "cargo clippy --all --release -- -D warnings"
+description = "Run clippy lints in release mode including tests"
+run = "cargo clippy --all --tests --release -- -D warnings"
 
 [tasks.clippy-fix]
-description = "Auto-fix clippy lints where possible"
-run = "cargo clippy --all --fix --allow-dirty --allow-staged -- -D warnings"
+description = "Auto-fix clippy lints where possible including tests"
+run = "cargo clippy --all --tests --fix --allow-dirty --allow-staged -- -D warnings"
 
 # =============================================================================
 # COMPOUND TASKS - Combine multiple operations

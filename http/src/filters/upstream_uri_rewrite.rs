@@ -19,9 +19,9 @@ impl UpstreamUriRewriteFilterHandler {
 mod tests {
     use super::*;
     use crate::rewriting::uri_rewriter::UriRewriter;
-    use assertables::*;
-    use http::{HeaderMap, HeaderValue, Method, Uri};
-    use std::collections::HashMap;
+
+    use http::{HeaderValue, Uri};
+
     use std::str::FromStr;
 
     fn create_empty_parts() -> Parts {
@@ -30,8 +30,8 @@ mod tests {
         parts
     }
 
-    #[tokio::test]
-    async fn test_uri_rewrite_simple_path_replacement() {
+    #[test]
+    fn test_uri_rewrite_simple_path_replacement() {
         // Test simple URI rewriting using the actual UpstreamUriRewriteFilterHandler
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -58,8 +58,8 @@ mod tests {
         assert!(new_uri.to_string().contains("/api/v1/users") || !new_uri.to_string().is_empty());
     }
 
-    #[tokio::test]
-    async fn test_uri_rewrite_with_regex_pattern() {
+    #[test]
+    fn test_uri_rewrite_with_regex_pattern() {
         // Test URI rewriting with patterns (would need pattern-aware rewriter)
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -85,8 +85,8 @@ mod tests {
         assert!(!new_uri.to_string().is_empty());
     }
 
-    #[tokio::test]
-    async fn test_uri_rewrite_host_change() {
+    #[test]
+    fn test_uri_rewrite_host_change() {
         // Test changing the host in URI rewriting
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -112,8 +112,8 @@ mod tests {
         assert!(!new_uri.to_string().is_empty());
     }
 
-    #[tokio::test]
-    async fn test_uri_rewrite_scheme_change() {
+    #[test]
+    fn test_uri_rewrite_scheme_change() {
         // Test changing the scheme (http to https or vice versa)
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -139,8 +139,8 @@ mod tests {
         assert!(new_uri.scheme().is_some());
     }
 
-    #[tokio::test]
-    async fn test_uri_rewrite_port_change() {
+    #[test]
+    fn test_uri_rewrite_port_change() {
         // Test changing the port in URI rewriting
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -166,8 +166,8 @@ mod tests {
         assert!(!new_uri.to_string().is_empty());
     }
 
-    #[tokio::test]
-    async fn test_uri_rewrite_query_parameter_manipulation() {
+    #[test]
+    fn test_uri_rewrite_query_parameter_manipulation() {
         // Test query parameter handling
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -194,8 +194,8 @@ mod tests {
         assert!(!new_uri.to_string().is_empty());
     }
 
-    #[tokio::test]
-    async fn test_uri_rewrite_path_prefix_addition() {
+    #[test]
+    fn test_uri_rewrite_path_prefix_addition() {
         // Test adding a path prefix
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -221,8 +221,8 @@ mod tests {
         assert!(new_uri.path().contains("users") || !new_uri.path().is_empty());
     }
 
-    #[tokio::test]
-    async fn test_uri_rewrite_path_prefix_removal() {
+    #[test]
+    fn test_uri_rewrite_path_prefix_removal() {
         // Test removing a path prefix
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -248,8 +248,8 @@ mod tests {
         assert!(!new_uri.to_string().is_empty());
     }
 
-    #[tokio::test]
-    async fn test_uri_rewrite_conditional_based_on_headers() {
+    #[test]
+    fn test_uri_rewrite_conditional_based_on_headers() {
         // Test conditional URI rewriting (would need header-aware rewriter)
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -278,8 +278,8 @@ mod tests {
         assert!(!new_uri.to_string().is_empty());
     }
 
-    #[tokio::test]
-    async fn test_uri_rewrite_load_balancing_backend_selection() {
+    #[test]
+    fn test_uri_rewrite_load_balancing_backend_selection() {
         // Test rewriting URI for load balancing
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -308,8 +308,8 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_uri_rewrite_path_normalization() {
+    #[test]
+    fn test_uri_rewrite_path_normalization() {
         // Test path normalization
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -335,8 +335,8 @@ mod tests {
         assert!(!new_uri.to_string().is_empty());
     }
 
-    #[tokio::test]
-    async fn test_uri_rewrite_template_based() {
+    #[test]
+    fn test_uri_rewrite_template_based() {
         // Test template-based URI rewriting
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -362,8 +362,8 @@ mod tests {
         assert!(!new_uri.to_string().is_empty());
     }
 
-    #[tokio::test]
-    async fn test_uri_rewrite_chained_transformations() {
+    #[test]
+    fn test_uri_rewrite_chained_transformations() {
         // Test multiple URI transformations in sequence
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -389,8 +389,8 @@ mod tests {
         assert!(!new_uri.to_string().is_empty());
     }
 
-    #[tokio::test]
-    async fn test_uri_rewrite_preserve_original_components() {
+    #[test]
+    fn test_uri_rewrite_preserve_original_components() {
         // Test that non-modified URI components are preserved
 
         let uri_rewriter = UriRewriter::builder().build();

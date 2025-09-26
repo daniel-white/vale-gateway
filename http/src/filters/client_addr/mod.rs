@@ -37,8 +37,8 @@ impl ClientAddrFilterHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use assertables::*;
-    use http::{HeaderValue, Method, Uri, request::Parts};
+
+    use http::{HeaderValue, request::Parts};
     use std::str::FromStr;
 
     fn create_empty_parts() -> Parts {
@@ -47,8 +47,8 @@ mod tests {
         parts
     }
 
-    #[tokio::test]
-    async fn test_client_addr_extraction_from_direct_connection() {
+    #[test]
+    fn test_client_addr_extraction_from_direct_connection() {
         // Test extracting client address from direct connection using actual ClientAddrFilterHandler
         use std::net::SocketAddr;
 
@@ -68,8 +68,8 @@ mod tests {
         assert!(result.is_none());
     }
 
-    #[tokio::test]
-    async fn test_client_addr_extraction_from_x_forwarded_for() {
+    #[test]
+    fn test_client_addr_extraction_from_x_forwarded_for() {
         // Test extracting client address from X-Forwarded-For header using TrustedHeaderClientAddrExtractor
         use std::net::SocketAddr;
 
@@ -97,8 +97,8 @@ mod tests {
         assert_eq!(result.unwrap(), IpAddr::from_str("203.0.113.1").unwrap());
     }
 
-    #[tokio::test]
-    async fn test_client_addr_extraction_from_x_real_ip() {
+    #[test]
+    fn test_client_addr_extraction_from_x_real_ip() {
         // Test extracting client address from X-Real-IP header
         use std::net::SocketAddr;
 
@@ -125,8 +125,8 @@ mod tests {
         assert_eq!(result.unwrap(), IpAddr::from_str("198.51.100.5").unwrap());
     }
 
-    #[tokio::test]
-    async fn test_client_addr_trusted_proxy_validation() {
+    #[test]
+    fn test_client_addr_trusted_proxy_validation() {
         // Test that proxy headers are trusted using TrustedProxiesClientAddrExtractor
         use std::net::SocketAddr;
 
@@ -155,8 +155,8 @@ mod tests {
         assert!(result.is_some());
     }
 
-    #[tokio::test]
-    async fn test_client_addr_multiple_proxy_chain() {
+    #[test]
+    fn test_client_addr_multiple_proxy_chain() {
         // Test handling multiple proxies in forwarded headers
         use std::net::SocketAddr;
 
@@ -183,8 +183,8 @@ mod tests {
         assert!(result.is_some());
     }
 
-    #[tokio::test]
-    async fn test_client_addr_header_precedence() {
+    #[test]
+    fn test_client_addr_header_precedence() {
         // Test header precedence when multiple headers are present
         use std::net::SocketAddr;
 
@@ -215,8 +215,8 @@ mod tests {
         assert_eq!(result.unwrap(), IpAddr::from_str("198.51.100.1").unwrap());
     }
 
-    #[tokio::test]
-    async fn test_client_addr_ipv6_support() {
+    #[test]
+    fn test_client_addr_ipv6_support() {
         // Test IPv6 client address extraction
         use std::net::SocketAddr;
 
@@ -243,8 +243,8 @@ mod tests {
         assert_eq!(result.unwrap(), IpAddr::from_str("2001:db8::1").unwrap());
     }
 
-    #[tokio::test]
-    async fn test_client_addr_invalid_header_handling() {
+    #[test]
+    fn test_client_addr_invalid_header_handling() {
         // Test handling of invalid IP addresses in headers
         use std::net::SocketAddr;
 
@@ -271,8 +271,8 @@ mod tests {
         assert!(result.is_none());
     }
 
-    #[tokio::test]
-    async fn test_client_addr_cloudflare_headers() {
+    #[test]
+    fn test_client_addr_cloudflare_headers() {
         // Test Cloudflare-specific headers (CF-Connecting-IP)
         use std::net::SocketAddr;
 
@@ -299,8 +299,8 @@ mod tests {
         assert_eq!(result.unwrap(), IpAddr::from_str("203.0.113.1").unwrap());
     }
 
-    #[tokio::test]
-    async fn test_client_addr_upstream_header_injection() {
+    #[test]
+    fn test_client_addr_upstream_header_injection() {
         // Test that upstream header is properly set when configured
         use std::net::SocketAddr;
 
@@ -333,8 +333,8 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn test_client_addr_upstream_header_removal() {
+    #[test]
+    fn test_client_addr_upstream_header_removal() {
         // Test that upstream header is removed when present
         use std::net::SocketAddr;
 
@@ -351,7 +351,7 @@ mod tests {
             .headers
             .insert("x-client-ip", HeaderValue::from_static("existing-value"));
 
-        let result = handler.filter(socket_addr, &mut request_parts);
+        let _result = handler.filter(socket_addr, &mut request_parts);
 
         // Should remove the existing header (since extractor returns None)
         assert!(request_parts.headers.get("x-client-ip").is_none());
