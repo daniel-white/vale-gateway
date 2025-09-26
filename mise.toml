@@ -1,20 +1,125 @@
 [tools]
 ctlptl = "latest"
+#hk = "1.15"
 minikube = "1.30"
 rust = "1.90"
 tilt = "0.35"
 
+# =============================================================================
+# CORE TASKS - Primary development commands
+# =============================================================================
+
+[tasks.build]
+description = "Build all crates in debug mode"
+run = "cargo build --all"
+
+[tasks.build-release]
+description = "Build all crates in release mode"
+run = "cargo build --all --release"
+
+[tasks.test]
+description = "Run all tests in debug mode"
+run = "cargo test --all"
+
+[tasks.test-release]
+description = "Run all tests in release mode"
+run = "cargo test --all --release"
+
+[tasks.check]
+description = "Check all crates for compilation errors"
+run = "cargo check --all"
+
 [tasks.clean]
+description = "Clean all build artifacts"
 run = "cargo clean"
 
+# =============================================================================
+# FORMATTING TASKS
+# =============================================================================
+
 [tasks.fmt]
-run = "cargo fmt --all -- --emit files"
+description = "Format all code"
+run = "cargo fmt --all"
+
+[tasks.fmt-check]
+description = "Check if code is formatted correctly"
+run = "cargo fmt --all -- --check"
+
+# =============================================================================
+# LINTING TASKS
+# =============================================================================
 
 [tasks.clippy]
-run = "cargo clippy --all --fix --allow-dirty -- -D warnings"
+description = "Run clippy lints in debug mode"
+run = "cargo clippy --all -- -D warnings"
 
-[tasks.lint]
+[tasks.clippy-release]
+description = "Run clippy lints in release mode"
+run = "cargo clippy --all --release -- -D warnings"
+
+[tasks.clippy-fix]
+description = "Auto-fix clippy lints where possible"
+run = "cargo clippy --all --fix --allow-dirty --allow-staged -- -D warnings"
+
+# =============================================================================
+# COMPOUND TASKS - Combine multiple operations
+# =============================================================================
+
+[tasks.dev]
+description = "Full development check: format, lint, build, and test"
+depends = ["fmt", "clippy", "build", "test"]
+
+[tasks.ci]
+description = "CI pipeline: check format, lint, build and test in release"
+depends = ["fmt-check", "clippy-release", "build-release", "test-release"]
+
+[tasks.fix]
+description = "Auto-fix formatting and linting issues"
+depends = ["fmt", "clippy-fix"]
+
+[tasks.verify]
+description = "Verify code quality without making changes"
+depends = ["fmt-check", "clippy", "check"]
+
+# =============================================================================
+# SPECIALIZED BUILD TASKS
+# =============================================================================
+
+[tasks.build-debug]
+description = "Explicit debug build (alias for build)"
+run = "cargo build --all"
+
+[tasks.check-release]
+description = "Check all crates for compilation errors in release mode"
+run = "cargo check --all --release"
+
+# =============================================================================
+# TEST VARIANTS
+# =============================================================================
+
+[tasks.test-debug]
+description = "Explicit debug test (alias for test)"
+run = "cargo test --all"
+
+[tasks.test-doc]
+description = "Run documentation tests"
+run = "cargo test --all --doc"
+
+[tasks.test-all]
+description = "Run all tests including documentation tests"
 run = [
-    { task = "fmt" },
-    { task = "clippy" }
+    "cargo test --all",
+    "cargo test --all --doc"
 ]
+
+# =============================================================================
+# QUICK TASKS - For rapid development
+# =============================================================================
+
+[tasks.quick]
+description = "Quick check: format and basic compilation check"
+depends = ["fmt", "check"]
+
+[tasks.pre-commit]
+description = "Pre-commit checks: format, lint, and test"
+depends = ["fmt", "clippy", "test"]
