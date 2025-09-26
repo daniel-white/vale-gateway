@@ -2757,6 +2757,7 @@ dependencies = [
 name = "vg-http"
 version = "0.0.0"
 dependencies = [
+ "assertables",
  "async-trait",
  "bytes",
  "hickory-proto",

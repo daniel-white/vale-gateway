@@ -4,6 +4,7 @@ version = "0.0.0"
 edition = "2024"
 
 [dependencies]
+assertables.workspace = true
 async-trait.workspace = true
 bytes.workspace = true
 ipnet.workspace = true
