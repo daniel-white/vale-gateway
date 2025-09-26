@@ -74,7 +74,7 @@ pub struct HtmlErrorResponseGenerator {}
 
 impl ErrorResponseGenerator for HtmlErrorResponseGenerator {
     fn body(&self, code: ErrorResponseCode) -> Option<(HeaderValue, Cow<'static, str>)> {
-        let message: Cow<_> = code.into();
+        let message = code.message();
         let body = format!("<html><body><h1>{message}</h1></body></html>");
         Some((HeaderValue::from_static("text/html"), body.into()))
     }
@@ -88,8 +88,8 @@ pub struct ProblemDetailErrorResponseGenerator {
 
 impl ErrorResponseGenerator for ProblemDetailErrorResponseGenerator {
     fn body(&self, code: ErrorResponseCode) -> Option<(HeaderValue, Cow<'static, str>)> {
-        let message: Cow<_> = code.into();
-        let code_str: &'static str = code.into();
+        let message = code.message();
+        let code_str = code.to_str();
         let status_code: StatusCode = code.into();
 
         let problem = Problem::from(code)

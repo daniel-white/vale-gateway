@@ -2760,6 +2760,7 @@ dependencies = [
  "assertables",
  "async-trait",
  "bytes",
+ "heck 0.5.0",
  "hickory-proto",
  "http",
  "ipnet",

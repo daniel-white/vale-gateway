@@ -256,19 +256,18 @@ mod tests {
     #[tokio::test]
     async fn test_error_code_descriptions() {
         // Test that error codes have appropriate descriptions
-        use std::borrow::Cow;
-
-        let no_route_msg: Cow<'static, str> = ErrorResponseCode::NoRoute.into();
-        let access_denied_msg: Cow<'static, str> = ErrorResponseCode::AccessDenied.into();
-        let missing_config_msg: Cow<'static, str> = ErrorResponseCode::MissingConfiguration.into();
-        let upstream_unavailable_msg: Cow<'static, str> =
-            ErrorResponseCode::UpstreamUnavailable.into();
-        let invalid_config_msg: Cow<'static, str> = ErrorResponseCode::InvalidConfiguration.into();
+        let no_route_msg = ErrorResponseCode::NoRoute.message();
+        let access_denied_msg = ErrorResponseCode::AccessDenied.message();
+        let missing_config_msg = ErrorResponseCode::MissingConfiguration.message();
+        let upstream_unavailable_msg = ErrorResponseCode::UpstreamUnavailable.message();
+        let invalid_config_msg = ErrorResponseCode::InvalidConfiguration.message();
+        let im_a_teapot_msg = ErrorResponseCode::StatusCode(StatusCode::IM_A_TEAPOT).message();
 
         assert_eq!(no_route_msg, "No matching route found");
         assert_eq!(access_denied_msg, "Access denied");
         assert_eq!(missing_config_msg, "Missing configuration");
         assert_eq!(upstream_unavailable_msg, "Upstream unavailable");
         assert_eq!(invalid_config_msg, "Invalid configuration");
+        assert_eq!(im_a_teapot_msg, "I'm a teapot");
     }
 }
