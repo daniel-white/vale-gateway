@@ -1,9 +1,22 @@
+use crate::request::matchers::Matcher;
 use crate::request::matchers::RequestMatchDetails;
+use crate::request::matchers::header::HeadersMatcher;
+use crate::request::matchers::method::MethodMatcher;
+use crate::request::matchers::path::PathMatcher;
+use crate::request::matchers::query_param::QueryParamsMatcher;
 use crate::request::matchers::scoring::{RequestMatchScore, RequestMatcherScorer};
-use crate::request::matchers::{Matcher, RequestMatcher};
 use http::request::Parts;
 use std::sync::Arc;
 use tracing::{debug, instrument, trace};
+use typed_builder::TypedBuilder;
+
+#[derive(Debug, TypedBuilder)]
+pub struct RequestMatcher {
+    path_matcher: Option<PathMatcher>,
+    method_matcher: Option<MethodMatcher>,
+    headers_matcher: Option<HeadersMatcher>,
+    query_params_matcher: Option<QueryParamsMatcher>,
+}
 
 impl RequestMatcher {
     #[instrument(skip(self, req), name = "RequestMatcher::matches")]
@@ -71,5 +84,880 @@ impl RequestMatcherResult {
 impl RequestMatchDetails for RequestMatcherResult {
     fn path_prefix(&self) -> Option<Arc<String>> {
         self.score().and_then(|s| s.path_prefix())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::request::matchers::basic::{
+        ExactMatcher, RegularExpressionMatcher, StringPrefixMatcher,
+    };
+    use crate::request::matchers::header::{HeaderMatcher, HeadersMatcher};
+    use crate::request::matchers::method::MethodMatcher;
+    use crate::request::matchers::path::PathMatcher;
+    use crate::request::matchers::query_param::{
+        QueryParamMatcher, QueryParamNameMatcher, QueryParamValueMatcher, QueryParamsMatcher,
+    };
+    use assertables::*;
+    use http::{HeaderName, HeaderValue, Method, Request, Version};
+    use regex::Regex;
+    use rstest::*;
+    use std::sync::Arc;
+
+    // Helper function to create request parts
+    fn create_request_parts(method: Method, uri: &str) -> Parts {
+        let request = Request::builder()
+            .method(method)
+            .uri(uri)
+            .version(Version::HTTP_11)
+            .body(())
+            .unwrap();
+        let (parts, _) = request.into_parts();
+        parts
+    }
+
+    fn create_request_parts_with_headers(
+        method: Method,
+        uri: &str,
+        headers: &[(&str, &str)],
+    ) -> Parts {
+        let mut request_builder = Request::builder()
+            .method(method)
+            .uri(uri)
+            .version(Version::HTTP_11);
+
+        for (key, value) in headers {
+            request_builder = request_builder.header(*key, *value);
+        }
+
+        let request = request_builder.body(()).unwrap();
+        let (parts, _) = request.into_parts();
+        parts
+    }
+
+    // Fixtures for different matcher types
+    #[fixture]
+    fn path_exact_matcher() -> PathMatcher {
+        PathMatcher::Exact(ExactMatcher::new(Arc::new("/api/v1/test".to_string())))
+    }
+
+    #[fixture]
+    fn path_prefix_matcher() -> PathMatcher {
+        PathMatcher::Prefix(StringPrefixMatcher::new(Arc::new("/api".to_string())))
+    }
+
+    #[fixture]
+    fn path_regex_matcher() -> PathMatcher {
+        let regex = Regex::new(r"^/api/v[0-9]+/.*$").unwrap();
+        PathMatcher::RegularExpression(RegularExpressionMatcher::new(Arc::new(regex)))
+    }
+
+    #[fixture]
+    fn method_get_matcher() -> MethodMatcher {
+        MethodMatcher::builder()
+            .method_matcher(ExactMatcher::new(Arc::new(Method::GET)))
+            .build()
+    }
+
+    #[fixture]
+    fn method_post_matcher() -> MethodMatcher {
+        MethodMatcher::builder()
+            .method_matcher(ExactMatcher::new(Arc::new(Method::POST)))
+            .build()
+    }
+
+    #[fixture]
+    fn headers_matcher_single() -> HeadersMatcher {
+        let header_matcher = HeaderMatcher::new_exact(
+            Arc::new(HeaderName::from_static("content-type")),
+            Arc::new(HeaderValue::from_static("application/json")),
+        );
+        HeadersMatcher::builder()
+            .matchers(vec![header_matcher])
+            .build()
+    }
+
+    #[fixture]
+    fn headers_matcher_multiple() -> HeadersMatcher {
+        let header1 = HeaderMatcher::new_exact(
+            Arc::new(HeaderName::from_static("content-type")),
+            Arc::new(HeaderValue::from_static("application/json")),
+        );
+        let header2 = HeaderMatcher::new_exact(
+            Arc::new(HeaderName::from_static("accept")),
+            Arc::new(HeaderValue::from_static("application/json")),
+        );
+        HeadersMatcher::builder()
+            .matchers(vec![header1, header2])
+            .build()
+    }
+
+    #[fixture]
+    fn query_params_matcher() -> QueryParamsMatcher {
+        let param_matcher = QueryParamMatcher::builder()
+            .name_matcher(
+                QueryParamNameMatcher::builder()
+                    .matcher(ExactMatcher::new(Arc::new("version".to_string())))
+                    .build(),
+            )
+            .value_matcher(QueryParamValueMatcher::Exact(ExactMatcher::new(Arc::new(
+                "v1".to_string(),
+            ))))
+            .build();
+        QueryParamsMatcher::builder()
+            .matchers(vec![param_matcher])
+            .build()
+    }
+
+    // Tests for RequestMatcher builder pattern
+    #[rstest]
+    fn test_request_matcher_builder_all_matchers() {
+        let path_matcher = path_exact_matcher();
+        let method_matcher = method_get_matcher();
+        let headers_matcher = headers_matcher_single();
+        let query_params_matcher = query_params_matcher();
+
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_matcher))
+            .method_matcher(Some(method_matcher))
+            .headers_matcher(Some(headers_matcher))
+            .query_params_matcher(Some(query_params_matcher))
+            .build();
+
+        assert!(matcher.path_matcher.is_some());
+        assert!(matcher.method_matcher.is_some());
+        assert!(matcher.headers_matcher.is_some());
+        assert!(matcher.query_params_matcher.is_some());
+    }
+
+    #[rstest]
+    fn test_request_matcher_builder_no_matchers() {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(None)
+            .method_matcher(None)
+            .headers_matcher(None)
+            .query_params_matcher(None)
+            .build();
+
+        assert!(matcher.path_matcher.is_none());
+        assert!(matcher.method_matcher.is_none());
+        assert!(matcher.headers_matcher.is_none());
+        assert!(matcher.query_params_matcher.is_none());
+    }
+
+    #[rstest]
+    fn test_request_matcher_builder_partial_matchers() {
+        let path_matcher = path_prefix_matcher();
+        let method_matcher = method_post_matcher();
+
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_matcher))
+            .method_matcher(Some(method_matcher))
+            .headers_matcher(None)
+            .query_params_matcher(None)
+            .build();
+
+        assert!(matcher.path_matcher.is_some());
+        assert!(matcher.method_matcher.is_some());
+        assert!(matcher.headers_matcher.is_none());
+        assert!(matcher.query_params_matcher.is_none());
+    }
+
+    // Tests for matching behavior with no matchers (should always match)
+    #[rstest]
+    fn test_no_matchers_always_matches() {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(None)
+            .method_matcher(None)
+            .headers_matcher(None)
+            .query_params_matcher(None)
+            .build();
+
+        let parts = create_request_parts(Method::GET, "http://example.com/any/path");
+        let result = matcher.matches(&parts);
+
+        assert!(result.is_matched());
+        assert!(result.score().is_some());
+    }
+
+    // Tests for method matching
+    #[rstest]
+    fn test_method_matcher_success(method_get_matcher: MethodMatcher) {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(None)
+            .method_matcher(Some(method_get_matcher))
+            .headers_matcher(None)
+            .query_params_matcher(None)
+            .build();
+
+        let parts = create_request_parts(Method::GET, "http://example.com/test");
+        let result = matcher.matches(&parts);
+
+        assert!(result.is_matched());
+        assert_some!(result.score());
+    }
+
+    #[rstest]
+    fn test_method_matcher_failure(method_get_matcher: MethodMatcher) {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(None)
+            .method_matcher(Some(method_get_matcher))
+            .headers_matcher(None)
+            .query_params_matcher(None)
+            .build();
+
+        let parts = create_request_parts(Method::POST, "http://example.com/test");
+        let result = matcher.matches(&parts);
+
+        assert_eq!(result, RequestMatcherResult::NotMatched);
+        assert!(!result.is_matched());
+        assert_none!(result.score());
+    }
+
+    // Tests for path matching
+    #[rstest]
+    fn test_path_exact_matcher_success(path_exact_matcher: PathMatcher) {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_exact_matcher))
+            .method_matcher(None)
+            .headers_matcher(None)
+            .query_params_matcher(None)
+            .build();
+
+        let parts = create_request_parts(Method::GET, "http://example.com/api/v1/test");
+        let result = matcher.matches(&parts);
+
+        assert!(result.is_matched());
+        assert_some!(result.score());
+    }
+
+    #[rstest]
+    fn test_path_exact_matcher_failure(path_exact_matcher: PathMatcher) {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_exact_matcher))
+            .method_matcher(None)
+            .headers_matcher(None)
+            .query_params_matcher(None)
+            .build();
+
+        let parts = create_request_parts(Method::GET, "http://example.com/api/v2/test");
+        let result = matcher.matches(&parts);
+
+        assert_eq!(result, RequestMatcherResult::NotMatched);
+        assert!(!result.is_matched());
+    }
+
+    #[rstest]
+    fn test_path_prefix_matcher_success(path_prefix_matcher: PathMatcher) {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_prefix_matcher))
+            .method_matcher(None)
+            .headers_matcher(None)
+            .query_params_matcher(None)
+            .build();
+
+        let parts = create_request_parts(Method::GET, "http://example.com/api/v1/users");
+        let result = matcher.matches(&parts);
+
+        assert!(result.is_matched());
+        assert_some_eq_x!(result.path_prefix(), Arc::new("/api".to_string()));
+    }
+
+    #[rstest]
+    fn test_path_prefix_matcher_failure(path_prefix_matcher: PathMatcher) {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_prefix_matcher))
+            .method_matcher(None)
+            .headers_matcher(None)
+            .query_params_matcher(None)
+            .build();
+
+        let parts = create_request_parts(Method::GET, "http://example.com/web/v1/users");
+        let result = matcher.matches(&parts);
+
+        assert_eq!(result, RequestMatcherResult::NotMatched);
+    }
+
+    #[rstest]
+    fn test_path_regex_matcher_success(path_regex_matcher: PathMatcher) {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_regex_matcher))
+            .method_matcher(None)
+            .headers_matcher(None)
+            .query_params_matcher(None)
+            .build();
+
+        let parts = create_request_parts(Method::GET, "http://example.com/api/v2/users");
+        let result = matcher.matches(&parts);
+
+        assert!(result.is_matched());
+        assert_none!(result.path_prefix());
+    }
+
+    #[rstest]
+    fn test_path_regex_matcher_failure(path_regex_matcher: PathMatcher) {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_regex_matcher))
+            .method_matcher(None)
+            .headers_matcher(None)
+            .query_params_matcher(None)
+            .build();
+
+        let parts = create_request_parts(Method::GET, "http://example.com/web/v1/users");
+        let result = matcher.matches(&parts);
+
+        assert_eq!(result, RequestMatcherResult::NotMatched);
+    }
+
+    // Tests for header matching
+    #[rstest]
+    fn test_headers_matcher_success(headers_matcher_single: HeadersMatcher) {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(None)
+            .method_matcher(None)
+            .headers_matcher(Some(headers_matcher_single))
+            .query_params_matcher(None)
+            .build();
+
+        let parts = create_request_parts_with_headers(
+            Method::GET,
+            "http://example.com/test",
+            &[("content-type", "application/json")],
+        );
+        let result = matcher.matches(&parts);
+
+        assert!(result.is_matched());
+    }
+
+    #[rstest]
+    fn test_headers_matcher_failure(headers_matcher_single: HeadersMatcher) {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(None)
+            .method_matcher(None)
+            .headers_matcher(Some(headers_matcher_single))
+            .query_params_matcher(None)
+            .build();
+
+        let parts = create_request_parts_with_headers(
+            Method::GET,
+            "http://example.com/test",
+            &[("content-type", "text/plain")],
+        );
+        let result = matcher.matches(&parts);
+
+        assert_eq!(result, RequestMatcherResult::NotMatched);
+    }
+
+    #[rstest]
+    fn test_headers_matcher_missing_header(headers_matcher_single: HeadersMatcher) {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(None)
+            .method_matcher(None)
+            .headers_matcher(Some(headers_matcher_single))
+            .query_params_matcher(None)
+            .build();
+
+        let parts = create_request_parts(Method::GET, "http://example.com/test");
+        let result = matcher.matches(&parts);
+
+        assert_eq!(result, RequestMatcherResult::NotMatched);
+    }
+
+    #[rstest]
+    fn test_headers_matcher_multiple_success(headers_matcher_multiple: HeadersMatcher) {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(None)
+            .method_matcher(None)
+            .headers_matcher(Some(headers_matcher_multiple))
+            .query_params_matcher(None)
+            .build();
+
+        let parts = create_request_parts_with_headers(
+            Method::GET,
+            "http://example.com/test",
+            &[
+                ("content-type", "application/json"),
+                ("accept", "application/json"),
+            ],
+        );
+        let result = matcher.matches(&parts);
+
+        assert!(result.is_matched());
+        assert_some!(result.score());
+    }
+
+    #[rstest]
+    fn test_headers_matcher_multiple_partial_failure(headers_matcher_multiple: HeadersMatcher) {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(None)
+            .method_matcher(None)
+            .headers_matcher(Some(headers_matcher_multiple))
+            .query_params_matcher(None)
+            .build();
+
+        let parts = create_request_parts_with_headers(
+            Method::GET,
+            "http://example.com/test",
+            &[("content-type", "application/json")],
+        );
+        let result = matcher.matches(&parts);
+
+        assert_eq!(result, RequestMatcherResult::NotMatched);
+    }
+
+    // Tests for query parameter matching
+    #[rstest]
+    fn test_query_params_matcher_success(query_params_matcher: QueryParamsMatcher) {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(None)
+            .method_matcher(None)
+            .headers_matcher(None)
+            .query_params_matcher(Some(query_params_matcher))
+            .build();
+
+        let parts = create_request_parts(Method::GET, "http://example.com/test?version=v1");
+        let result = matcher.matches(&parts);
+
+        assert!(result.is_matched());
+        assert_some!(result.score());
+    }
+
+    #[rstest]
+    fn test_query_params_matcher_failure(query_params_matcher: QueryParamsMatcher) {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(None)
+            .method_matcher(None)
+            .headers_matcher(None)
+            .query_params_matcher(Some(query_params_matcher))
+            .build();
+
+        let parts = create_request_parts(Method::GET, "http://example.com/test?version=v2");
+        let result = matcher.matches(&parts);
+
+        assert_eq!(result, RequestMatcherResult::NotMatched);
+    }
+
+    #[rstest]
+    fn test_query_params_matcher_missing_param(query_params_matcher: QueryParamsMatcher) {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(None)
+            .method_matcher(None)
+            .headers_matcher(None)
+            .query_params_matcher(Some(query_params_matcher))
+            .build();
+
+        let parts = create_request_parts(Method::GET, "http://example.com/test");
+        let result = matcher.matches(&parts);
+
+        assert_eq!(result, RequestMatcherResult::NotMatched);
+    }
+
+    // Tests for combined matchers (all must match)
+    #[rstest]
+    fn test_all_matchers_success() {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_prefix_matcher()))
+            .method_matcher(Some(method_get_matcher()))
+            .headers_matcher(Some(headers_matcher_single()))
+            .query_params_matcher(Some(query_params_matcher()))
+            .build();
+
+        let parts = create_request_parts_with_headers(
+            Method::GET,
+            "http://example.com/api/v1/users?version=v1",
+            &[("content-type", "application/json")],
+        );
+        let result = matcher.matches(&parts);
+
+        assert!(result.is_matched());
+        assert_some!(result.score());
+    }
+
+    #[rstest]
+    fn test_all_matchers_method_failure() {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_prefix_matcher()))
+            .method_matcher(Some(method_get_matcher()))
+            .headers_matcher(Some(headers_matcher_single()))
+            .query_params_matcher(Some(query_params_matcher()))
+            .build();
+
+        let parts = create_request_parts_with_headers(
+            Method::POST, // Wrong method
+            "http://example.com/api/v1/users?version=v1",
+            &[("content-type", "application/json")],
+        );
+        let result = matcher.matches(&parts);
+
+        assert_eq!(result, RequestMatcherResult::NotMatched);
+    }
+
+    #[rstest]
+    fn test_all_matchers_path_failure() {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_prefix_matcher()))
+            .method_matcher(Some(method_get_matcher()))
+            .headers_matcher(Some(headers_matcher_single()))
+            .query_params_matcher(Some(query_params_matcher()))
+            .build();
+
+        let parts = create_request_parts_with_headers(
+            Method::GET,
+            "http://example.com/web/v1/users?version=v1", // Wrong path
+            &[("content-type", "application/json")],
+        );
+        let result = matcher.matches(&parts);
+
+        assert_eq!(result, RequestMatcherResult::NotMatched);
+    }
+
+    #[rstest]
+    fn test_all_matchers_headers_failure() {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_prefix_matcher()))
+            .method_matcher(Some(method_get_matcher()))
+            .headers_matcher(Some(headers_matcher_single()))
+            .query_params_matcher(Some(query_params_matcher()))
+            .build();
+
+        let parts = create_request_parts_with_headers(
+            Method::GET,
+            "http://example.com/api/v1/users?version=v1",
+            &[("content-type", "text/plain")], // Wrong header value
+        );
+        let result = matcher.matches(&parts);
+
+        assert_eq!(result, RequestMatcherResult::NotMatched);
+    }
+
+    #[rstest]
+    fn test_all_matchers_query_params_failure() {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_prefix_matcher()))
+            .method_matcher(Some(method_get_matcher()))
+            .headers_matcher(Some(headers_matcher_single()))
+            .query_params_matcher(Some(query_params_matcher()))
+            .build();
+
+        let parts = create_request_parts_with_headers(
+            Method::GET,
+            "http://example.com/api/v1/users?version=v2", // Wrong query param value
+            &[("content-type", "application/json")],
+        );
+        let result = matcher.matches(&parts);
+
+        assert_eq!(result, RequestMatcherResult::NotMatched);
+    }
+
+    // Tests for RequestMatcherResult methods
+    #[rstest]
+    fn test_request_matcher_result_is_matched() {
+        let score = RequestMatchScore::builder()
+            .path_exact(true)
+            .path_weight(None)
+            .path_prefix(None)
+            .method(true)
+            .headers_weight(Some(2))
+            .query_params_weight(Some(1))
+            .build();
+
+        let matched_result = RequestMatcherResult::Matched(score);
+        let not_matched_result = RequestMatcherResult::NotMatched;
+
+        assert!(matched_result.is_matched());
+        assert!(!not_matched_result.is_matched());
+    }
+
+    #[rstest]
+    fn test_request_matcher_result_score() {
+        let score = RequestMatchScore::builder()
+            .path_exact(true)
+            .path_weight(None)
+            .path_prefix(None)
+            .method(true)
+            .headers_weight(Some(2))
+            .query_params_weight(Some(1))
+            .build();
+
+        let matched_result = RequestMatcherResult::Matched(score);
+        let not_matched_result = RequestMatcherResult::NotMatched;
+
+        assert_some!(matched_result.score());
+        assert_none!(not_matched_result.score());
+    }
+
+    #[rstest]
+    fn test_request_matcher_result_path_prefix() {
+        let score = RequestMatchScore::builder()
+            .path_exact(false)
+            .path_weight(Some(8))
+            .path_prefix(Some(Arc::new("/api/v1".to_string())))
+            .method(false)
+            .headers_weight(None)
+            .query_params_weight(None)
+            .build();
+
+        let matched_result = RequestMatcherResult::Matched(score);
+        let not_matched_result = RequestMatcherResult::NotMatched;
+
+        assert_some_eq_x!(
+            matched_result.path_prefix(),
+            Arc::new("/api/v1".to_string())
+        );
+        assert_none!(not_matched_result.path_prefix());
+    }
+
+    // Tests for short-circuit behavior (first failure stops evaluation)
+    #[rstest]
+    fn test_short_circuit_on_method_failure() {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_exact_matcher())) // This would match
+            .method_matcher(Some(method_get_matcher())) // This will fail
+            .headers_matcher(Some(headers_matcher_single()))
+            .query_params_matcher(Some(query_params_matcher()))
+            .build();
+
+        let parts = create_request_parts_with_headers(
+            Method::POST, // Wrong method - should fail early
+            "http://example.com/api/v1/test?version=v1",
+            &[("content-type", "application/json")],
+        );
+        let result = matcher.matches(&parts);
+
+        assert_eq!(result, RequestMatcherResult::NotMatched);
+    }
+
+    // Tests for edge cases
+    #[rstest]
+    fn test_empty_uri_path() {
+        let path_matcher = PathMatcher::Exact(ExactMatcher::new(Arc::new("".to_string())));
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_matcher))
+            .method_matcher(None)
+            .headers_matcher(None)
+            .query_params_matcher(None)
+            .build();
+
+        let parts = create_request_parts(Method::GET, "http://example.com");
+        let result = matcher.matches(&parts);
+
+        assert_eq!(result, RequestMatcherResult::NotMatched);
+    }
+
+    #[rstest]
+    fn test_root_path() {
+        let path_matcher = PathMatcher::Exact(ExactMatcher::new(Arc::new("/".to_string())));
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_matcher))
+            .method_matcher(None)
+            .headers_matcher(None)
+            .query_params_matcher(None)
+            .build();
+
+        let parts = create_request_parts(Method::GET, "http://example.com/");
+        let result = matcher.matches(&parts);
+
+        assert!(result.is_matched());
+    }
+
+    #[rstest]
+    fn test_complex_uri_with_query_and_fragment() {
+        let path_matcher =
+            PathMatcher::Prefix(StringPrefixMatcher::new(Arc::new("/api".to_string())));
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_matcher))
+            .method_matcher(None)
+            .headers_matcher(None)
+            .query_params_matcher(None)
+            .build();
+
+        let parts = create_request_parts(
+            Method::GET,
+            "http://example.com/api/users?page=1&limit=10#section",
+        );
+        let result = matcher.matches(&parts);
+
+        assert!(result.is_matched());
+        assert_some!(result.score());
+        assert_eq!(result.path_prefix().unwrap().as_str(), "/api");
+    }
+
+    // Tests for case sensitivity and special characters
+    #[rstest]
+    fn test_case_sensitive_path_matching() {
+        let path_matcher = PathMatcher::Exact(ExactMatcher::new(Arc::new("/API/Test".to_string())));
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_matcher))
+            .method_matcher(None)
+            .headers_matcher(None)
+            .query_params_matcher(None)
+            .build();
+
+        let parts_exact = create_request_parts(Method::GET, "http://example.com/API/Test");
+        let parts_lowercase = create_request_parts(Method::GET, "http://example.com/api/test");
+
+        let result_exact = matcher.matches(&parts_exact);
+        let result_lowercase = matcher.matches(&parts_lowercase);
+
+        assert!(result_exact.is_matched());
+        assert_eq!(result_lowercase, RequestMatcherResult::NotMatched);
+    }
+
+    #[rstest]
+    fn test_special_characters_in_path() {
+        let path_matcher = PathMatcher::Exact(ExactMatcher::new(Arc::new(
+            "/api/users/user-123_test.json".to_string(),
+        )));
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_matcher))
+            .method_matcher(None)
+            .headers_matcher(None)
+            .query_params_matcher(None)
+            .build();
+
+        let parts = create_request_parts(
+            Method::GET,
+            "http://example.com/api/users/user-123_test.json",
+        );
+        let result = matcher.matches(&parts);
+
+        assert!(result.is_matched());
+    }
+
+    // Tests for comprehensive scoring scenarios
+    #[rstest]
+    fn test_comprehensive_scoring_exact_path() {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_exact_matcher()))
+            .method_matcher(Some(method_get_matcher()))
+            .headers_matcher(Some(headers_matcher_multiple()))
+            .query_params_matcher(Some(query_params_matcher()))
+            .build();
+
+        let parts = create_request_parts_with_headers(
+            Method::GET,
+            "http://example.com/api/v1/test?version=v1",
+            &[
+                ("content-type", "application/json"),
+                ("accept", "application/json"),
+            ],
+        );
+        let result = matcher.matches(&parts);
+
+        assert!(result.is_matched());
+        assert_some!(result.score());
+    }
+
+    #[rstest]
+    fn test_comprehensive_scoring_prefix_path() {
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_prefix_matcher()))
+            .method_matcher(Some(method_get_matcher()))
+            .headers_matcher(Some(headers_matcher_single()))
+            .query_params_matcher(Some(query_params_matcher()))
+            .build();
+
+        let parts = create_request_parts_with_headers(
+            Method::GET,
+            "http://example.com/api/v2/extended/path?version=v1&extra=param",
+            &[("content-type", "application/json")],
+        );
+        let result = matcher.matches(&parts);
+
+        assert!(result.is_matched());
+        assert_some!(result.score());
+        assert_some_eq_x!(result.path_prefix(), Arc::new("/api".to_string()));
+    }
+
+    // Performance and stress tests
+    #[rstest]
+    fn test_complex_regex_pattern_performance() {
+        let complex_regex = Regex::new(r"^/api/v[0-9]+/(users|posts|comments)/[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}(/edit|/view)?$").unwrap();
+        let path_matcher =
+            PathMatcher::RegularExpression(RegularExpressionMatcher::new(Arc::new(complex_regex)));
+
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_matcher))
+            .method_matcher(None)
+            .headers_matcher(None)
+            .query_params_matcher(None)
+            .build();
+
+        let uuid = "550e8400-e29b-41d4-a716-446655440000";
+        let valid_path = format!("/api/v1/users/{}/edit", uuid);
+        let parts = create_request_parts(Method::GET, &format!("http://example.com{}", valid_path));
+
+        let result = matcher.matches(&parts);
+        assert!(result.is_matched());
+    }
+
+    // Integration tests with real-world scenarios
+    #[rstest]
+    fn test_rest_api_endpoint_matching() {
+        // Simulate a typical REST API endpoint matcher
+        let path_matcher = PathMatcher::RegularExpression(RegularExpressionMatcher::new(Arc::new(
+            Regex::new(r"^/api/v[0-9]+/users/[0-9]+$").unwrap(),
+        )));
+        let method_matcher = MethodMatcher::builder()
+            .method_matcher(ExactMatcher::new(Arc::new(Method::GET)))
+            .build();
+        let auth_header = HeaderMatcher::new_exact(
+            Arc::new(HeaderName::from_static("authorization")),
+            Arc::new(HeaderValue::from_static("Bearer token123")),
+        );
+        let headers_matcher = HeadersMatcher::builder()
+            .matchers(vec![auth_header])
+            .build();
+
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_matcher))
+            .method_matcher(Some(method_matcher))
+            .headers_matcher(Some(headers_matcher))
+            .query_params_matcher(None)
+            .build();
+
+        let parts = create_request_parts_with_headers(
+            Method::GET,
+            "http://api.example.com/api/v2/users/12345",
+            &[("authorization", "Bearer token123")],
+        );
+        let result = matcher.matches(&parts);
+
+        assert!(result.is_matched());
+        assert_some!(result.score());
+    }
+
+    #[rstest]
+    fn test_graphql_endpoint_matching() {
+        // Simulate a GraphQL endpoint matcher
+        let path_matcher = PathMatcher::Exact(ExactMatcher::new(Arc::new("/graphql".to_string())));
+        let method_matcher = MethodMatcher::builder()
+            .method_matcher(ExactMatcher::new(Arc::new(Method::POST)))
+            .build();
+        let content_type_header = HeaderMatcher::new_exact(
+            Arc::new(HeaderName::from_static("content-type")),
+            Arc::new(HeaderValue::from_static("application/json")),
+        );
+        let headers_matcher = HeadersMatcher::builder()
+            .matchers(vec![content_type_header])
+            .build();
+
+        let matcher = RequestMatcher::builder()
+            .path_matcher(Some(path_matcher))
+            .method_matcher(Some(method_matcher))
+            .headers_matcher(Some(headers_matcher))
+            .query_params_matcher(None)
+            .build();
+
+        let parts = create_request_parts_with_headers(
+            Method::POST,
+            "http://api.example.com/graphql",
+            &[("content-type", "application/json")],
+        );
+        let result = matcher.matches(&parts);
+
+        assert!(result.is_matched());
+        assert_some!(result.score());
     }
 }

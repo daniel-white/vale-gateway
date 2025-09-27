@@ -1,31 +1,18 @@
-mod basic;
+pub mod basic;
 pub mod header;
 pub mod host_header;
 pub mod method;
 pub mod path;
 pub mod query_param;
-mod request;
+pub mod request;
 pub mod scoring;
 
-use self::header::HeadersMatcher;
-use self::method::MethodMatcher;
-use self::path::PathMatcher;
-use self::query_param::QueryParamsMatcher;
 use http::request::Parts;
 use scoring::RequestMatcherScorer;
 use std::sync::Arc;
-use typed_builder::TypedBuilder;
 
 trait Matcher {
     fn matches(&self, score: &RequestMatcherScorer, req: &Parts) -> bool;
-}
-
-#[derive(Debug, TypedBuilder)]
-pub struct RequestMatcher {
-    path_matcher: Option<PathMatcher>,
-    method_matcher: Option<MethodMatcher>,
-    headers_matcher: Option<HeadersMatcher>,
-    query_params_matcher: Option<QueryParamsMatcher>,
 }
 
 pub trait RequestMatchDetails {

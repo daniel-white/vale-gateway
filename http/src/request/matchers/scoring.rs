@@ -756,7 +756,8 @@ mod tests {
     // Test sorting behavior with multiple scores
     #[rstest]
     fn test_sorting_multiple_scores() {
-        let mut scores = [RequestMatchScore::builder()
+        let mut scores = [
+            RequestMatchScore::builder()
                 .path_exact(false)
                 .path_weight(Some(5))
                 .path_prefix(Some(Arc::new("/test".to_string())))
@@ -779,7 +780,8 @@ mod tests {
                 .method(true)
                 .headers_weight(Some(2))
                 .query_params_weight(Some(1))
-                .build()];
+                .build(),
+        ];
 
         scores.sort();
 
