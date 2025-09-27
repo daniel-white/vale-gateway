@@ -16,7 +16,7 @@ impl Matcher for MethodMatcher {
     #[instrument(
         skip(self, scorer, req),
         name = "MethodMatcher::matches"
-        fields(match = ?self)
+        fields(matcher = ?self)
     )]
     fn matches(&self, scorer: &RequestMatcherScorer, req: &Parts) -> bool {
         let is_match = self.method_matcher.matches(&req.method);

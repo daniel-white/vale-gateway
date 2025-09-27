@@ -1,8 +1,8 @@
 use crate::request::matchers::RequestMatchDetails;
-use crate::request::matchers::headers::HeadersMatcher;
+use crate::request::matchers::header::HeadersMatcher;
 use crate::request::matchers::method::MethodMatcher;
 use crate::request::matchers::path::PathMatcher;
-use crate::request::matchers::query_params::QueryParamsMatcher;
+use crate::request::matchers::query_param::QueryParamsMatcher;
 use std::cell::Cell;
 use std::cmp::Ordering;
 use std::sync::Arc;

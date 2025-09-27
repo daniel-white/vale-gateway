@@ -1,16 +1,16 @@
 mod basic;
-pub mod headers;
+pub mod header;
 pub mod host_header;
 pub mod method;
 pub mod path;
-pub mod query_params;
+pub mod query_param;
 mod request;
 pub mod scoring;
 
-use self::headers::HeadersMatcher;
+use self::header::HeadersMatcher;
 use self::method::MethodMatcher;
 use self::path::PathMatcher;
-use self::query_params::QueryParamsMatcher;
+use self::query_param::QueryParamsMatcher;
 use http::request::Parts;
 use scoring::RequestMatcherScorer;
 use std::sync::Arc;

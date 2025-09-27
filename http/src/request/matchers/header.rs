@@ -74,7 +74,7 @@ impl HeaderMatcher {
     #[instrument(
         skip(self, key, value),
         name = "HeaderMatcher::matches"
-        fields(match = ?self)
+        fields(matcher = ?self)
     )]
     fn matches(&self, (key, value): &(&HeaderName, &HeaderValue)) -> bool {
         self.name_matcher.matches(key) && self.value_matcher.matches(value)
