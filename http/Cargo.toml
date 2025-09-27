@@ -27,4 +27,5 @@ url.workspace = true
 vg-core = { path = "../core" }
 
 [dev-dependencies]
+mockall.workspace = true
 rstest.workspace = true

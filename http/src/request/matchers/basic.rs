@@ -4,7 +4,7 @@ use http::HeaderValue;
 use regex::Regex;
 use std::sync::Arc;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ExactMatcher<T: PartialEq> {
     value: Arc<T>,
 }
