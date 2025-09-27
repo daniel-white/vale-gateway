@@ -1,5 +1,5 @@
 use crate::request::matchers::RequestMatchDetails;
-use crate::rewriting::uri_rewriter::UriRewriter;
+use crate::rewrite::uri::UriRewriter;
 use http::header::LOCATION;
 use http::request::Parts;
 use http::{Response, StatusCode};
@@ -41,7 +41,7 @@ mod tests {
     #[tokio::test]
     async fn test_permanent_redirect_301() {
         // Test 301 permanent redirect using the actual RedirectResponseFilterHandler
-        use crate::rewriting::uri_rewriter::UriRewriter;
+        use crate::rewrite::uri::UriRewriter;
         use http::Uri;
 
         // Create a URI rewriter that redirects to a new location
@@ -75,7 +75,7 @@ mod tests {
     #[tokio::test]
     async fn test_temporary_redirect_302() {
         // Test 302 temporary redirect
-        use crate::rewriting::uri_rewriter::UriRewriter;
+        use crate::rewrite::uri::UriRewriter;
         use http::Uri;
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -105,7 +105,7 @@ mod tests {
     #[tokio::test]
     async fn test_see_other_redirect_303() {
         // Test 303 See Other redirect
-        use crate::rewriting::uri_rewriter::UriRewriter;
+        use crate::rewrite::uri::UriRewriter;
         use http::Uri;
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -135,7 +135,7 @@ mod tests {
     #[tokio::test]
     async fn test_permanent_redirect_308() {
         // Test 308 permanent redirect (preserves method)
-        use crate::rewriting::uri_rewriter::UriRewriter;
+        use crate::rewrite::uri::UriRewriter;
         use http::Uri;
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -166,7 +166,7 @@ mod tests {
     #[tokio::test]
     async fn test_conditional_redirect_by_host() {
         // Test redirect with different status codes for different scenarios
-        use crate::rewriting::uri_rewriter::UriRewriter;
+        use crate::rewrite::uri::UriRewriter;
         use http::Uri;
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -200,7 +200,7 @@ mod tests {
     #[tokio::test]
     async fn test_conditional_redirect_by_path_pattern() {
         // Test redirect based on path patterns
-        use crate::rewriting::uri_rewriter::UriRewriter;
+        use crate::rewrite::uri::UriRewriter;
         use http::Uri;
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -233,7 +233,7 @@ mod tests {
     #[tokio::test]
     async fn test_redirect_with_query_preservation() {
         // Test preserving query parameters in redirects
-        use crate::rewriting::uri_rewriter::UriRewriter;
+        use crate::rewrite::uri::UriRewriter;
         use http::Uri;
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -270,7 +270,7 @@ mod tests {
     #[tokio::test]
     async fn test_redirect_without_query_preservation() {
         // Test not preserving query parameters in redirects
-        use crate::rewriting::uri_rewriter::UriRewriter;
+        use crate::rewrite::uri::UriRewriter;
         use http::Uri;
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -300,7 +300,7 @@ mod tests {
     #[tokio::test]
     async fn test_redirect_with_custom_headers() {
         // Test that Location header is properly set by the handler
-        use crate::rewriting::uri_rewriter::UriRewriter;
+        use crate::rewrite::uri::UriRewriter;
         use http::Uri;
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -340,7 +340,7 @@ mod tests {
     #[tokio::test]
     async fn test_redirect_based_on_user_agent() {
         // Test redirect that could be based on User-Agent (would need context-aware rewriter)
-        use crate::rewriting::uri_rewriter::UriRewriter;
+        use crate::rewrite::uri::UriRewriter;
         use http::Uri;
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -374,7 +374,7 @@ mod tests {
     #[tokio::test]
     async fn test_redirect_with_regex_path_matching() {
         // Test redirect using regex patterns (would need pattern-matching rewriter)
-        use crate::rewriting::uri_rewriter::UriRewriter;
+        use crate::rewrite::uri::UriRewriter;
         use http::Uri;
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -410,7 +410,7 @@ mod tests {
     #[tokio::test]
     async fn test_redirect_chain_prevention() {
         // Test basic redirect functionality (chain prevention would be higher-level)
-        use crate::rewriting::uri_rewriter::UriRewriter;
+        use crate::rewrite::uri::UriRewriter;
         use http::Uri;
 
         let uri_rewriter = UriRewriter::builder().build();
@@ -444,7 +444,7 @@ mod tests {
     #[tokio::test]
     async fn test_redirect_response_body() {
         // Test that redirect response has empty body (as per HTTP spec)
-        use crate::rewriting::uri_rewriter::UriRewriter;
+        use crate::rewrite::uri::UriRewriter;
         use http::Uri;
 
         let uri_rewriter = UriRewriter::builder().build();
