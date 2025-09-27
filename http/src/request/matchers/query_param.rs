@@ -156,7 +156,10 @@ mod tests {
             .build();
 
         // Act & Assert
-        assert!(matcher.matches(param_name), "QueryParamNameMatcher should match the exact parameter name");
+        assert!(
+            matcher.matches(param_name),
+            "QueryParamNameMatcher should match the exact parameter name"
+        );
     }
 
     #[rstest]
@@ -178,9 +181,11 @@ mod tests {
         let result = matcher.matches(test_name);
 
         // Assert
-        assert_eq!(result, expected_match,
+        assert_eq!(
+            result, expected_match,
             "QueryParamNameMatcher should return {} for '{}' vs '{}'",
-            expected_match, matcher_name, test_name);
+            expected_match, matcher_name, test_name
+        );
     }
 
     // QueryParamValueMatcher tests
@@ -194,7 +199,10 @@ mod tests {
         let matcher = QueryParamValueMatcher::Exact(ExactMatcher::new(Arc::new(value.to_string())));
 
         // Act & Assert
-        assert!(matcher.matches(value), "QueryParamValueMatcher should match the exact parameter value");
+        assert!(
+            matcher.matches(value),
+            "QueryParamValueMatcher should match the exact parameter value"
+        );
     }
 
     #[rstest]
@@ -208,15 +216,18 @@ mod tests {
         #[case] expected_match: bool,
     ) {
         // Arrange
-        let matcher = QueryParamValueMatcher::Exact(ExactMatcher::new(Arc::new(matcher_value.to_string())));
+        let matcher =
+            QueryParamValueMatcher::Exact(ExactMatcher::new(Arc::new(matcher_value.to_string())));
 
         // Act
         let result = matcher.matches(test_value);
 
         // Assert
-        assert_eq!(result, expected_match,
+        assert_eq!(
+            result, expected_match,
             "QueryParamValueMatcher should return {} for '{}' vs '{}'",
-            expected_match, matcher_value, test_value);
+            expected_match, matcher_value, test_value
+        );
     }
 
     #[rstest]
@@ -233,15 +244,18 @@ mod tests {
     ) {
         // Arrange
         let regex = Arc::new(Regex::new(pattern).unwrap());
-        let matcher = QueryParamValueMatcher::RegularExpression(RegularExpressionMatcher::new(regex));
+        let matcher =
+            QueryParamValueMatcher::RegularExpression(RegularExpressionMatcher::new(regex));
 
         // Act
         let result = matcher.matches(test_value);
 
         // Assert
-        assert_eq!(result, expected_match,
+        assert_eq!(
+            result, expected_match,
             "QueryParamValueMatcher with regex '{}' should return {} for value '{}'",
-            pattern, expected_match, test_value);
+            pattern, expected_match, test_value
+        );
     }
 
     // QueryParamMatcher tests
@@ -256,7 +270,10 @@ mod tests {
 
         // Assert
         let param_pair = (Cow::Borrowed("format"), Cow::Borrowed("json"));
-        assert!(matcher.matches(&param_pair), "QueryParamMatcher should match exact parameter name and value");
+        assert!(
+            matcher.matches(&param_pair),
+            "QueryParamMatcher should match exact parameter name and value"
+        );
     }
 
     #[test]
@@ -270,7 +287,10 @@ mod tests {
 
         // Assert
         let param_pair = (Cow::Borrowed("id"), Cow::Borrowed("123"));
-        assert!(matcher.matches(&param_pair), "QueryParamMatcher should match parameter name and regex value");
+        assert!(
+            matcher.matches(&param_pair),
+            "QueryParamMatcher should match parameter name and regex value"
+        );
     }
 
     #[rstest]
@@ -296,18 +316,18 @@ mod tests {
         let result = matcher.matches(&param_pair);
 
         // Assert
-        assert_eq!(result, expected_match,
+        assert_eq!(
+            result, expected_match,
             "QueryParamMatcher should return {} for '{}={}' vs '{}={}'",
-            expected_match, matcher_name, matcher_value, test_name, test_value);
+            expected_match, matcher_name, matcher_value, test_name, test_value
+        );
     }
 
     // QueryParamsMatcher tests
     #[test]
     fn test_query_params_matcher_empty() {
         // Arrange
-        let matcher = QueryParamsMatcher::builder()
-            .matchers(vec![])
-            .build();
+        let matcher = QueryParamsMatcher::builder().matchers(vec![]).build();
         let parts = create_request_parts_with_query("page=1&limit=10");
         let scorer = RequestMatcherScorer::default();
 
@@ -315,17 +335,22 @@ mod tests {
         let result = matcher.matches(&scorer, &parts);
 
         // Assert
-        assert!(result, "Empty QueryParamsMatcher should match any request with query params");
-        assert_eq!(matcher.weight(), 0, "Empty QueryParamsMatcher should have weight 0");
+        assert!(
+            result,
+            "Empty QueryParamsMatcher should match any request with query params"
+        );
+        assert_eq!(
+            matcher.weight(),
+            0,
+            "Empty QueryParamsMatcher should have weight 0"
+        );
     }
 
     #[test]
     fn test_query_params_matcher_no_query_params() {
         // Arrange
-        let param_matcher = QueryParamMatcher::new_exact(
-            Arc::new("page".to_string()),
-            Arc::new("1".to_string()),
-        );
+        let param_matcher =
+            QueryParamMatcher::new_exact(Arc::new("page".to_string()), Arc::new("1".to_string()));
         let matcher = QueryParamsMatcher::builder()
             .matchers(vec![param_matcher])
             .build();
@@ -336,7 +361,10 @@ mod tests {
         let result = matcher.matches(&scorer, &parts);
 
         // Assert
-        assert!(!result, "QueryParamsMatcher should not match request without query parameters");
+        assert!(
+            !result,
+            "QueryParamsMatcher should not match request without query parameters"
+        );
     }
 
     #[test]
@@ -356,8 +384,15 @@ mod tests {
         let result = matcher.matches(&scorer, &parts);
 
         // Assert
-        assert!(result, "QueryParamsMatcher should match when single parameter matches");
-        assert_eq!(matcher.weight(), 1, "Single parameter matcher should have weight 1");
+        assert!(
+            result,
+            "QueryParamsMatcher should match when single parameter matches"
+        );
+        assert_eq!(
+            matcher.weight(),
+            1,
+            "Single parameter matcher should have weight 1"
+        );
     }
 
     #[test]
@@ -377,20 +412,19 @@ mod tests {
         let result = matcher.matches(&scorer, &parts);
 
         // Assert
-        assert!(!result, "QueryParamsMatcher should not match when single parameter doesn't match");
+        assert!(
+            !result,
+            "QueryParamsMatcher should not match when single parameter doesn't match"
+        );
     }
 
     #[test]
     fn test_query_params_matcher_multiple_params_all_match() {
         // Arrange
-        let param_matcher1 = QueryParamMatcher::new_exact(
-            Arc::new("page".to_string()),
-            Arc::new("1".to_string()),
-        );
-        let param_matcher2 = QueryParamMatcher::new_exact(
-            Arc::new("limit".to_string()),
-            Arc::new("10".to_string()),
-        );
+        let param_matcher1 =
+            QueryParamMatcher::new_exact(Arc::new("page".to_string()), Arc::new("1".to_string()));
+        let param_matcher2 =
+            QueryParamMatcher::new_exact(Arc::new("limit".to_string()), Arc::new("10".to_string()));
         let matcher = QueryParamsMatcher::builder()
             .matchers(vec![param_matcher1, param_matcher2])
             .build();
@@ -401,21 +435,24 @@ mod tests {
         let result = matcher.matches(&scorer, &parts);
 
         // Assert
-        assert!(result, "QueryParamsMatcher should match when all parameters match");
-        assert_eq!(matcher.weight(), 2, "Two parameter matchers should have weight 2");
+        assert!(
+            result,
+            "QueryParamsMatcher should match when all parameters match"
+        );
+        assert_eq!(
+            matcher.weight(),
+            2,
+            "Two parameter matchers should have weight 2"
+        );
     }
 
     #[test]
     fn test_query_params_matcher_multiple_params_partial_match() {
         // Arrange
-        let param_matcher1 = QueryParamMatcher::new_exact(
-            Arc::new("page".to_string()),
-            Arc::new("1".to_string()),
-        );
-        let param_matcher2 = QueryParamMatcher::new_exact(
-            Arc::new("limit".to_string()),
-            Arc::new("10".to_string()),
-        );
+        let param_matcher1 =
+            QueryParamMatcher::new_exact(Arc::new("page".to_string()), Arc::new("1".to_string()));
+        let param_matcher2 =
+            QueryParamMatcher::new_exact(Arc::new("limit".to_string()), Arc::new("10".to_string()));
         let matcher = QueryParamsMatcher::builder()
             .matchers(vec![param_matcher1, param_matcher2])
             .build();
@@ -426,7 +463,10 @@ mod tests {
         let result = matcher.matches(&scorer, &parts);
 
         // Assert
-        assert!(!result, "QueryParamsMatcher should not match when not all parameters match");
+        assert!(
+            !result,
+            "QueryParamsMatcher should not match when not all parameters match"
+        );
     }
 
     #[test]
@@ -466,7 +506,10 @@ mod tests {
         let result = matcher.matches(&scorer, &parts);
 
         // Assert
-        assert!(result, "QueryParamsMatcher should match even when request has extra parameters");
+        assert!(
+            result,
+            "QueryParamsMatcher should match even when request has extra parameters"
+        );
     }
 
     #[test]
@@ -486,7 +529,10 @@ mod tests {
         let result = matcher.matches(&scorer, &parts);
 
         // Assert
-        assert!(result, "QueryParamsMatcher should handle URL encoded values correctly");
+        assert!(
+            result,
+            "QueryParamsMatcher should handle URL encoded values correctly"
+        );
     }
 
     #[rstest]
@@ -513,7 +559,11 @@ mod tests {
             let result = matcher.matches(&scorer, &parts);
 
             // Assert
-            assert!(result, "QueryParamsMatcher should handle complex query string: {}", query);
+            assert!(
+                result,
+                "QueryParamsMatcher should handle complex query string: {}",
+                query
+            );
         }
     }
 
@@ -544,8 +594,14 @@ mod tests {
             .build();
 
         // Assert
-        assert_eq!(matcher1, matcher2, "QueryParamsMatchers with same parameter matchers should be equal");
-        assert_ne!(matcher1, matcher3, "QueryParamsMatchers with different parameter matchers should not be equal");
+        assert_eq!(
+            matcher1, matcher2,
+            "QueryParamsMatchers with same parameter matchers should be equal"
+        );
+        assert_ne!(
+            matcher1, matcher3,
+            "QueryParamsMatchers with different parameter matchers should not be equal"
+        );
     }
 
     #[test]
@@ -593,10 +649,8 @@ mod tests {
     #[test]
     fn test_query_params_matcher_empty_parameter_value() {
         // Arrange
-        let param_matcher = QueryParamMatcher::new_exact(
-            Arc::new("empty".to_string()),
-            Arc::new("".to_string()),
-        );
+        let param_matcher =
+            QueryParamMatcher::new_exact(Arc::new("empty".to_string()), Arc::new("".to_string()));
         let matcher = QueryParamsMatcher::builder()
             .matchers(vec![param_matcher])
             .build();
@@ -607,16 +661,17 @@ mod tests {
         let result = matcher.matches(&scorer, &parts);
 
         // Assert
-        assert!(result, "QueryParamsMatcher should handle empty parameter values");
+        assert!(
+            result,
+            "QueryParamsMatcher should handle empty parameter values"
+        );
     }
 
     #[test]
     fn test_query_params_matcher_parameter_without_value() {
         // Arrange
-        let param_matcher = QueryParamMatcher::new_exact(
-            Arc::new("flag".to_string()),
-            Arc::new("".to_string()),
-        );
+        let param_matcher =
+            QueryParamMatcher::new_exact(Arc::new("flag".to_string()), Arc::new("".to_string()));
         let matcher = QueryParamsMatcher::builder()
             .matchers(vec![param_matcher])
             .build();
@@ -627,6 +682,9 @@ mod tests {
         let result = matcher.matches(&scorer, &parts);
 
         // Assert
-        assert!(result, "QueryParamsMatcher should handle parameters without values (flags)");
+        assert!(
+            result,
+            "QueryParamsMatcher should handle parameters without values (flags)"
+        );
     }
 }
