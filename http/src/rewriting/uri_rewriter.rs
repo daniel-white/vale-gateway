@@ -1,4 +1,4 @@
-use crate::request::RequestMatchContext;
+use crate::request::matchers::RequestMatchDetails;
 use hickory_proto::rr::Name;
 use http::Uri;
 use http::uri::{Authority, Scheme};
@@ -72,7 +72,7 @@ impl UriRewriter {
         Some(new_path)
     }
 
-    pub fn rewrite(&self, original_uri: &Uri, match_context: &impl RequestMatchContext) -> Uri {
+    pub fn rewrite(&self, original_uri: &Uri, match_context: &impl RequestMatchDetails) -> Uri {
         let mut parts = original_uri.clone().into_parts();
 
         if let Some(scheme) = &self.scheme {
@@ -102,7 +102,7 @@ impl UriRewriter {
             }
             (Some(PathRewrite::PrefixMatch(new_prefix)), Some(matched_prefix)) => {
                 if let Some(new_path) =
-                    Self::apply_prefix_rewrite(&parts, matched_prefix, new_prefix)
+                    Self::apply_prefix_rewrite(&parts, matched_prefix.as_str(), new_prefix)
                 {
                     // Note: prefix rewrite drops query (documented by tests)
                     parts.path_and_query = Some(new_path.parse().unwrap());
@@ -120,13 +120,14 @@ mod tests {
     use super::*;
     use rstest::rstest;
     use std::str::FromStr;
+    use std::sync::Arc;
 
-    struct MockMatchContext<'a> {
-        prefix: Option<&'a str>,
+    struct MockMatchContext {
+        prefix: Option<Arc<String>>,
     }
-    impl<'a> RequestMatchContext for MockMatchContext<'a> {
-        fn path_prefix(&self) -> Option<&str> {
-            self.prefix
+    impl RequestMatchDetails for MockMatchContext {
+        fn path_prefix(&self) -> Option<Arc<String>> {
+            self.prefix.clone()
         }
     }
 
@@ -262,7 +263,7 @@ mod tests {
     #[case("/", "/", "/", "/")] // root to root
     fn prefix_rewrite_variations(
         #[case] original_path: &str,
-        #[case] matched_prefix: &str,
+        #[case] matched_prefix: String,
         #[case] new_prefix: &str,
         #[case] expected_path: &str,
     ) {
@@ -271,7 +272,7 @@ mod tests {
             .build();
         let u = Uri::from_str(&format!("http://h{original_path}")).unwrap();
         let ctx = MockMatchContext {
-            prefix: Some(matched_prefix),
+            prefix: Some(Arc::new(matched_prefix)),
         };
         let out = r.rewrite(&u, &ctx);
         assert_eq!(out.path(), expected_path);
@@ -284,7 +285,7 @@ mod tests {
             .build();
         let u = Uri::from_str("http://h/api/users").unwrap();
         let ctx = MockMatchContext {
-            prefix: Some("/different"),
+            prefix: Some(Arc::new("/different".to_string())),
         };
         let out = r.rewrite(&u, &ctx);
         assert_eq!(out.path(), "/api/users"); // unchanged
@@ -297,7 +298,7 @@ mod tests {
             .build();
         let u = Uri::from_str("http://h/api/v1/users?id=10&debug=true").unwrap();
         let ctx = MockMatchContext {
-            prefix: Some("/api/v1"),
+            prefix: Some(Arc::new("/api/v1".to_string())),
         };
         let out = r.rewrite(&u, &ctx);
         assert_eq!(out.path(), "/svc/users");
@@ -311,7 +312,7 @@ mod tests {
         let out = r.rewrite(
             &u,
             &MockMatchContext {
-                prefix: Some("/api"),
+                prefix: Some(Arc::new("/api".to_string())),
             },
         );
         assert_eq!(out, u);

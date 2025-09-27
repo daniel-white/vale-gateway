@@ -1,4 +1,4 @@
-use crate::request::RequestMatchContext;
+use crate::request::matchers::RequestMatchDetails;
 use crate::rewriting::uri_rewriter::UriRewriter;
 use http::Uri;
 use http::request::Parts;
@@ -10,7 +10,7 @@ pub struct UpstreamUriRewriteFilterHandler {
 }
 
 impl UpstreamUriRewriteFilterHandler {
-    pub fn handle(&self, req: &Parts, match_context: &impl RequestMatchContext) -> Uri {
+    pub fn handle(&self, req: &Parts, match_context: &impl RequestMatchDetails) -> Uri {
         self.uri_rewriter.rewrite(&req.uri, match_context)
     }
 }
@@ -24,6 +24,7 @@ mod tests {
     use rstest::*;
 
     use std::str::FromStr;
+    use std::sync::Arc;
 
     fn create_empty_parts() -> Parts {
         use http::Request;
@@ -32,8 +33,8 @@ mod tests {
     }
 
     struct MockMatchContext;
-    impl RequestMatchContext for MockMatchContext {
-        fn path_prefix(&self) -> Option<&str> {
+    impl RequestMatchDetails for MockMatchContext {
+        fn path_prefix(&self) -> Option<Arc<String>> {
             None
         }
     }

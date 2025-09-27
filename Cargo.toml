@@ -26,6 +26,7 @@ opentelemetry = { version = "0.30", features = ["metrics", "logs", "tracing"] }
 paste = "1"
 pingora = "0.6"
 problemdetails = "0.6"
+regex = { version = "1", features = ["perf", "unicode"] }
 rstest = "0.26"
 schemars = "1"
 serde = { version = "1", features = ["derive", "rc"] }

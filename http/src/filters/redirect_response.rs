@@ -1,4 +1,4 @@
-use crate::request::RequestMatchContext;
+use crate::request::matchers::RequestMatchDetails;
 use crate::rewriting::uri_rewriter::UriRewriter;
 use http::header::LOCATION;
 use http::request::Parts;
@@ -13,7 +13,7 @@ pub struct RedirectResponseFilterHandler {
 }
 
 impl RedirectResponseFilterHandler {
-    pub fn handle(&self, req: &Parts, match_context: &impl RequestMatchContext) -> Response<()> {
+    pub fn handle(&self, req: &Parts, match_context: &impl RequestMatchDetails) -> Response<()> {
         let new_uri = self.uri_rewriter.rewrite(&req.uri, match_context);
         Response::builder()
             .status(self.status_code)
@@ -30,6 +30,7 @@ mod tests {
     use http::Method;
     use http::header::HeaderValue;
     use std::str::FromStr;
+    use std::sync::Arc;
 
     fn create_empty_parts() -> Parts {
         use http::Request;
@@ -57,8 +58,8 @@ mod tests {
 
         // Create mock match context
         struct MockMatchContext;
-        impl RequestMatchContext for MockMatchContext {
-            fn path_prefix(&self) -> Option<&str> {
+        impl RequestMatchDetails for MockMatchContext {
+            fn path_prefix(&self) -> Option<Arc<String>> {
                 None
             }
         }
@@ -88,8 +89,8 @@ mod tests {
         request_parts.uri = Uri::from_str("/current-path").unwrap();
 
         struct MockMatchContext;
-        impl RequestMatchContext for MockMatchContext {
-            fn path_prefix(&self) -> Option<&str> {
+        impl RequestMatchDetails for MockMatchContext {
+            fn path_prefix(&self) -> Option<Arc<String>> {
                 None
             }
         }
@@ -118,8 +119,8 @@ mod tests {
         request_parts.uri = Uri::from_str("/form-submit").unwrap();
 
         struct MockMatchContext;
-        impl RequestMatchContext for MockMatchContext {
-            fn path_prefix(&self) -> Option<&str> {
+        impl RequestMatchDetails for MockMatchContext {
+            fn path_prefix(&self) -> Option<Arc<String>> {
                 None
             }
         }
@@ -149,8 +150,8 @@ mod tests {
         request_parts.method = Method::POST;
 
         struct MockMatchContext;
-        impl RequestMatchContext for MockMatchContext {
-            fn path_prefix(&self) -> Option<&str> {
+        impl RequestMatchDetails for MockMatchContext {
+            fn path_prefix(&self) -> Option<Arc<String>> {
                 None
             }
         }
@@ -183,8 +184,8 @@ mod tests {
             .insert("Host", HeaderValue::from_static("old-domain.com"));
 
         struct MockMatchContext;
-        impl RequestMatchContext for MockMatchContext {
-            fn path_prefix(&self) -> Option<&str> {
+        impl RequestMatchDetails for MockMatchContext {
+            fn path_prefix(&self) -> Option<Arc<String>> {
                 None
             }
         }
@@ -214,8 +215,8 @@ mod tests {
         request_parts.uri = Uri::from_str("/legacy/feature").unwrap();
 
         struct MockMatchContext;
-        impl RequestMatchContext for MockMatchContext {
-            fn path_prefix(&self) -> Option<&str> {
+        impl RequestMatchDetails for MockMatchContext {
+            fn path_prefix(&self) -> Option<Arc<String>> {
                 None
             }
         }
@@ -246,8 +247,8 @@ mod tests {
         request_parts.uri = Uri::from_str("/old-path?param=value&other=123").unwrap();
 
         struct MockMatchContext;
-        impl RequestMatchContext for MockMatchContext {
-            fn path_prefix(&self) -> Option<&str> {
+        impl RequestMatchDetails for MockMatchContext {
+            fn path_prefix(&self) -> Option<Arc<String>> {
                 None
             }
         }
@@ -283,8 +284,8 @@ mod tests {
         request_parts.uri = Uri::from_str("/old-path?param=value").unwrap();
 
         struct MockMatchContext;
-        impl RequestMatchContext for MockMatchContext {
-            fn path_prefix(&self) -> Option<&str> {
+        impl RequestMatchDetails for MockMatchContext {
+            fn path_prefix(&self) -> Option<Arc<String>> {
                 None
             }
         }
@@ -313,8 +314,8 @@ mod tests {
         request_parts.uri = Uri::from_str("/").unwrap();
 
         struct MockMatchContext;
-        impl RequestMatchContext for MockMatchContext {
-            fn path_prefix(&self) -> Option<&str> {
+        impl RequestMatchDetails for MockMatchContext {
+            fn path_prefix(&self) -> Option<Arc<String>> {
                 None
             }
         }
@@ -357,8 +358,8 @@ mod tests {
         );
 
         struct MockMatchContext;
-        impl RequestMatchContext for MockMatchContext {
-            fn path_prefix(&self) -> Option<&str> {
+        impl RequestMatchDetails for MockMatchContext {
+            fn path_prefix(&self) -> Option<Arc<String>> {
                 None
             }
         }
@@ -387,8 +388,8 @@ mod tests {
         request_parts.uri = Uri::from_str("/product/12345").unwrap();
 
         struct MockMatchContext;
-        impl RequestMatchContext for MockMatchContext {
-            fn path_prefix(&self) -> Option<&str> {
+        impl RequestMatchDetails for MockMatchContext {
+            fn path_prefix(&self) -> Option<Arc<String>> {
                 None
             }
         }
@@ -426,8 +427,8 @@ mod tests {
             .insert("X-Redirect-Count", HeaderValue::from_static("1"));
 
         struct MockMatchContext;
-        impl RequestMatchContext for MockMatchContext {
-            fn path_prefix(&self) -> Option<&str> {
+        impl RequestMatchDetails for MockMatchContext {
+            fn path_prefix(&self) -> Option<Arc<String>> {
                 None
             }
         }
@@ -457,8 +458,8 @@ mod tests {
         request_parts.uri = Uri::from_str("/old-location").unwrap();
 
         struct MockMatchContext;
-        impl RequestMatchContext for MockMatchContext {
-            fn path_prefix(&self) -> Option<&str> {
+        impl RequestMatchDetails for MockMatchContext {
+            fn path_prefix(&self) -> Option<Arc<String>> {
                 None
             }
         }
