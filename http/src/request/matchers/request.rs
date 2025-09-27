@@ -1,9 +1,9 @@
+use crate::request::matchers::RequestMatchDetails;
+use crate::request::matchers::scoring::{RequestMatchScore, RequestMatcherScorer};
+use crate::request::matchers::{Matcher, RequestMatcher};
+use http::request::Parts;
 use std::sync::Arc;
 use tracing::{debug, instrument, trace};
-use http::request::Parts;
-use crate::request::matchers::{Matcher, RequestMatcher};
-use crate::request::matchers::scoring::{RequestMatchScore, RequestMatcherScorer};
-use crate::request::matchers::RequestMatchDetails;
 
 impl RequestMatcher {
     #[instrument(skip(self, req), name = "RequestMatcher::matches")]

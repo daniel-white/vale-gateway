@@ -4,16 +4,16 @@ pub mod host_header;
 pub mod method;
 pub mod path;
 pub mod query_params;
-pub mod scoring;
 mod request;
+pub mod scoring;
 
-use std::sync::Arc;
 use self::headers::HeadersMatcher;
 use self::method::MethodMatcher;
 use self::path::PathMatcher;
 use self::query_params::QueryParamsMatcher;
 use http::request::Parts;
 use scoring::RequestMatcherScorer;
+use std::sync::Arc;
 use typed_builder::TypedBuilder;
 
 trait Matcher {
