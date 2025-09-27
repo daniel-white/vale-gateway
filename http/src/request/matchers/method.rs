@@ -6,7 +6,8 @@ use http::request::Parts;
 use tracing::{debug, instrument};
 use typed_builder::TypedBuilder;
 
-#[derive(Debug, TypedBuilder, PartialEq)]
+#[derive(Debug, TypedBuilder)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct MethodMatcher {
     method_matcher: ExactMatcher<Method>,
 }

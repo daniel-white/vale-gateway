@@ -4,7 +4,8 @@ use http::HeaderValue;
 use regex::Regex;
 use std::sync::Arc;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct ExactMatcher<T: PartialEq> {
     value: Arc<T>,
 }
@@ -36,6 +37,7 @@ impl ExactMatcher<HeaderValue> {
 }
 
 #[derive(Debug, Clone, CloneGetters)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct StringPrefixMatcher {
     #[getset(get_clone = "pub")]
     prefix: Arc<String>,
@@ -76,7 +78,15 @@ impl RegularExpressionMatcher {
     }
 }
 
+#[cfg(test)]
+impl PartialEq for RegularExpressionMatcher {
+    fn eq(&self, other: &Self) -> bool {
+        self.regex.as_str() == other.regex.as_str()
+    }
+}
+
 #[derive(Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct ExactDnsNameMatcher {
     matcher: ExactMatcher<Name>,
 }
@@ -94,6 +104,7 @@ impl ExactDnsNameMatcher {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct InZoneDnsNameMatcher {
     zone: Arc<Name>,
 }
