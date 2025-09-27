@@ -22,7 +22,7 @@ impl ErrorResponseFilterHandler {
 mod tests {
     use super::*;
 
-    use http::StatusCode;
+    use http::{StatusCode, Uri};
 
     #[tokio::test]
     async fn test_error_response_handler_creation() {
@@ -104,10 +104,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_error_response_problem_details_format() {
-        // Test generating RFC 7807 Problem Details responses with custom authority
-        use url::Url;
-
-        let authority = Url::parse("https://api.example.com/problems/").unwrap();
+        let authority = Uri::from_static("https://api.example.com/problems/");
         let generator = ErrorResponseGeneratorType::ProblemDetail(
             ProblemDetailErrorResponseGenerator::builder()
                 .authority(Some(authority))
@@ -193,7 +190,9 @@ mod tests {
         let html_generator =
             ErrorResponseGeneratorType::Html(HtmlErrorResponseGenerator::builder().build());
         let problem_generator = ErrorResponseGeneratorType::ProblemDetail(
-            ProblemDetailErrorResponseGenerator::builder().build(),
+            ProblemDetailErrorResponseGenerator::builder()
+                .authority(None)
+                .build(),
         );
 
         let empty_handler = ErrorResponseFilterHandler::builder()

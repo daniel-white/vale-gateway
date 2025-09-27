@@ -1,7 +1,7 @@
 use super::error_codes::ErrorResponseCode;
 use bytes::Bytes;
 use http::header::{CONTENT_LENGTH, CONTENT_TYPE};
-use http::{HeaderValue, Response, StatusCode};
+use http::{HeaderValue, Response, StatusCode, Uri};
 use opentelemetry::TraceId;
 use opentelemetry::trace::TraceContextExt;
 use problemdetails::Problem;
@@ -9,7 +9,6 @@ use std::borrow::Cow;
 use tracing::Span;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use typed_builder::TypedBuilder;
-use url::Url;
 
 #[derive(Debug)]
 pub enum ErrorResponseGeneratorType {
@@ -82,8 +81,8 @@ impl ErrorResponseGenerator for HtmlErrorResponseGenerator {
 
 #[derive(Debug, TypedBuilder)]
 pub struct ProblemDetailErrorResponseGenerator {
-    #[builder(setter(into), default)]
-    authority: Option<Url>,
+    #[builder(default)]
+    authority: Option<Uri>,
 }
 
 impl ErrorResponseGenerator for ProblemDetailErrorResponseGenerator {
@@ -98,8 +97,8 @@ impl ErrorResponseGenerator for ProblemDetailErrorResponseGenerator {
                 "{}{}",
                 self.authority
                     .as_ref()
-                    .map(|a| a.as_str())
-                    .unwrap_or("http://vale-gateway.whitefamily.in/errors/"),
+                    .map(|uri| uri.to_string())
+                    .unwrap_or_else(|| "http://vale-gateway.whitefamily.in/errors/".to_string()),
                 code_str
             ))
             .with_detail(message);
@@ -183,9 +182,9 @@ mod tests {
     #[tokio::test]
     async fn test_problem_details_error_response_generator() {
         // Test RFC 7807 Problem Details with custom authority
-        use url::Url;
+        use http::Uri;
 
-        let authority = Url::parse("https://api.example.com/problems/").unwrap();
+        let authority: Uri = "https://api.example.com/problems/".parse().unwrap();
         let generator = ProblemDetailErrorResponseGenerator::builder()
             .authority(Some(authority))
             .build();
@@ -212,9 +211,9 @@ mod tests {
     #[tokio::test]
     async fn test_custom_error_template_generator() {
         // Test custom authority in problem details
-        use url::Url;
+        use http::Uri;
 
-        let custom_authority = Url::parse("https://custom.example.com/errors/").unwrap();
+        let custom_authority: Uri = "https://custom.example.com/errors/".parse().unwrap();
         let generator = ProblemDetailErrorResponseGenerator::builder()
             .authority(Some(custom_authority))
             .build();
