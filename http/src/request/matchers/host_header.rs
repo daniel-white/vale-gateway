@@ -3,13 +3,48 @@ use hickory_proto::rr::Name;
 use http::header::HOST;
 use http::uri::Authority;
 use http::{HeaderMap, HeaderValue};
+use thiserror::Error;
 use tracing::{debug, instrument};
 use typed_builder::TypedBuilder;
+use vg_http_config::request::matchers::{
+    HostHeaderMatcher as HostHeaderMatcherConfig,
+    HostHeaderValueMatcher as HostHeaderValueMatcherConfig,
+};
 
 #[derive(Debug)]
 pub enum HostHeaderValueMatcher {
     Exact(ExactMatcher<Name>),
     InZone(InZoneDnsNameMatcher),
+}
+
+#[derive(Debug, Error)]
+pub enum HostHeaderValueMatcherConversionError {
+    #[error("Invalid DNS name")]
+    InvalidDnsName,
+    #[error("Not fully qualified DNS name")]
+    NotFullyQualifiedDnsName,
+}
+
+impl TryFrom<&HostHeaderValueMatcherConfig> for HostHeaderValueMatcher {
+    type Error = HostHeaderValueMatcherConversionError;
+
+    fn try_from(config: &HostHeaderValueMatcherConfig) -> Result<Self, Self::Error> {
+        match config {
+            HostHeaderValueMatcherConfig::Exact(name) => {
+                let name = Name::from_utf8(name)
+                    .map_err(|_| HostHeaderValueMatcherConversionError::InvalidDnsName)?;
+                if !name.is_fqdn() {
+                    return Err(HostHeaderValueMatcherConversionError::NotFullyQualifiedDnsName);
+                }
+                Ok(Self::Exact(name.into()))
+            }
+            HostHeaderValueMatcherConfig::InZone(zone) => {
+                let zone = Name::from_utf8(zone)
+                    .map_err(|_| HostHeaderValueMatcherConversionError::InvalidDnsName)?;
+                Ok(Self::InZone(zone.into()))
+            }
+        }
+    }
 }
 
 impl HostHeaderValueMatcher {
@@ -43,19 +78,19 @@ impl HostHeaderValueMatcher {
 
 #[derive(Debug, TypedBuilder)]
 pub struct HostHeaderMatcher {
-    value_matchers: Vec<HostHeaderValueMatcher>,
+    matchers: Vec<HostHeaderValueMatcher>,
 }
 
 impl HostHeaderMatcher {
     #[instrument(skip(self, headers), name = "HostHeaderMatcher::matches")]
     pub fn matches(&self, headers: &HeaderMap) -> bool {
-        if self.value_matchers.is_empty() {
+        if self.matchers.is_empty() {
             debug!("No host header matches configured");
             return true;
         }
 
         let is_match = match headers.get(HOST) {
-            Some(value) => self.value_matchers.iter().any(|m| m.matches(value)),
+            Some(value) => self.matchers.iter().any(|m| m.matches(value)),
             None => false, // If there's no Host header, it doesn't match
         };
 
@@ -64,5 +99,31 @@ impl HostHeaderMatcher {
         }
 
         is_match
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum HostHeaderMatcherConversionError {
+    #[error("Invalid host header value matcher at index {0}: {1}")]
+    InvalidValue(usize, HostHeaderValueMatcherConversionError),
+}
+
+impl TryFrom<&HostHeaderMatcherConfig> for HostHeaderMatcher {
+    type Error = HostHeaderMatcherConversionError;
+
+    fn try_from(config: &HostHeaderMatcherConfig) -> Result<Self, Self::Error> {
+        let matchers = config
+            .matchers()
+            .iter()
+            .enumerate()
+            .map(|(idx, config)| {
+                HostHeaderValueMatcher::try_from(config)
+                    .map_err(|e| HostHeaderMatcherConversionError::InvalidValue(idx, e))
+            })
+            .collect::<Result<_, _>>()?;
+
+        let matcher = Self::builder().matchers(matchers).build();
+
+        Ok(matcher)
     }
 }

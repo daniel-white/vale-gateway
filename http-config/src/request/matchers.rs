@@ -28,6 +28,20 @@ pub struct HeadersMatcher {
     matchers: Vec<HeaderMatcher>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", content = "value")]
+pub enum HostHeaderValueMatcher {
+    Exact(String),
+    InZone(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, TypedBuilder)]
+pub struct HostHeaderMatcher {
+    #[serde(flatten)]
+    #[getset(get = "pub")]
+    matchers: Vec<HostHeaderValueMatcher>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, CloneGetters, TypedBuilder)]
 pub struct MethodMatcher {
     #[getset(get_clone = "pub")]
