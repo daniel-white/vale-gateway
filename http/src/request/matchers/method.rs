@@ -5,10 +5,12 @@ use http::Method;
 use http::request::Parts;
 use tracing::{debug, instrument};
 use typed_builder::TypedBuilder;
+use vg_http_config::request::matchers::MethodMatcher as MethodMatcherConfig;
 
 #[derive(Debug, TypedBuilder)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct MethodMatcher {
+    #[builder(setter(into))]
     method_matcher: ExactMatcher<Method>,
 }
 
@@ -28,12 +30,26 @@ impl Matcher for MethodMatcher {
     }
 }
 
+impl From<Method> for MethodMatcher {
+    fn from(method: Method) -> Self {
+        Self::builder().method_matcher(&method).build()
+    }
+}
+
+impl TryFrom<&MethodMatcherConfig> for MethodMatcher {
+    type Error = ();
+
+    fn try_from(config: &MethodMatcherConfig) -> Result<Self, Self::Error> {
+        let matcher = config.method().into();
+        Ok(matcher)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use http::{Method, Request, Version};
     use rstest::*;
-    use std::sync::Arc;
 
     fn create_request_parts(method: Method) -> Parts {
         let request = Request::builder()
@@ -56,9 +72,7 @@ mod tests {
     #[case(Method::OPTIONS)]
     fn test_method_matcher_exact_match(#[case] method: Method) {
         // Arrange
-        let matcher = MethodMatcher::builder()
-            .method_matcher(ExactMatcher::new(Arc::new(method.clone())))
-            .build();
+        let matcher = MethodMatcher::builder().method_matcher(&method).build();
 
         let parts = create_request_parts(method);
         let scorer = RequestMatcherScorer::default();
@@ -90,7 +104,7 @@ mod tests {
     ) {
         // Arrange
         let matcher = MethodMatcher::builder()
-            .method_matcher(ExactMatcher::new(Arc::new(matcher_method)))
+            .method_matcher(matcher_method)
             .build();
 
         let parts = create_request_parts(request_method);
@@ -108,11 +122,29 @@ mod tests {
     }
 
     #[test]
+    fn test_try_from_method_matcher_config() {
+        // Arrange: build a config via its builder
+        let config = MethodMatcherConfig::builder().method(Method::GET).build();
+
+        // Act: convert into MethodMatcher
+        let matcher = MethodMatcher::try_from(&config).expect("TryFrom should succeed");
+
+        // Assert: matcher behaves correctly
+        let scorer = RequestMatcherScorer::default();
+        let get_parts = create_request_parts(Method::GET);
+        let post_parts = create_request_parts(Method::POST);
+
+        assert!(matcher.matches(&scorer, &get_parts), "Should match GET");
+        assert!(
+            !matcher.matches(&scorer, &post_parts),
+            "Should not match POST"
+        );
+    }
+
+    #[test]
     fn test_method_matcher_calls_scorer_on_match() {
         // Arrange
-        let matcher = MethodMatcher::builder()
-            .method_matcher(ExactMatcher::new(Arc::new(Method::GET)))
-            .build();
+        let matcher = MethodMatcher::builder().method_matcher(Method::GET).build();
 
         let parts = create_request_parts(Method::GET);
         let scorer = RequestMatcherScorer::default();
@@ -129,9 +161,7 @@ mod tests {
     #[test]
     fn test_method_matcher_does_not_call_scorer_on_no_match() {
         // Arrange
-        let matcher = MethodMatcher::builder()
-            .method_matcher(ExactMatcher::new(Arc::new(Method::GET)))
-            .build();
+        let matcher = MethodMatcher::builder().method_matcher(Method::GET).build();
 
         let parts = create_request_parts(Method::POST);
         let scorer = RequestMatcherScorer::default();
@@ -157,9 +187,7 @@ mod tests {
     fn test_method_matcher_with_various_http_methods(#[case] method_str: &str) {
         // Arrange
         let method = Method::from_bytes(method_str.as_bytes()).unwrap();
-        let matcher = MethodMatcher::builder()
-            .method_matcher(ExactMatcher::new(Arc::new(method.clone())))
-            .build();
+        let matcher = MethodMatcher::builder().method_matcher(&method).build();
 
         let parts = create_request_parts(method);
         let scorer = RequestMatcherScorer::default();
@@ -176,7 +204,7 @@ mod tests {
         // Arrange
         let custom_method = Method::from_bytes(b"CUSTOM").unwrap();
         let matcher = MethodMatcher::builder()
-            .method_matcher(ExactMatcher::new(Arc::new(custom_method.clone())))
+            .method_matcher(&custom_method)
             .build();
 
         let parts = create_request_parts(custom_method);

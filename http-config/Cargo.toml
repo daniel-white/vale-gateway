@@ -1,0 +1,12 @@
+[package]
+name = "vg-http-config"
+version = "0.0.0"
+edition = "2024"
+
+[dependencies]
+getset.workspace = true
+http.workspace = true
+http-serde.workspace = true
+serde.workspace = true
+typed-builder.workspace = true
+vg-core = { path = "../core" }

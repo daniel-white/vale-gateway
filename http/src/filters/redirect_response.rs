@@ -30,7 +30,6 @@ mod tests {
     use http::Method;
     use http::header::HeaderValue;
     use std::str::FromStr;
-    use std::sync::Arc;
 
     fn create_empty_parts() -> Parts {
         use http::Request;
@@ -59,7 +58,7 @@ mod tests {
         // Create mock match context
         struct MockMatchContext;
         impl RequestMatchDetails for MockMatchContext {
-            fn path_prefix(&self) -> Option<Arc<String>> {
+            fn path_prefix(&self) -> Option<String> {
                 None
             }
         }
@@ -69,7 +68,7 @@ mod tests {
 
         // Verify redirect response
         assert_eq!(response.status(), StatusCode::MOVED_PERMANENTLY);
-        assert!(response.headers().get("location").is_some());
+        assert!(response.headers().get(LOCATION).is_some());
     }
 
     #[tokio::test]
@@ -90,7 +89,7 @@ mod tests {
 
         struct MockMatchContext;
         impl RequestMatchDetails for MockMatchContext {
-            fn path_prefix(&self) -> Option<Arc<String>> {
+            fn path_prefix(&self) -> Option<String> {
                 None
             }
         }
@@ -99,7 +98,7 @@ mod tests {
         let response = handler.handle(&request_parts, &match_context);
 
         assert_eq!(response.status(), StatusCode::FOUND);
-        assert!(response.headers().get("location").is_some());
+        assert!(response.headers().get(LOCATION).is_some());
     }
 
     #[tokio::test]
@@ -120,7 +119,7 @@ mod tests {
 
         struct MockMatchContext;
         impl RequestMatchDetails for MockMatchContext {
-            fn path_prefix(&self) -> Option<Arc<String>> {
+            fn path_prefix(&self) -> Option<String> {
                 None
             }
         }
@@ -129,7 +128,7 @@ mod tests {
         let response = handler.handle(&request_parts, &match_context);
 
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
-        assert!(response.headers().get("location").is_some());
+        assert!(response.headers().get(LOCATION).is_some());
     }
 
     #[tokio::test]
@@ -151,7 +150,7 @@ mod tests {
 
         struct MockMatchContext;
         impl RequestMatchDetails for MockMatchContext {
-            fn path_prefix(&self) -> Option<Arc<String>> {
+            fn path_prefix(&self) -> Option<String> {
                 None
             }
         }
@@ -160,7 +159,7 @@ mod tests {
         let response = handler.handle(&request_parts, &match_context);
 
         assert_eq!(response.status(), StatusCode::PERMANENT_REDIRECT);
-        assert!(response.headers().get("location").is_some());
+        assert!(response.headers().get(LOCATION).is_some());
     }
 
     #[tokio::test]
@@ -185,7 +184,7 @@ mod tests {
 
         struct MockMatchContext;
         impl RequestMatchDetails for MockMatchContext {
-            fn path_prefix(&self) -> Option<Arc<String>> {
+            fn path_prefix(&self) -> Option<String> {
                 None
             }
         }
@@ -194,7 +193,7 @@ mod tests {
         let response = handler.handle(&request_parts, &match_context);
 
         assert_eq!(response.status(), StatusCode::MOVED_PERMANENTLY);
-        assert!(response.headers().get("location").is_some());
+        assert!(response.headers().get(LOCATION).is_some());
     }
 
     #[tokio::test]
@@ -216,7 +215,7 @@ mod tests {
 
         struct MockMatchContext;
         impl RequestMatchDetails for MockMatchContext {
-            fn path_prefix(&self) -> Option<Arc<String>> {
+            fn path_prefix(&self) -> Option<String> {
                 None
             }
         }
@@ -225,7 +224,7 @@ mod tests {
         let response = handler.handle(&request_parts, &match_context);
 
         assert_eq!(response.status(), StatusCode::MOVED_PERMANENTLY);
-        let location = response.headers().get("location").unwrap();
+        let location = response.headers().get(LOCATION).unwrap();
         // The actual location depends on the URI rewriter implementation
         assert!(location.to_str().unwrap().contains("/legacy/feature"));
     }
@@ -248,7 +247,7 @@ mod tests {
 
         struct MockMatchContext;
         impl RequestMatchDetails for MockMatchContext {
-            fn path_prefix(&self) -> Option<Arc<String>> {
+            fn path_prefix(&self) -> Option<String> {
                 None
             }
         }
@@ -257,12 +256,7 @@ mod tests {
         let response = handler.handle(&request_parts, &match_context);
 
         assert_eq!(response.status(), StatusCode::MOVED_PERMANENTLY);
-        let location = response
-            .headers()
-            .get("location")
-            .unwrap()
-            .to_str()
-            .unwrap();
+        let location = response.headers().get(LOCATION).unwrap().to_str().unwrap();
         // The URI rewriter should preserve or modify query params as configured
         assert!(location.contains("/old-path"));
     }
@@ -285,7 +279,7 @@ mod tests {
 
         struct MockMatchContext;
         impl RequestMatchDetails for MockMatchContext {
-            fn path_prefix(&self) -> Option<Arc<String>> {
+            fn path_prefix(&self) -> Option<String> {
                 None
             }
         }
@@ -294,7 +288,7 @@ mod tests {
         let response = handler.handle(&request_parts, &match_context);
 
         assert_eq!(response.status(), StatusCode::MOVED_PERMANENTLY);
-        assert!(response.headers().get("location").is_some());
+        assert!(response.headers().get(LOCATION).is_some());
     }
 
     #[tokio::test]
@@ -315,7 +309,7 @@ mod tests {
 
         struct MockMatchContext;
         impl RequestMatchDetails for MockMatchContext {
-            fn path_prefix(&self) -> Option<Arc<String>> {
+            fn path_prefix(&self) -> Option<String> {
                 None
             }
         }
@@ -325,14 +319,9 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::MOVED_PERMANENTLY);
         // The handler sets the Location header automatically
-        assert!(response.headers().get("location").is_some());
+        assert!(response.headers().get(LOCATION).is_some());
         assert_eq!(
-            response
-                .headers()
-                .get("location")
-                .unwrap()
-                .to_str()
-                .unwrap(),
+            response.headers().get(LOCATION).unwrap().to_str().unwrap(),
             "/"
         );
     }
@@ -359,7 +348,7 @@ mod tests {
 
         struct MockMatchContext;
         impl RequestMatchDetails for MockMatchContext {
-            fn path_prefix(&self) -> Option<Arc<String>> {
+            fn path_prefix(&self) -> Option<String> {
                 None
             }
         }
@@ -368,7 +357,7 @@ mod tests {
         let response = handler.handle(&request_parts, &match_context);
 
         assert_eq!(response.status(), StatusCode::MOVED_PERMANENTLY);
-        assert!(response.headers().get("location").is_some());
+        assert!(response.headers().get(LOCATION).is_some());
     }
 
     #[tokio::test]
@@ -389,7 +378,7 @@ mod tests {
 
         struct MockMatchContext;
         impl RequestMatchDetails for MockMatchContext {
-            fn path_prefix(&self) -> Option<Arc<String>> {
+            fn path_prefix(&self) -> Option<String> {
                 None
             }
         }
@@ -398,12 +387,7 @@ mod tests {
         let response = handler.handle(&request_parts, &match_context);
 
         assert_eq!(response.status(), StatusCode::MOVED_PERMANENTLY);
-        let location = response
-            .headers()
-            .get("location")
-            .unwrap()
-            .to_str()
-            .unwrap();
+        let location = response.headers().get(LOCATION).unwrap().to_str().unwrap();
         assert!(location.contains("/product/12345"));
     }
 
@@ -428,7 +412,7 @@ mod tests {
 
         struct MockMatchContext;
         impl RequestMatchDetails for MockMatchContext {
-            fn path_prefix(&self) -> Option<Arc<String>> {
+            fn path_prefix(&self) -> Option<String> {
                 None
             }
         }
@@ -438,7 +422,7 @@ mod tests {
 
         // Handler always generates redirect - chain prevention would be at higher level
         assert_eq!(response.status(), StatusCode::MOVED_PERMANENTLY);
-        assert!(response.headers().get("location").is_some());
+        assert!(response.headers().get(LOCATION).is_some());
     }
 
     #[tokio::test]
@@ -459,7 +443,7 @@ mod tests {
 
         struct MockMatchContext;
         impl RequestMatchDetails for MockMatchContext {
-            fn path_prefix(&self) -> Option<Arc<String>> {
+            fn path_prefix(&self) -> Option<String> {
                 None
             }
         }
@@ -468,7 +452,7 @@ mod tests {
         let response = handler.handle(&request_parts, &match_context);
 
         assert_eq!(response.status(), StatusCode::MOVED_PERMANENTLY);
-        assert!(response.headers().get("location").is_some());
+        assert!(response.headers().get(LOCATION).is_some());
         // Body should be empty unit type () - can't directly test but handler creates Response(())
     }
 }

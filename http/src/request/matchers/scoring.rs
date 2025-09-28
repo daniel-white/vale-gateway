@@ -5,7 +5,6 @@ use crate::request::matchers::path::PathMatcher;
 use crate::request::matchers::query_param::QueryParamsMatcher;
 use std::cell::Cell;
 use std::cmp::Ordering;
-use std::sync::Arc;
 use tracing::instrument;
 use typed_builder::TypedBuilder;
 
@@ -13,14 +12,14 @@ use typed_builder::TypedBuilder;
 pub struct RequestMatchScore {
     path_exact: bool,
     path_weight: Option<usize>,
-    path_prefix: Option<Arc<String>>, // Not for scoring, just for info
+    path_prefix: Option<String>, // Not for scoring, just for info
     method: bool,
     headers_weight: Option<usize>,
     query_params_weight: Option<usize>,
 }
 
 impl RequestMatchDetails for RequestMatchScore {
-    fn path_prefix(&self) -> Option<Arc<String>> {
+    fn path_prefix(&self) -> Option<String> {
         self.path_prefix.clone()
     }
 }
@@ -91,7 +90,7 @@ impl Ord for RequestMatchScore {
 pub struct RequestMatcherScorer {
     path_exact: Cell<bool>,
     path_weight: Cell<Option<usize>>,
-    path_prefix: Cell<Option<Arc<String>>>,
+    path_prefix: Cell<Option<String>>,
     method: Cell<bool>,
     headers_weight: Cell<Option<usize>>,
     query_params_weight: Cell<Option<usize>>,
@@ -145,50 +144,39 @@ impl RequestMatcherScorer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::request::matchers::basic::{
-        ExactMatcher, RegularExpressionMatcher, StringPrefixMatcher,
-    };
+
     use crate::request::matchers::header::{HeaderMatcher, HeadersMatcher};
     use crate::request::matchers::method::MethodMatcher;
     use crate::request::matchers::path::PathMatcher;
     use crate::request::matchers::query_param::{
-        QueryParamMatcher, QueryParamNameMatcher, QueryParamValueMatcher, QueryParamsMatcher,
+        QueryParamMatcher, QueryParamValueMatcher, QueryParamsMatcher,
     };
     use assertables::*;
-    use http::{HeaderName, HeaderValue, Method};
+    use http::header::{ACCEPT, CONTENT_TYPE};
+    use http::{HeaderValue, Method};
     use regex::Regex;
     use rstest::*;
-    use std::sync::Arc;
 
     #[fixture]
     fn path_exact_matcher() -> PathMatcher {
-        PathMatcher::Exact(ExactMatcher::new(Arc::new("/api/v1/test".to_string())))
+        PathMatcher::Exact("/api/v1/resource".into())
     }
 
     #[fixture]
     fn path_prefix_matcher() -> PathMatcher {
-        PathMatcher::Prefix(StringPrefixMatcher::new(Arc::new("/api".to_string())))
+        PathMatcher::Prefix("/api".into())
     }
 
     #[fixture]
     fn path_regex_matcher() -> PathMatcher {
         let regex = Regex::new(r"^/api/v[0-9]+/.*$").unwrap();
-        PathMatcher::RegularExpression(RegularExpressionMatcher::new(Arc::new(regex)))
-    }
-
-    #[fixture]
-    fn method_matcher() -> MethodMatcher {
-        MethodMatcher::builder()
-            .method_matcher(ExactMatcher::new(Arc::new(Method::GET)))
-            .build()
+        PathMatcher::RegularExpression(regex.into())
     }
 
     #[fixture]
     fn headers_matcher_single() -> HeadersMatcher {
-        let header_matcher = HeaderMatcher::new_exact(
-            Arc::new(HeaderName::from_static("content-type")),
-            Arc::new(HeaderValue::from_static("application/json")),
-        );
+        let content_type = HeaderValue::from_static("application/json");
+        let header_matcher = HeaderMatcher::new_exact(&CONTENT_TYPE, &content_type);
         HeadersMatcher::builder()
             .matchers(vec![header_matcher])
             .build()
@@ -196,14 +184,9 @@ mod tests {
 
     #[fixture]
     fn headers_matcher_multiple() -> HeadersMatcher {
-        let header1 = HeaderMatcher::new_exact(
-            Arc::new(HeaderName::from_static("content-type")),
-            Arc::new(HeaderValue::from_static("application/json")),
-        );
-        let header2 = HeaderMatcher::new_exact(
-            Arc::new(HeaderName::from_static("accept")),
-            Arc::new(HeaderValue::from_static("application/json")),
-        );
+        let content_type = HeaderValue::from_static("application/json");
+        let header1 = HeaderMatcher::new_exact(&CONTENT_TYPE, &content_type);
+        let header2 = HeaderMatcher::new_exact(&ACCEPT, &content_type);
         HeadersMatcher::builder()
             .matchers(vec![header1, header2])
             .build()
@@ -212,14 +195,8 @@ mod tests {
     #[fixture]
     fn query_params_matcher_single() -> QueryParamsMatcher {
         let param_matcher = QueryParamMatcher::builder()
-            .name_matcher(
-                QueryParamNameMatcher::builder()
-                    .matcher(ExactMatcher::new(Arc::new("version".to_string())))
-                    .build(),
-            )
-            .value_matcher(QueryParamValueMatcher::Exact(ExactMatcher::new(Arc::new(
-                "v1".to_string(),
-            ))))
+            .name_matcher("version".into())
+            .value_matcher(QueryParamValueMatcher::Exact("v1".into()))
             .build();
         QueryParamsMatcher::builder()
             .matchers(vec![param_matcher])
@@ -229,24 +206,12 @@ mod tests {
     #[fixture]
     fn query_params_matcher_multiple() -> QueryParamsMatcher {
         let param1 = QueryParamMatcher::builder()
-            .name_matcher(
-                QueryParamNameMatcher::builder()
-                    .matcher(ExactMatcher::new(Arc::new("version".to_string())))
-                    .build(),
-            )
-            .value_matcher(QueryParamValueMatcher::Exact(ExactMatcher::new(Arc::new(
-                "v1".to_string(),
-            ))))
+            .name_matcher("version".into())
+            .value_matcher(QueryParamValueMatcher::Exact("v1".into()))
             .build();
         let param2 = QueryParamMatcher::builder()
-            .name_matcher(
-                QueryParamNameMatcher::builder()
-                    .matcher(ExactMatcher::new(Arc::new("format".to_string())))
-                    .build(),
-            )
-            .value_matcher(QueryParamValueMatcher::Exact(ExactMatcher::new(Arc::new(
-                "json".to_string(),
-            ))))
+            .name_matcher("format".into())
+            .value_matcher(QueryParamValueMatcher::Exact("json".into()))
             .build();
         QueryParamsMatcher::builder()
             .matchers(vec![param1, param2])
@@ -258,7 +223,7 @@ mod tests {
         let score = RequestMatchScore::builder()
             .path_exact(true)
             .path_weight(Some(10))
-            .path_prefix(Some(Arc::new("/api".to_string())))
+            .path_prefix(Some("/api".to_string()))
             .method(true)
             .headers_weight(Some(2))
             .query_params_weight(Some(1))
@@ -277,7 +242,7 @@ mod tests {
         let score = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(None)
-            .path_prefix(Some(Arc::new("/test/path".to_string())))
+            .path_prefix(Some("/test/path".to_string()))
             .method(false)
             .headers_weight(None)
             .query_params_weight(None)
@@ -337,7 +302,8 @@ mod tests {
     }
 
     #[rstest]
-    fn test_scorer_method(method_matcher: MethodMatcher) {
+    fn test_scorer_method() {
+        let method_matcher: MethodMatcher = Method::GET.into();
         let scorer = RequestMatcherScorer::default();
         scorer.method(&method_matcher);
 
@@ -397,7 +363,7 @@ mod tests {
         let prefix_score = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(10))
-            .path_prefix(Some(Arc::new("/api/very/long/path".to_string())))
+            .path_prefix(Some("/api/very/long/path".to_string()))
             .method(false)
             .headers_weight(None)
             .query_params_weight(None)
@@ -437,7 +403,7 @@ mod tests {
         let shorter_prefix = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(4)) // "/api"
-            .path_prefix(Some(Arc::new("/api".to_string())))
+            .path_prefix(Some("/api".to_string()))
             .method(false)
             .headers_weight(None)
             .query_params_weight(None)
@@ -446,7 +412,7 @@ mod tests {
         let longer_prefix = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(8)) // "/api/v1"
-            .path_prefix(Some(Arc::new("/api/v1".to_string())))
+            .path_prefix(Some("/api/v1".to_string()))
             .method(false)
             .headers_weight(None)
             .query_params_weight(None)
@@ -486,7 +452,7 @@ mod tests {
         let with_method = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(5))
-            .path_prefix(Some(Arc::new("/test".to_string())))
+            .path_prefix(Some("/test".to_string()))
             .method(true)
             .headers_weight(None)
             .query_params_weight(None)
@@ -495,7 +461,7 @@ mod tests {
         let without_method = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(5))
-            .path_prefix(Some(Arc::new("/test".to_string())))
+            .path_prefix(Some("/test".to_string()))
             .method(false)
             .headers_weight(None)
             .query_params_weight(None)
@@ -511,7 +477,7 @@ mod tests {
         let fewer_headers = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(5))
-            .path_prefix(Some(Arc::new("/test".to_string())))
+            .path_prefix(Some("/test".to_string()))
             .method(true)
             .headers_weight(Some(1))
             .query_params_weight(None)
@@ -520,7 +486,7 @@ mod tests {
         let more_headers = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(5))
-            .path_prefix(Some(Arc::new("/test".to_string())))
+            .path_prefix(Some("/test".to_string()))
             .method(true)
             .headers_weight(Some(3))
             .query_params_weight(None)
@@ -535,7 +501,7 @@ mod tests {
         let with_headers = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(5))
-            .path_prefix(Some(Arc::new("/test".to_string())))
+            .path_prefix(Some("/test".to_string()))
             .method(true)
             .headers_weight(Some(1))
             .query_params_weight(None)
@@ -544,7 +510,7 @@ mod tests {
         let no_headers = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(5))
-            .path_prefix(Some(Arc::new("/test".to_string())))
+            .path_prefix(Some("/test".to_string()))
             .method(true)
             .headers_weight(None)
             .query_params_weight(None)
@@ -561,7 +527,7 @@ mod tests {
         let fewer_params = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(5))
-            .path_prefix(Some(Arc::new("/test".to_string())))
+            .path_prefix(Some("/test".to_string()))
             .method(true)
             .headers_weight(Some(2))
             .query_params_weight(Some(1))
@@ -570,7 +536,7 @@ mod tests {
         let more_params = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(5))
-            .path_prefix(Some(Arc::new("/test".to_string())))
+            .path_prefix(Some("/test".to_string()))
             .method(true)
             .headers_weight(Some(2))
             .query_params_weight(Some(3))
@@ -585,7 +551,7 @@ mod tests {
         let with_params = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(5))
-            .path_prefix(Some(Arc::new("/test".to_string())))
+            .path_prefix(Some("/test".to_string()))
             .method(true)
             .headers_weight(Some(1))
             .query_params_weight(Some(1))
@@ -594,7 +560,7 @@ mod tests {
         let no_params = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(5))
-            .path_prefix(Some(Arc::new("/test".to_string())))
+            .path_prefix(Some("/test".to_string()))
             .method(true)
             .headers_weight(Some(1))
             .query_params_weight(None)
@@ -621,7 +587,7 @@ mod tests {
         let prefix_with_method_headers = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(10))
-            .path_prefix(Some(Arc::new("/api/v1/test".to_string())))
+            .path_prefix(Some("/api/v1/test".to_string()))
             .method(true)
             .headers_weight(Some(5))
             .query_params_weight(Some(2))
@@ -637,7 +603,7 @@ mod tests {
         let general_match = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(4)) // "/api"
-            .path_prefix(Some(Arc::new("/api".to_string())))
+            .path_prefix(Some("/api".to_string()))
             .method(false)
             .headers_weight(None)
             .query_params_weight(None)
@@ -646,7 +612,7 @@ mod tests {
         let specific_match = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(12)) // "/api/v1/users"
-            .path_prefix(Some(Arc::new("/api/v1/users".to_string())))
+            .path_prefix(Some("/api/v1/users".to_string()))
             .method(true)
             .headers_weight(Some(2))
             .query_params_weight(Some(1))
@@ -694,7 +660,7 @@ mod tests {
         let score2 = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(5))
-            .path_prefix(Some(Arc::new("/test".to_string())))
+            .path_prefix(Some("/test".to_string()))
             .method(false)
             .headers_weight(None)
             .query_params_weight(None)
@@ -712,7 +678,7 @@ mod tests {
         let zero_weight = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(0))
-            .path_prefix(Some(Arc::new("".to_string())))
+            .path_prefix(Some("".to_string()))
             .method(false)
             .headers_weight(None)
             .query_params_weight(None)
@@ -721,7 +687,7 @@ mod tests {
         let positive_weight = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(1))
-            .path_prefix(Some(Arc::new("/".to_string())))
+            .path_prefix(Some("/".to_string()))
             .method(false)
             .headers_weight(None)
             .query_params_weight(None)
@@ -760,7 +726,7 @@ mod tests {
             RequestMatchScore::builder()
                 .path_exact(false)
                 .path_weight(Some(5))
-                .path_prefix(Some(Arc::new("/test".to_string())))
+                .path_prefix(Some("/test".to_string()))
                 .method(false)
                 .headers_weight(None)
                 .query_params_weight(None)
@@ -776,7 +742,7 @@ mod tests {
             RequestMatchScore::builder()
                 .path_exact(false)
                 .path_weight(Some(10))
-                .path_prefix(Some(Arc::new("/api/v1/test".to_string())))
+                .path_prefix(Some("/api/v1/test".to_string()))
                 .method(true)
                 .headers_weight(Some(2))
                 .query_params_weight(Some(1))
@@ -808,7 +774,7 @@ mod tests {
         let zero_weight = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(0))
-            .path_prefix(Some(Arc::new("".to_string())))
+            .path_prefix(Some("".to_string()))
             .method(false)
             .headers_weight(None)
             .query_params_weight(None)

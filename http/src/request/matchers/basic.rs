@@ -1,22 +1,19 @@
 use getset::{CloneGetters, CopyGetters};
 use hickory_proto::rr::Name;
-use http::HeaderValue;
+use http::{HeaderName, HeaderValue, Method};
 use regex::Regex;
-use std::sync::Arc;
+use typed_builder::TypedBuilder;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, TypedBuilder)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct ExactMatcher<T: PartialEq> {
-    value: Arc<T>,
+    #[builder(setter(into))]
+    value: T,
 }
 
 impl<T: PartialEq> ExactMatcher<T> {
-    pub fn new(value: Arc<T>) -> Self {
-        Self { value }
-    }
-
     pub fn matches(&self, value: &T) -> bool {
-        self.value.as_ref() == value
+        &self.value == value
     }
 }
 
@@ -36,20 +33,89 @@ impl ExactMatcher<HeaderValue> {
     }
 }
 
-#[derive(Debug, Clone, CloneGetters)]
+impl ExactMatcher<Name> {
+    pub fn weight(&self) -> usize {
+        self.value.iter().len()
+    }
+}
+
+impl From<&str> for ExactMatcher<String> {
+    fn from(val: &str) -> Self {
+        ExactMatcher::builder().value(val).build()
+    }
+}
+
+impl From<String> for ExactMatcher<String> {
+    fn from(val: String) -> Self {
+        ExactMatcher::builder().value(val).build()
+    }
+}
+
+impl From<&String> for ExactMatcher<String> {
+    fn from(val: &String) -> Self {
+        ExactMatcher::builder().value(val).build()
+    }
+}
+
+impl From<HeaderName> for ExactMatcher<HeaderName> {
+    fn from(val: HeaderName) -> Self {
+        ExactMatcher::builder().value(val).build()
+    }
+}
+
+impl From<&HeaderName> for ExactMatcher<HeaderName> {
+    fn from(val: &HeaderName) -> Self {
+        ExactMatcher::builder().value(val).build()
+    }
+}
+
+impl From<HeaderValue> for ExactMatcher<HeaderValue> {
+    fn from(val: HeaderValue) -> Self {
+        ExactMatcher::builder().value(val).build()
+    }
+}
+
+impl From<&HeaderValue> for ExactMatcher<HeaderValue> {
+    fn from(val: &HeaderValue) -> Self {
+        ExactMatcher::builder().value(val).build()
+    }
+}
+
+impl From<Name> for ExactMatcher<Name> {
+    fn from(val: Name) -> Self {
+        ExactMatcher::builder().value(val).build()
+    }
+}
+
+impl From<&Name> for ExactMatcher<Name> {
+    fn from(val: &Name) -> Self {
+        ExactMatcher::builder().value(val.clone()).build()
+    }
+}
+
+impl From<Method> for ExactMatcher<Method> {
+    fn from(val: Method) -> Self {
+        ExactMatcher::builder().value(val).build()
+    }
+}
+
+impl From<&Method> for ExactMatcher<Method> {
+    fn from(val: &Method) -> Self {
+        ExactMatcher::builder().value(val).build()
+    }
+}
+
+#[derive(Debug, Clone, CloneGetters, TypedBuilder)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct StringPrefixMatcher {
     #[getset(get_clone = "pub")]
-    prefix: Arc<String>,
+    #[builder(setter(into))]
+    prefix: String,
 }
 
 impl StringPrefixMatcher {
-    pub fn new(prefix: Arc<String>) -> Self {
-        Self { prefix }
-    }
-
     pub fn matches(&self, value: &str) -> bool {
-        value.starts_with(self.prefix.as_ref())
+        value.starts_with(&self.prefix)
     }
 
     pub fn weight(&self) -> usize {
@@ -57,24 +123,36 @@ impl StringPrefixMatcher {
     }
 }
 
-#[derive(Debug, Clone, CopyGetters)]
+impl From<&str> for StringPrefixMatcher {
+    fn from(val: &str) -> Self {
+        StringPrefixMatcher::builder().prefix(val).build()
+    }
+}
+
+impl From<String> for StringPrefixMatcher {
+    fn from(val: String) -> Self {
+        StringPrefixMatcher::builder().prefix(val).build()
+    }
+}
+
+impl From<&String> for StringPrefixMatcher {
+    fn from(val: &String) -> Self {
+        StringPrefixMatcher::builder().prefix(val).build()
+    }
+}
+
+#[derive(Debug, Clone, CopyGetters, TypedBuilder)]
 pub struct RegularExpressionMatcher {
-    regex: Arc<Regex>,
-    #[getset(get_copy = "pub")]
-    weight: usize,
+    regex: Regex,
 }
 
 impl RegularExpressionMatcher {
-    pub fn new(regex: Arc<Regex>) -> Self {
-        let weight = regex.as_str().len() * 4;
-        Self {
-            regex: regex.clone(),
-            weight,
-        }
-    }
-
     pub fn matches(&self, value: &str) -> bool {
         self.regex.is_match(value)
+    }
+
+    pub fn weight(&self) -> usize {
+        self.regex.as_str().len() * 4
     }
 }
 
@@ -85,37 +163,41 @@ impl PartialEq for RegularExpressionMatcher {
     }
 }
 
-#[derive(Debug, Clone)]
-#[cfg_attr(test, derive(PartialEq))]
-pub struct ExactDnsNameMatcher {
-    matcher: ExactMatcher<Name>,
-}
-
-impl ExactDnsNameMatcher {
-    pub fn new(name: Arc<Name>) -> Self {
-        Self {
-            matcher: ExactMatcher::new(name),
-        }
-    }
-
-    pub fn matches(&self, value: &Name) -> bool {
-        self.matcher.matches(value)
+impl From<Regex> for RegularExpressionMatcher {
+    fn from(val: Regex) -> Self {
+        RegularExpressionMatcher::builder().regex(val).build()
     }
 }
 
-#[derive(Debug, Clone)]
+impl From<&Regex> for RegularExpressionMatcher {
+    fn from(val: &Regex) -> Self {
+        RegularExpressionMatcher::builder()
+            .regex(val.clone())
+            .build()
+    }
+}
+
+#[derive(Debug, Clone, TypedBuilder)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct InZoneDnsNameMatcher {
-    zone: Arc<Name>,
+    zone: Name,
 }
 
 impl InZoneDnsNameMatcher {
-    pub fn new(zone: Arc<Name>) -> Self {
-        Self { zone }
-    }
-
     pub fn matches(&self, value: &Name) -> bool {
         self.zone.zone_of(value)
+    }
+}
+
+impl From<Name> for InZoneDnsNameMatcher {
+    fn from(val: Name) -> Self {
+        InZoneDnsNameMatcher::builder().zone(val).build()
+    }
+}
+
+impl From<&Name> for InZoneDnsNameMatcher {
+    fn from(val: &Name) -> Self {
+        InZoneDnsNameMatcher::builder().zone(val.clone()).build()
     }
 }
 
@@ -127,7 +209,6 @@ mod tests {
     use regex::Regex;
     use rstest::*;
     use std::str::FromStr;
-    use std::sync::Arc;
 
     #[cfg(test)]
     mod exact_matcher_tests {
@@ -135,12 +216,12 @@ mod tests {
 
         #[fixture]
         fn string_matcher() -> ExactMatcher<String> {
-            ExactMatcher::new(Arc::new("test".to_string()))
+            "test".into()
         }
 
         #[fixture]
         fn header_value_matcher() -> ExactMatcher<HeaderValue> {
-            ExactMatcher::new(Arc::new(HeaderValue::from_static("application/json")))
+            HeaderValue::from_static("application/json").into()
         }
 
         #[rstest]
@@ -179,7 +260,7 @@ mod tests {
             #[case] input: &str,
             #[case] expected: usize,
         ) {
-            let matcher = ExactMatcher::new(Arc::new(input.to_string()));
+            let matcher: ExactMatcher<_> = input.into();
             assert_eq!(matcher.weight(), expected);
         }
 
@@ -212,13 +293,14 @@ mod tests {
             #[case] input: &str,
             #[case] expected: usize,
         ) {
-            let matcher = ExactMatcher::new(Arc::new(HeaderValue::try_from(input).unwrap()));
+            let header_value = HeaderValue::try_from(input).unwrap();
+            let matcher: ExactMatcher<_> = header_value.into();
             assert_eq!(matcher.weight(), expected);
         }
 
         #[rstest]
         fn test_exact_matcher_case_sensitive() {
-            let matcher = ExactMatcher::new(Arc::new("Test".to_string()));
+            let matcher: ExactMatcher<_> = "Test".into();
             assert!(!matcher.matches_str("test"));
             assert!(!matcher.matches_str("TEST"));
             assert!(matcher.matches_str("Test"));
@@ -231,7 +313,7 @@ mod tests {
 
         #[fixture]
         fn prefix_matcher() -> StringPrefixMatcher {
-            StringPrefixMatcher::new(Arc::new("/api".to_string()))
+            "/api".into()
         }
 
         #[rstest]
@@ -282,13 +364,13 @@ mod tests {
             #[case] prefix: &str,
             #[case] expected: usize,
         ) {
-            let matcher = StringPrefixMatcher::new(Arc::new(prefix.to_string()));
+            let matcher: StringPrefixMatcher = prefix.into();
             assert_eq!(matcher.weight(), expected);
         }
 
         #[rstest]
         fn test_string_prefix_matcher_case_sensitive() {
-            let matcher = StringPrefixMatcher::new(Arc::new("/API".to_string()));
+            let matcher: StringPrefixMatcher = "/API".into();
             assert!(!matcher.matches("/api"));
             assert!(matcher.matches("/API"));
             assert!(matcher.matches("/API/v1"));
@@ -296,7 +378,7 @@ mod tests {
 
         #[rstest]
         fn test_string_prefix_matcher_empty_prefix() {
-            let matcher = StringPrefixMatcher::new(Arc::new("".to_string()));
+            let matcher: StringPrefixMatcher = "".into();
             assert!(matcher.matches("anything"));
             assert!(matcher.matches(""));
             assert!(matcher.matches("/api"));
@@ -310,13 +392,13 @@ mod tests {
         #[fixture]
         fn simple_regex_matcher() -> RegularExpressionMatcher {
             let regex = Regex::new(r"^/api/v\d+").unwrap();
-            RegularExpressionMatcher::new(Arc::new(regex))
+            regex.into()
         }
 
         #[fixture]
         fn complex_regex_matcher() -> RegularExpressionMatcher {
             let regex = Regex::new(r"^/users/[a-zA-Z0-9]+/profile$").unwrap();
-            RegularExpressionMatcher::new(Arc::new(regex))
+            regex.into()
         }
 
         #[rstest]
@@ -375,14 +457,14 @@ mod tests {
             #[case] expected: usize,
         ) {
             let regex = Regex::new(pattern).unwrap();
-            let matcher = RegularExpressionMatcher::new(Arc::new(regex));
+            let matcher: RegularExpressionMatcher = regex.into();
             assert_eq!(matcher.weight(), expected);
         }
 
         #[rstest]
         fn test_regex_matcher_case_sensitivity() {
             let regex = Regex::new(r"^/API").unwrap();
-            let matcher = RegularExpressionMatcher::new(Arc::new(regex));
+            let matcher: RegularExpressionMatcher = regex.into();
             assert!(matcher.matches("/API"));
             assert!(!matcher.matches("/api"));
         }
@@ -390,7 +472,7 @@ mod tests {
         #[rstest]
         fn test_regex_matcher_case_insensitive() {
             let regex = Regex::new(r"(?i)^/api").unwrap();
-            let matcher = RegularExpressionMatcher::new(Arc::new(regex));
+            let matcher: RegularExpressionMatcher = regex.into();
             assert!(matcher.matches("/API"));
             assert!(matcher.matches("/api"));
             assert!(matcher.matches("/Api"));
@@ -399,7 +481,7 @@ mod tests {
         #[rstest]
         fn test_regex_matcher_partial_matches() {
             let regex = Regex::new(r"api").unwrap();
-            let matcher = RegularExpressionMatcher::new(Arc::new(regex));
+            let matcher: RegularExpressionMatcher = regex.into();
             assert!(matcher.matches("/api/v1"));
             assert!(matcher.matches("myapi"));
             assert!(matcher.matches("api"));
@@ -408,7 +490,7 @@ mod tests {
         #[rstest]
         fn test_regex_matcher_empty_string() {
             let regex = Regex::new(r".*").unwrap();
-            let matcher = RegularExpressionMatcher::new(Arc::new(regex));
+            let matcher: RegularExpressionMatcher = regex.into();
             assert!(matcher.matches(""));
             assert!(matcher.matches("anything"));
         }
@@ -419,26 +501,26 @@ mod tests {
         use super::*;
 
         #[fixture]
-        fn dns_name_matcher() -> ExactDnsNameMatcher {
+        fn dns_name_matcher() -> ExactMatcher<Name> {
             let name = Name::from_str("example.com.").unwrap();
-            ExactDnsNameMatcher::new(Arc::new(name))
+            name.into()
         }
 
         #[fixture]
-        fn root_dns_name_matcher() -> ExactDnsNameMatcher {
+        fn root_dns_name_matcher() -> ExactMatcher<Name> {
             let name = Name::root();
-            ExactDnsNameMatcher::new(Arc::new(name))
+            name.into()
         }
 
         #[rstest]
-        fn test_exact_dns_name_matcher_matches_exact_name(dns_name_matcher: ExactDnsNameMatcher) {
+        fn test_exact_dns_name_matcher_matches_exact_name(dns_name_matcher: ExactMatcher<Name>) {
             let name = Name::from_str("example.com.").unwrap();
             assert!(dns_name_matcher.matches(&name));
         }
 
         #[rstest]
         fn test_exact_dns_name_matcher_doesnt_match_different_name(
-            dns_name_matcher: ExactDnsNameMatcher,
+            dns_name_matcher: ExactMatcher<Name>,
         ) {
             let name = Name::from_str("other.com.").unwrap();
             assert!(!dns_name_matcher.matches(&name));
@@ -446,7 +528,7 @@ mod tests {
 
         #[rstest]
         fn test_exact_dns_name_matcher_doesnt_match_subdomain(
-            dns_name_matcher: ExactDnsNameMatcher,
+            dns_name_matcher: ExactMatcher<Name>,
         ) {
             let name = Name::from_str("sub.example.com.").unwrap();
             assert!(!dns_name_matcher.matches(&name));
@@ -454,21 +536,21 @@ mod tests {
 
         #[rstest]
         fn test_exact_dns_name_matcher_doesnt_match_parent_domain(
-            dns_name_matcher: ExactDnsNameMatcher,
+            dns_name_matcher: ExactMatcher<Name>,
         ) {
             let name = Name::from_str("com.").unwrap();
             assert!(!dns_name_matcher.matches(&name));
         }
 
         #[rstest]
-        fn test_exact_dns_name_matcher_root_domain(root_dns_name_matcher: ExactDnsNameMatcher) {
+        fn test_exact_dns_name_matcher_root_domain(root_dns_name_matcher: ExactMatcher<Name>) {
             let root_name = Name::root();
             assert!(root_dns_name_matcher.matches(&root_name));
         }
 
         #[rstest]
         fn test_exact_dns_name_matcher_root_doesnt_match_other(
-            root_dns_name_matcher: ExactDnsNameMatcher,
+            root_dns_name_matcher: ExactMatcher<Name>,
         ) {
             let name = Name::from_str("example.com.").unwrap();
             assert!(!root_dns_name_matcher.matches(&name));
@@ -480,7 +562,7 @@ mod tests {
         #[case("localhost.")]
         fn test_exact_dns_name_matcher_with_various_names(#[case] dns_name: &str) {
             let name = Name::from_str(dns_name).unwrap();
-            let matcher = ExactDnsNameMatcher::new(Arc::new(name.clone()));
+            let matcher: ExactMatcher<_> = name.clone().into();
             assert!(matcher.matches(&name));
 
             // Should not match a different name
@@ -494,8 +576,7 @@ mod tests {
             let lower_name = Name::from_str("example.com.").unwrap();
             let upper_name = Name::from_str("EXAMPLE.COM.").unwrap();
             let mixed_name = Name::from_str("Example.Com.").unwrap();
-
-            let matcher = ExactDnsNameMatcher::new(Arc::new(lower_name.clone()));
+            let matcher: ExactMatcher<_> = lower_name.clone().into();
 
             assert!(matcher.matches(&lower_name));
             assert!(matcher.matches(&upper_name));
@@ -510,13 +591,13 @@ mod tests {
         #[fixture]
         fn zone_matcher() -> InZoneDnsNameMatcher {
             let zone = Name::from_str("example.com.").unwrap();
-            InZoneDnsNameMatcher::new(Arc::new(zone))
+            zone.into()
         }
 
         #[fixture]
         fn root_zone_matcher() -> InZoneDnsNameMatcher {
             let zone = Name::root();
-            InZoneDnsNameMatcher::new(Arc::new(zone))
+            zone.into()
         }
 
         #[rstest]
@@ -578,7 +659,7 @@ mod tests {
         ) {
             let zone = Name::from_str(zone_name).unwrap();
             let name = Name::from_str(test_name).unwrap();
-            let matcher = InZoneDnsNameMatcher::new(Arc::new(zone));
+            let matcher: InZoneDnsNameMatcher = zone.into();
 
             assert_eq!(matcher.matches(&name), expected);
         }
@@ -586,7 +667,7 @@ mod tests {
         #[rstest]
         fn test_in_zone_matcher_case_insensitive() {
             let zone = Name::from_str("Example.Com.").unwrap();
-            let matcher = InZoneDnsNameMatcher::new(Arc::new(zone));
+            let matcher: InZoneDnsNameMatcher = zone.into();
 
             let lower_subdomain = Name::from_str("sub.example.com.").unwrap();
             let upper_subdomain = Name::from_str("SUB.EXAMPLE.COM.").unwrap();
@@ -601,7 +682,7 @@ mod tests {
         fn test_in_zone_matcher_single_label() {
             // Test with single label domain (like localhost.)
             let zone = Name::from_str("localhost.").unwrap();
-            let matcher = InZoneDnsNameMatcher::new(Arc::new(zone));
+            let matcher: InZoneDnsNameMatcher = zone.into();
 
             let exact_match = Name::from_str("localhost.").unwrap();
             assert!(matcher.matches(&exact_match));

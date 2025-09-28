@@ -9,12 +9,11 @@ pub mod scoring;
 
 use http::request::Parts;
 use scoring::RequestMatcherScorer;
-use std::sync::Arc;
 
 trait Matcher {
     fn matches(&self, score: &RequestMatcherScorer, req: &Parts) -> bool;
 }
 
 pub trait RequestMatchDetails {
-    fn path_prefix(&self) -> Option<Arc<String>>;
+    fn path_prefix(&self) -> Option<String>;
 }

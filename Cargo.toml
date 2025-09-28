@@ -5,6 +5,7 @@ members = [
     "core",
     "kube",
     "http",
+    "http-config",
 ]
 
 [workspace.dependencies]
@@ -16,6 +17,7 @@ getset = "0.1"
 heck = "0.5"
 hickory-proto = "0.25"
 http = "1"
+http-serde = "2"
 ipnet = { version = "2", features = ["serde"] }
 k8s-openapi = { version = "0.26", features = ["v1_34"] }
 kube = "2"

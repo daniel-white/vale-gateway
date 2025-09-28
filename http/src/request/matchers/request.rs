@@ -6,15 +6,18 @@ use crate::request::matchers::path::PathMatcher;
 use crate::request::matchers::query_param::QueryParamsMatcher;
 use crate::request::matchers::scoring::{RequestMatchScore, RequestMatcherScorer};
 use http::request::Parts;
-use std::sync::Arc;
 use tracing::{debug, instrument, trace};
 use typed_builder::TypedBuilder;
 
 #[derive(Debug, TypedBuilder)]
 pub struct RequestMatcher {
+    #[builder(setter(into))]
     path_matcher: Option<PathMatcher>,
+    #[builder(setter(into))]
     method_matcher: Option<MethodMatcher>,
+    #[builder(setter(into))]
     headers_matcher: Option<HeadersMatcher>,
+    #[builder(setter(into))]
     query_params_matcher: Option<QueryParamsMatcher>,
 }
 
@@ -82,7 +85,7 @@ impl RequestMatcherResult {
 }
 
 impl RequestMatchDetails for RequestMatcherResult {
-    fn path_prefix(&self) -> Option<Arc<String>> {
+    fn path_prefix(&self) -> Option<String> {
         self.score().and_then(|s| s.path_prefix())
     }
 }
@@ -90,20 +93,15 @@ impl RequestMatchDetails for RequestMatcherResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::request::matchers::basic::{
-        ExactMatcher, RegularExpressionMatcher, StringPrefixMatcher,
-    };
     use crate::request::matchers::header::{HeaderMatcher, HeadersMatcher};
     use crate::request::matchers::method::MethodMatcher;
     use crate::request::matchers::path::PathMatcher;
-    use crate::request::matchers::query_param::{
-        QueryParamMatcher, QueryParamNameMatcher, QueryParamValueMatcher, QueryParamsMatcher,
-    };
+    use crate::request::matchers::query_param::{QueryParamMatcher, QueryParamsMatcher};
     use assertables::*;
-    use http::{HeaderName, HeaderValue, Method, Request, Version};
+    use http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
+    use http::{HeaderValue, Method, Request, Version};
     use regex::Regex;
     use rstest::*;
-    use std::sync::Arc;
 
     // Helper function to create request parts
     fn create_request_parts(method: Method, uri: &str) -> Parts {
@@ -139,40 +137,24 @@ mod tests {
     // Fixtures for different matcher types
     #[fixture]
     fn path_exact_matcher() -> PathMatcher {
-        PathMatcher::Exact(ExactMatcher::new(Arc::new("/api/v1/test".to_string())))
+        PathMatcher::Exact("/api/v1/test".into())
     }
 
     #[fixture]
     fn path_prefix_matcher() -> PathMatcher {
-        PathMatcher::Prefix(StringPrefixMatcher::new(Arc::new("/api".to_string())))
+        PathMatcher::Prefix("/api".into())
     }
 
     #[fixture]
     fn path_regex_matcher() -> PathMatcher {
         let regex = Regex::new(r"^/api/v[0-9]+/.*$").unwrap();
-        PathMatcher::RegularExpression(RegularExpressionMatcher::new(Arc::new(regex)))
-    }
-
-    #[fixture]
-    fn method_get_matcher() -> MethodMatcher {
-        MethodMatcher::builder()
-            .method_matcher(ExactMatcher::new(Arc::new(Method::GET)))
-            .build()
-    }
-
-    #[fixture]
-    fn method_post_matcher() -> MethodMatcher {
-        MethodMatcher::builder()
-            .method_matcher(ExactMatcher::new(Arc::new(Method::POST)))
-            .build()
+        PathMatcher::RegularExpression(regex.into())
     }
 
     #[fixture]
     fn headers_matcher_single() -> HeadersMatcher {
-        let header_matcher = HeaderMatcher::new_exact(
-            Arc::new(HeaderName::from_static("content-type")),
-            Arc::new(HeaderValue::from_static("application/json")),
-        );
+        let header_value = HeaderValue::from_static("application/json");
+        let header_matcher = HeaderMatcher::new_exact(&CONTENT_TYPE, &header_value);
         HeadersMatcher::builder()
             .matchers(vec![header_matcher])
             .build()
@@ -180,14 +162,9 @@ mod tests {
 
     #[fixture]
     fn headers_matcher_multiple() -> HeadersMatcher {
-        let header1 = HeaderMatcher::new_exact(
-            Arc::new(HeaderName::from_static("content-type")),
-            Arc::new(HeaderValue::from_static("application/json")),
-        );
-        let header2 = HeaderMatcher::new_exact(
-            Arc::new(HeaderName::from_static("accept")),
-            Arc::new(HeaderValue::from_static("application/json")),
-        );
+        let header_value = HeaderValue::from_static("application/json");
+        let header1 = HeaderMatcher::new_exact(&CONTENT_TYPE, &header_value);
+        let header2 = HeaderMatcher::new_exact(&ACCEPT, &header_value);
         HeadersMatcher::builder()
             .matchers(vec![header1, header2])
             .build()
@@ -195,73 +172,10 @@ mod tests {
 
     #[fixture]
     fn query_params_matcher() -> QueryParamsMatcher {
-        let param_matcher = QueryParamMatcher::builder()
-            .name_matcher(
-                QueryParamNameMatcher::builder()
-                    .matcher(ExactMatcher::new(Arc::new("version".to_string())))
-                    .build(),
-            )
-            .value_matcher(QueryParamValueMatcher::Exact(ExactMatcher::new(Arc::new(
-                "v1".to_string(),
-            ))))
-            .build();
+        let param_matcher = QueryParamMatcher::new_exact("version", "v1");
         QueryParamsMatcher::builder()
             .matchers(vec![param_matcher])
             .build()
-    }
-
-    // Tests for RequestMatcher builder pattern
-    #[rstest]
-    fn test_request_matcher_builder_all_matchers() {
-        let path_matcher = path_exact_matcher();
-        let method_matcher = method_get_matcher();
-        let headers_matcher = headers_matcher_single();
-        let query_params_matcher = query_params_matcher();
-
-        let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_matcher))
-            .method_matcher(Some(method_matcher))
-            .headers_matcher(Some(headers_matcher))
-            .query_params_matcher(Some(query_params_matcher))
-            .build();
-
-        assert!(matcher.path_matcher.is_some());
-        assert!(matcher.method_matcher.is_some());
-        assert!(matcher.headers_matcher.is_some());
-        assert!(matcher.query_params_matcher.is_some());
-    }
-
-    #[rstest]
-    fn test_request_matcher_builder_no_matchers() {
-        let matcher = RequestMatcher::builder()
-            .path_matcher(None)
-            .method_matcher(None)
-            .headers_matcher(None)
-            .query_params_matcher(None)
-            .build();
-
-        assert!(matcher.path_matcher.is_none());
-        assert!(matcher.method_matcher.is_none());
-        assert!(matcher.headers_matcher.is_none());
-        assert!(matcher.query_params_matcher.is_none());
-    }
-
-    #[rstest]
-    fn test_request_matcher_builder_partial_matchers() {
-        let path_matcher = path_prefix_matcher();
-        let method_matcher = method_post_matcher();
-
-        let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_matcher))
-            .method_matcher(Some(method_matcher))
-            .headers_matcher(None)
-            .query_params_matcher(None)
-            .build();
-
-        assert!(matcher.path_matcher.is_some());
-        assert!(matcher.method_matcher.is_some());
-        assert!(matcher.headers_matcher.is_none());
-        assert!(matcher.query_params_matcher.is_none());
     }
 
     // Tests for matching behavior with no matchers (should always match)
@@ -283,10 +197,10 @@ mod tests {
 
     // Tests for method matching
     #[rstest]
-    fn test_method_matcher_success(method_get_matcher: MethodMatcher) {
+    fn test_method_matcher_success() {
         let matcher = RequestMatcher::builder()
             .path_matcher(None)
-            .method_matcher(Some(method_get_matcher))
+            .method_matcher(Some(MethodMatcher::from(Method::GET)))
             .headers_matcher(None)
             .query_params_matcher(None)
             .build();
@@ -299,10 +213,10 @@ mod tests {
     }
 
     #[rstest]
-    fn test_method_matcher_failure(method_get_matcher: MethodMatcher) {
+    fn test_method_matcher_failure() {
         let matcher = RequestMatcher::builder()
             .path_matcher(None)
-            .method_matcher(Some(method_get_matcher))
+            .method_matcher(Some(MethodMatcher::from(Method::PATCH)))
             .headers_matcher(None)
             .query_params_matcher(None)
             .build();
@@ -361,7 +275,7 @@ mod tests {
         let result = matcher.matches(&parts);
 
         assert!(result.is_matched());
-        assert_some_eq_x!(result.path_prefix(), Arc::new("/api".to_string()));
+        assert_some_eq_x!(result.path_prefix(), "/api");
     }
 
     #[rstest]
@@ -558,7 +472,7 @@ mod tests {
     fn test_all_matchers_success() {
         let matcher = RequestMatcher::builder()
             .path_matcher(Some(path_prefix_matcher()))
-            .method_matcher(Some(method_get_matcher()))
+            .method_matcher(Some(MethodMatcher::from(Method::GET)))
             .headers_matcher(Some(headers_matcher_single()))
             .query_params_matcher(Some(query_params_matcher()))
             .build();
@@ -578,7 +492,7 @@ mod tests {
     fn test_all_matchers_method_failure() {
         let matcher = RequestMatcher::builder()
             .path_matcher(Some(path_prefix_matcher()))
-            .method_matcher(Some(method_get_matcher()))
+            .method_matcher(Some(MethodMatcher::from(Method::GET)))
             .headers_matcher(Some(headers_matcher_single()))
             .query_params_matcher(Some(query_params_matcher()))
             .build();
@@ -597,7 +511,7 @@ mod tests {
     fn test_all_matchers_path_failure() {
         let matcher = RequestMatcher::builder()
             .path_matcher(Some(path_prefix_matcher()))
-            .method_matcher(Some(method_get_matcher()))
+            .method_matcher(Some(MethodMatcher::from(Method::GET)))
             .headers_matcher(Some(headers_matcher_single()))
             .query_params_matcher(Some(query_params_matcher()))
             .build();
@@ -616,7 +530,7 @@ mod tests {
     fn test_all_matchers_headers_failure() {
         let matcher = RequestMatcher::builder()
             .path_matcher(Some(path_prefix_matcher()))
-            .method_matcher(Some(method_get_matcher()))
+            .method_matcher(Some(MethodMatcher::from(Method::GET)))
             .headers_matcher(Some(headers_matcher_single()))
             .query_params_matcher(Some(query_params_matcher()))
             .build();
@@ -635,7 +549,7 @@ mod tests {
     fn test_all_matchers_query_params_failure() {
         let matcher = RequestMatcher::builder()
             .path_matcher(Some(path_prefix_matcher()))
-            .method_matcher(Some(method_get_matcher()))
+            .method_matcher(Some(MethodMatcher::from(Method::GET)))
             .headers_matcher(Some(headers_matcher_single()))
             .query_params_matcher(Some(query_params_matcher()))
             .build();
@@ -692,7 +606,7 @@ mod tests {
         let score = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(8))
-            .path_prefix(Some(Arc::new("/api/v1".to_string())))
+            .path_prefix(Some("/api/v1".to_string()))
             .method(false)
             .headers_weight(None)
             .query_params_weight(None)
@@ -701,10 +615,7 @@ mod tests {
         let matched_result = RequestMatcherResult::Matched(score);
         let not_matched_result = RequestMatcherResult::NotMatched;
 
-        assert_some_eq_x!(
-            matched_result.path_prefix(),
-            Arc::new("/api/v1".to_string())
-        );
+        assert_some_eq_x!(matched_result.path_prefix(), "/api/v1");
         assert_none!(not_matched_result.path_prefix());
     }
 
@@ -713,7 +624,7 @@ mod tests {
     fn test_short_circuit_on_method_failure() {
         let matcher = RequestMatcher::builder()
             .path_matcher(Some(path_exact_matcher())) // This would match
-            .method_matcher(Some(method_get_matcher())) // This will fail
+            .method_matcher(Some(MethodMatcher::from(Method::GET))) // This will fail
             .headers_matcher(Some(headers_matcher_single()))
             .query_params_matcher(Some(query_params_matcher()))
             .build();
@@ -731,7 +642,7 @@ mod tests {
     // Tests for edge cases
     #[rstest]
     fn test_empty_uri_path() {
-        let path_matcher = PathMatcher::Exact(ExactMatcher::new(Arc::new("".to_string())));
+        let path_matcher = PathMatcher::Exact("".into());
         let matcher = RequestMatcher::builder()
             .path_matcher(Some(path_matcher))
             .method_matcher(None)
@@ -747,7 +658,7 @@ mod tests {
 
     #[rstest]
     fn test_root_path() {
-        let path_matcher = PathMatcher::Exact(ExactMatcher::new(Arc::new("/".to_string())));
+        let path_matcher = PathMatcher::Exact("/".into());
         let matcher = RequestMatcher::builder()
             .path_matcher(Some(path_matcher))
             .method_matcher(None)
@@ -763,8 +674,7 @@ mod tests {
 
     #[rstest]
     fn test_complex_uri_with_query_and_fragment() {
-        let path_matcher =
-            PathMatcher::Prefix(StringPrefixMatcher::new(Arc::new("/api".to_string())));
+        let path_matcher = PathMatcher::Prefix("/api".into());
         let matcher = RequestMatcher::builder()
             .path_matcher(Some(path_matcher))
             .method_matcher(None)
@@ -786,7 +696,7 @@ mod tests {
     // Tests for case sensitivity and special characters
     #[rstest]
     fn test_case_sensitive_path_matching() {
-        let path_matcher = PathMatcher::Exact(ExactMatcher::new(Arc::new("/API/Test".to_string())));
+        let path_matcher = PathMatcher::Exact("/API/Test".into());
         let matcher = RequestMatcher::builder()
             .path_matcher(Some(path_matcher))
             .method_matcher(None)
@@ -806,9 +716,7 @@ mod tests {
 
     #[rstest]
     fn test_special_characters_in_path() {
-        let path_matcher = PathMatcher::Exact(ExactMatcher::new(Arc::new(
-            "/api/users/user-123_test.json".to_string(),
-        )));
+        let path_matcher = PathMatcher::Exact("/api/users/user-123_test.json".into());
         let matcher = RequestMatcher::builder()
             .path_matcher(Some(path_matcher))
             .method_matcher(None)
@@ -830,7 +738,7 @@ mod tests {
     fn test_comprehensive_scoring_exact_path() {
         let matcher = RequestMatcher::builder()
             .path_matcher(Some(path_exact_matcher()))
-            .method_matcher(Some(method_get_matcher()))
+            .method_matcher(Some(MethodMatcher::from(Method::GET)))
             .headers_matcher(Some(headers_matcher_multiple()))
             .query_params_matcher(Some(query_params_matcher()))
             .build();
@@ -853,7 +761,7 @@ mod tests {
     fn test_comprehensive_scoring_prefix_path() {
         let matcher = RequestMatcher::builder()
             .path_matcher(Some(path_prefix_matcher()))
-            .method_matcher(Some(method_get_matcher()))
+            .method_matcher(Some(MethodMatcher::from(Method::GET)))
             .headers_matcher(Some(headers_matcher_single()))
             .query_params_matcher(Some(query_params_matcher()))
             .build();
@@ -867,15 +775,14 @@ mod tests {
 
         assert!(result.is_matched());
         assert_some!(result.score());
-        assert_some_eq_x!(result.path_prefix(), Arc::new("/api".to_string()));
+        assert_some_eq_x!(result.path_prefix(), "/api");
     }
 
     // Performance and stress tests
     #[rstest]
     fn test_complex_regex_pattern_performance() {
         let complex_regex = Regex::new(r"^/api/v[0-9]+/(users|posts|comments)/[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}(/edit|/view)?$").unwrap();
-        let path_matcher =
-            PathMatcher::RegularExpression(RegularExpressionMatcher::new(Arc::new(complex_regex)));
+        let path_matcher = PathMatcher::RegularExpression(complex_regex.into());
 
         let matcher = RequestMatcher::builder()
             .path_matcher(Some(path_matcher))
@@ -896,16 +803,11 @@ mod tests {
     #[rstest]
     fn test_rest_api_endpoint_matching() {
         // Simulate a typical REST API endpoint matcher
-        let path_matcher = PathMatcher::RegularExpression(RegularExpressionMatcher::new(Arc::new(
-            Regex::new(r"^/api/v[0-9]+/users/[0-9]+$").unwrap(),
-        )));
-        let method_matcher = MethodMatcher::builder()
-            .method_matcher(ExactMatcher::new(Arc::new(Method::GET)))
-            .build();
-        let auth_header = HeaderMatcher::new_exact(
-            Arc::new(HeaderName::from_static("authorization")),
-            Arc::new(HeaderValue::from_static("Bearer token123")),
-        );
+        let regex = Regex::new(r"^/api/v[0-9]+/users/[0-9]+$").unwrap();
+        let path_matcher = PathMatcher::RegularExpression(regex.into());
+        let method_matcher: MethodMatcher = Method::GET.into();
+        let bearer_token = HeaderValue::from_static("Bearer token123");
+        let auth_header = HeaderMatcher::new_exact(&AUTHORIZATION, &bearer_token);
         let headers_matcher = HeadersMatcher::builder()
             .matchers(vec![auth_header])
             .build();
@@ -931,14 +833,10 @@ mod tests {
     #[rstest]
     fn test_graphql_endpoint_matching() {
         // Simulate a GraphQL endpoint matcher
-        let path_matcher = PathMatcher::Exact(ExactMatcher::new(Arc::new("/graphql".to_string())));
-        let method_matcher = MethodMatcher::builder()
-            .method_matcher(ExactMatcher::new(Arc::new(Method::POST)))
-            .build();
-        let content_type_header = HeaderMatcher::new_exact(
-            Arc::new(HeaderName::from_static("content-type")),
-            Arc::new(HeaderValue::from_static("application/json")),
-        );
+        let path_matcher = PathMatcher::Exact("/graphql".into());
+        let method_matcher: MethodMatcher = Method::POST.into();
+        let content_type = HeaderValue::from_static("application/json");
+        let content_type_header = HeaderMatcher::new_exact(&CONTENT_TYPE, &content_type);
         let headers_matcher = HeadersMatcher::builder()
             .matchers(vec![content_type_header])
             .build();

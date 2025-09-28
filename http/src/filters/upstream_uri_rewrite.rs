@@ -19,12 +19,9 @@ impl UpstreamUriRewriteFilterHandler {
 mod tests {
     use super::*;
     use crate::rewrite::uri::UriRewriter;
-
     use http::{HeaderValue, Uri};
     use rstest::*;
-
     use std::str::FromStr;
-    use std::sync::Arc;
 
     fn create_empty_parts() -> Parts {
         use http::Request;
@@ -34,7 +31,7 @@ mod tests {
 
     struct MockMatchContext;
     impl RequestMatchDetails for MockMatchContext {
-        fn path_prefix(&self) -> Option<Arc<String>> {
+        fn path_prefix(&self) -> Option<String> {
             None
         }
     }

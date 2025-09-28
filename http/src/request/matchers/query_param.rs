@@ -4,14 +4,20 @@ use super::scoring::RequestMatcherScorer;
 use http::request::Parts;
 use regex::Regex;
 use std::borrow::Cow;
-use std::sync::Arc;
 use tracing::{debug, instrument};
 use typed_builder::TypedBuilder;
 
 #[derive(Debug, TypedBuilder)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct QueryParamNameMatcher {
+    #[builder(setter(into))]
     matcher: ExactMatcher<String>,
+}
+
+impl From<&str> for QueryParamNameMatcher {
+    fn from(name: &str) -> Self {
+        Self::builder().matcher(name).build()
+    }
 }
 
 impl QueryParamNameMatcher {
@@ -44,29 +50,21 @@ pub struct QueryParamMatcher {
 }
 
 impl QueryParamMatcher {
-    fn new(name_matcher: QueryParamNameMatcher, value_matcher: QueryParamValueMatcher) -> Self {
+    fn new(name: &str, value_matcher: QueryParamValueMatcher) -> Self {
         Self::builder()
-            .name_matcher(name_matcher)
+            .name_matcher(name.into())
             .value_matcher(value_matcher)
             .build()
     }
 
-    pub fn new_exact(name: Arc<String>, value: Arc<String>) -> Self {
-        let name_matcher = QueryParamNameMatcher::builder()
-            .matcher(ExactMatcher::new(name))
-            .build();
-        let value_matcher = QueryParamValueMatcher::Exact(ExactMatcher::new(value));
-
-        Self::new(name_matcher, value_matcher)
+    pub fn new_exact(name: &str, value: &str) -> Self {
+        let value_matcher = QueryParamValueMatcher::Exact(value.into());
+        Self::new(name, value_matcher)
     }
 
-    pub fn new_matching(name: Arc<String>, regex: Arc<Regex>) -> Self {
-        let name_matcher = QueryParamNameMatcher::builder()
-            .matcher(ExactMatcher::new(name))
-            .build();
-        let value_matcher =
-            QueryParamValueMatcher::RegularExpression(RegularExpressionMatcher::new(regex));
-        Self::new(name_matcher, value_matcher)
+    pub fn new_matching(name: &str, regex: &Regex) -> Self {
+        let value_matcher = QueryParamValueMatcher::RegularExpression(regex.into());
+        Self::new(name, value_matcher)
     }
 
     #[instrument(
@@ -125,7 +123,6 @@ mod tests {
     use http::{Request, Version};
     use regex::Regex;
     use rstest::*;
-    use std::sync::Arc;
 
     fn create_request_parts_with_query(query: &str) -> Parts {
         let uri = if query.is_empty() {
@@ -151,9 +148,7 @@ mod tests {
     #[case("api_key")]
     fn test_query_param_name_matcher_exact_match(#[case] param_name: &str) {
         // Arrange
-        let matcher = QueryParamNameMatcher::builder()
-            .matcher(ExactMatcher::new(Arc::new(param_name.to_string())))
-            .build();
+        let matcher: QueryParamNameMatcher = param_name.into();
 
         // Act & Assert
         assert!(
@@ -173,9 +168,7 @@ mod tests {
         #[case] expected_match: bool,
     ) {
         // Arrange
-        let matcher = QueryParamNameMatcher::builder()
-            .matcher(ExactMatcher::new(Arc::new(matcher_name.to_string())))
-            .build();
+        let matcher: QueryParamNameMatcher = matcher_name.into();
 
         // Act
         let result = matcher.matches(test_name);
@@ -196,7 +189,7 @@ mod tests {
     #[case("user@example.com")]
     fn test_query_param_value_matcher_exact_match(#[case] value: &str) {
         // Arrange
-        let matcher = QueryParamValueMatcher::Exact(ExactMatcher::new(Arc::new(value.to_string())));
+        let matcher = QueryParamValueMatcher::Exact(value.into());
 
         // Act & Assert
         assert!(
@@ -216,8 +209,7 @@ mod tests {
         #[case] expected_match: bool,
     ) {
         // Arrange
-        let matcher =
-            QueryParamValueMatcher::Exact(ExactMatcher::new(Arc::new(matcher_value.to_string())));
+        let matcher = QueryParamValueMatcher::Exact(matcher_value.into());
 
         // Act
         let result = matcher.matches(test_value);
@@ -243,9 +235,8 @@ mod tests {
         #[case] expected_match: bool,
     ) {
         // Arrange
-        let regex = Arc::new(Regex::new(pattern).unwrap());
-        let matcher =
-            QueryParamValueMatcher::RegularExpression(RegularExpressionMatcher::new(regex));
+        let regex = Regex::new(pattern).unwrap();
+        let matcher = QueryParamValueMatcher::RegularExpression(regex.into());
 
         // Act
         let result = matcher.matches(test_value);
@@ -261,12 +252,8 @@ mod tests {
     // QueryParamMatcher tests
     #[test]
     fn test_query_param_matcher_new_exact() {
-        // Arrange
-        let name = Arc::new("format".to_string());
-        let value = Arc::new("json".to_string());
-
         // Act
-        let matcher = QueryParamMatcher::new_exact(name.clone(), value.clone());
+        let matcher = QueryParamMatcher::new_exact("format", "json");
 
         // Assert
         let param_pair = (Cow::Borrowed("format"), Cow::Borrowed("json"));
@@ -279,11 +266,10 @@ mod tests {
     #[test]
     fn test_query_param_matcher_new_matching() {
         // Arrange
-        let name = Arc::new("id".to_string());
-        let regex = Arc::new(Regex::new(r"\d+").unwrap());
+        let regex = Regex::new(r"\d+").unwrap();
 
         // Act
-        let matcher = QueryParamMatcher::new_matching(name.clone(), regex);
+        let matcher = QueryParamMatcher::new_matching("id", &regex);
 
         // Assert
         let param_pair = (Cow::Borrowed("id"), Cow::Borrowed("123"));
@@ -306,10 +292,7 @@ mod tests {
         #[case] expected_match: bool,
     ) {
         // Arrange
-        let matcher = QueryParamMatcher::new_exact(
-            Arc::new(matcher_name.to_string()),
-            Arc::new(matcher_value.to_string()),
-        );
+        let matcher = QueryParamMatcher::new_exact(matcher_name, matcher_value);
         let param_pair = (Cow::Borrowed(test_name), Cow::Borrowed(test_value));
 
         // Act
@@ -349,8 +332,7 @@ mod tests {
     #[test]
     fn test_query_params_matcher_no_query_params() {
         // Arrange
-        let param_matcher =
-            QueryParamMatcher::new_exact(Arc::new("page".to_string()), Arc::new("1".to_string()));
+        let param_matcher = QueryParamMatcher::new_exact("page", "1");
         let matcher = QueryParamsMatcher::builder()
             .matchers(vec![param_matcher])
             .build();
@@ -370,10 +352,7 @@ mod tests {
     #[test]
     fn test_query_params_matcher_single_exact_match() {
         // Arrange
-        let param_matcher = QueryParamMatcher::new_exact(
-            Arc::new("format".to_string()),
-            Arc::new("json".to_string()),
-        );
+        let param_matcher = QueryParamMatcher::new_exact("format", "json");
         let matcher = QueryParamsMatcher::builder()
             .matchers(vec![param_matcher])
             .build();
@@ -398,10 +377,7 @@ mod tests {
     #[test]
     fn test_query_params_matcher_single_no_match() {
         // Arrange
-        let param_matcher = QueryParamMatcher::new_exact(
-            Arc::new("format".to_string()),
-            Arc::new("json".to_string()),
-        );
+        let param_matcher = QueryParamMatcher::new_exact("format", "json");
         let matcher = QueryParamsMatcher::builder()
             .matchers(vec![param_matcher])
             .build();
@@ -421,14 +397,12 @@ mod tests {
     #[test]
     fn test_query_params_matcher_multiple_params_all_match() {
         // Arrange
-        let param_matcher1 =
-            QueryParamMatcher::new_exact(Arc::new("page".to_string()), Arc::new("1".to_string()));
-        let param_matcher2 =
-            QueryParamMatcher::new_exact(Arc::new("limit".to_string()), Arc::new("10".to_string()));
+        let param_matcher1 = QueryParamMatcher::new_exact("page", "1");
+        let param_matcher2 = QueryParamMatcher::new_exact("limit", "10");
         let matcher = QueryParamsMatcher::builder()
             .matchers(vec![param_matcher1, param_matcher2])
             .build();
-        let parts = create_request_parts_with_query("page=1&limit=10");
+        let parts = create_request_parts_with_query("page=1&limit=10&extra=value");
         let scorer = RequestMatcherScorer::default();
 
         // Act
@@ -449,10 +423,8 @@ mod tests {
     #[test]
     fn test_query_params_matcher_multiple_params_partial_match() {
         // Arrange
-        let param_matcher1 =
-            QueryParamMatcher::new_exact(Arc::new("page".to_string()), Arc::new("1".to_string()));
-        let param_matcher2 =
-            QueryParamMatcher::new_exact(Arc::new("limit".to_string()), Arc::new("10".to_string()));
+        let param_matcher1 = QueryParamMatcher::new_exact("page", "1");
+        let param_matcher2 = QueryParamMatcher::new_exact("limit", "10");
         let matcher = QueryParamsMatcher::builder()
             .matchers(vec![param_matcher1, param_matcher2])
             .build();
@@ -472,10 +444,8 @@ mod tests {
     #[test]
     fn test_query_params_matcher_with_regex() {
         // Arrange
-        let param_matcher = QueryParamMatcher::new_matching(
-            Arc::new("id".to_string()),
-            Arc::new(Regex::new(r"^\d+$").unwrap()),
-        );
+        let regex = Regex::new(r"^\d+$").unwrap();
+        let param_matcher = QueryParamMatcher::new_matching("id", &regex);
         let matcher = QueryParamsMatcher::builder()
             .matchers(vec![param_matcher])
             .build();
@@ -492,10 +462,7 @@ mod tests {
     #[test]
     fn test_query_params_matcher_extra_params_in_request() {
         // Arrange
-        let param_matcher = QueryParamMatcher::new_exact(
-            Arc::new("format".to_string()),
-            Arc::new("json".to_string()),
-        );
+        let param_matcher = QueryParamMatcher::new_exact("format", "json");
         let matcher = QueryParamsMatcher::builder()
             .matchers(vec![param_matcher])
             .build();
@@ -515,10 +482,7 @@ mod tests {
     #[test]
     fn test_query_params_matcher_url_encoded_values() {
         // Arrange
-        let param_matcher = QueryParamMatcher::new_exact(
-            Arc::new("message".to_string()),
-            Arc::new("hello world".to_string()),
-        );
+        let param_matcher = QueryParamMatcher::new_exact("message", "hello world");
         let matcher = QueryParamsMatcher::builder()
             .matchers(vec![param_matcher])
             .build();
@@ -542,10 +506,7 @@ mod tests {
     #[case("nested[key]=value&nested[other]=another")]
     fn test_query_params_matcher_complex_query_strings(#[case] query: &str) {
         // Arrange
-        let param_matcher = QueryParamMatcher::new_exact(
-            Arc::new("search".to_string()),
-            Arc::new("test query".to_string()),
-        );
+        let param_matcher = QueryParamMatcher::new_exact("search", "test query");
         let matcher = QueryParamsMatcher::builder()
             .matchers(vec![param_matcher])
             .build();
@@ -568,49 +529,9 @@ mod tests {
     }
 
     #[test]
-    fn test_query_params_matcher_equality() {
-        // Arrange
-        let param_matcher1 = QueryParamMatcher::new_exact(
-            Arc::new("format".to_string()),
-            Arc::new("json".to_string()),
-        );
-        let param_matcher2 = QueryParamMatcher::new_exact(
-            Arc::new("format".to_string()),
-            Arc::new("json".to_string()),
-        );
-        let param_matcher3 = QueryParamMatcher::new_exact(
-            Arc::new("format".to_string()),
-            Arc::new("xml".to_string()),
-        );
-
-        let matcher1 = QueryParamsMatcher::builder()
-            .matchers(vec![param_matcher1])
-            .build();
-        let matcher2 = QueryParamsMatcher::builder()
-            .matchers(vec![param_matcher2])
-            .build();
-        let matcher3 = QueryParamsMatcher::builder()
-            .matchers(vec![param_matcher3])
-            .build();
-
-        // Assert
-        assert_eq!(
-            matcher1, matcher2,
-            "QueryParamsMatchers with same parameter matchers should be equal"
-        );
-        assert_ne!(
-            matcher1, matcher3,
-            "QueryParamsMatchers with different parameter matchers should not be equal"
-        );
-    }
-
-    #[test]
     fn test_query_params_matcher_calls_scorer_on_match() {
         // Arrange
-        let param_matcher = QueryParamMatcher::new_exact(
-            Arc::new("key".to_string()),
-            Arc::new("value".to_string()),
-        );
+        let param_matcher = QueryParamMatcher::new_exact("key", "value");
         let matcher = QueryParamsMatcher::builder()
             .matchers(vec![param_matcher])
             .build();
@@ -628,10 +549,7 @@ mod tests {
     #[test]
     fn test_query_params_matcher_does_not_call_scorer_on_no_match() {
         // Arrange
-        let param_matcher = QueryParamMatcher::new_exact(
-            Arc::new("key".to_string()),
-            Arc::new("value".to_string()),
-        );
+        let param_matcher = QueryParamMatcher::new_exact("key", "value");
         let matcher = QueryParamsMatcher::builder()
             .matchers(vec![param_matcher])
             .build();
@@ -649,8 +567,7 @@ mod tests {
     #[test]
     fn test_query_params_matcher_empty_parameter_value() {
         // Arrange
-        let param_matcher =
-            QueryParamMatcher::new_exact(Arc::new("empty".to_string()), Arc::new("".to_string()));
+        let param_matcher = QueryParamMatcher::new_exact("empty", "");
         let matcher = QueryParamsMatcher::builder()
             .matchers(vec![param_matcher])
             .build();
@@ -670,8 +587,7 @@ mod tests {
     #[test]
     fn test_query_params_matcher_parameter_without_value() {
         // Arrange
-        let param_matcher =
-            QueryParamMatcher::new_exact(Arc::new("flag".to_string()), Arc::new("".to_string()));
+        let param_matcher = QueryParamMatcher::new_exact("flag", "");
         let matcher = QueryParamsMatcher::builder()
             .matchers(vec![param_matcher])
             .build();

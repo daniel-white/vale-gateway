@@ -120,13 +120,12 @@ mod tests {
     use super::*;
     use rstest::rstest;
     use std::str::FromStr;
-    use std::sync::Arc;
 
     struct MockMatchContext {
-        prefix: Option<Arc<String>>,
+        prefix: Option<String>,
     }
     impl RequestMatchDetails for MockMatchContext {
-        fn path_prefix(&self) -> Option<Arc<String>> {
+        fn path_prefix(&self) -> Option<String> {
             self.prefix.clone()
         }
     }
@@ -272,7 +271,7 @@ mod tests {
             .build();
         let u = Uri::from_str(&format!("http://h{original_path}")).unwrap();
         let ctx = MockMatchContext {
-            prefix: Some(Arc::new(matched_prefix)),
+            prefix: Some(matched_prefix),
         };
         let out = r.rewrite(&u, &ctx);
         assert_eq!(out.path(), expected_path);
@@ -285,7 +284,7 @@ mod tests {
             .build();
         let u = Uri::from_str("http://h/api/users").unwrap();
         let ctx = MockMatchContext {
-            prefix: Some(Arc::new("/different".to_string())),
+            prefix: Some("/different".to_string()),
         };
         let out = r.rewrite(&u, &ctx);
         assert_eq!(out.path(), "/api/users"); // unchanged
@@ -298,7 +297,7 @@ mod tests {
             .build();
         let u = Uri::from_str("http://h/api/v1/users?id=10&debug=true").unwrap();
         let ctx = MockMatchContext {
-            prefix: Some(Arc::new("/api/v1".to_string())),
+            prefix: Some("/api/v1".to_string()),
         };
         let out = r.rewrite(&u, &ctx);
         assert_eq!(out.path(), "/svc/users");
@@ -312,7 +311,7 @@ mod tests {
         let out = r.rewrite(
             &u,
             &MockMatchContext {
-                prefix: Some(Arc::new("/api".to_string())),
+                prefix: Some("/api".to_string()),
             },
         );
         assert_eq!(out, u);

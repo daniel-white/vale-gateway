@@ -1,4 +1,4 @@
-use super::basic::{ExactDnsNameMatcher, InZoneDnsNameMatcher};
+use super::basic::{ExactMatcher, InZoneDnsNameMatcher};
 use hickory_proto::rr::Name;
 use http::header::HOST;
 use http::uri::Authority;
@@ -8,7 +8,7 @@ use typed_builder::TypedBuilder;
 
 #[derive(Debug)]
 pub enum HostHeaderValueMatcher {
-    Exact(ExactDnsNameMatcher),
+    Exact(ExactMatcher<Name>),
     InZone(InZoneDnsNameMatcher),
 }
 

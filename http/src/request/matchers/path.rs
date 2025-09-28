@@ -42,7 +42,6 @@ mod tests {
     use http::{Request, Version};
     use regex::Regex;
     use rstest::*;
-    use std::sync::Arc;
 
     fn create_request_parts_with_path(path: &str) -> Parts {
         let uri = format!("http://example.com{}", path);
@@ -66,7 +65,7 @@ mod tests {
     #[case("/path/with_underscores")]
     fn test_path_matcher_exact_match(#[case] path: &str) {
         // Arrange
-        let matcher = PathMatcher::Exact(ExactMatcher::new(Arc::new(path.to_string())));
+        let matcher = PathMatcher::Exact(path.into());
         let parts = create_request_parts_with_path(path);
         let scorer = RequestMatcherScorer::default();
 
@@ -94,7 +93,7 @@ mod tests {
         #[case] expected_match: bool,
     ) {
         // Arrange
-        let matcher = PathMatcher::Exact(ExactMatcher::new(Arc::new(matcher_path.to_string())));
+        let matcher = PathMatcher::Exact(matcher_path.into());
         let parts = create_request_parts_with_path(request_path);
         let scorer = RequestMatcherScorer::default();
 
@@ -125,7 +124,7 @@ mod tests {
         #[case] expected_match: bool,
     ) {
         // Arrange
-        let matcher = PathMatcher::Prefix(StringPrefixMatcher::new(Arc::new(prefix.to_string())));
+        let matcher = PathMatcher::Prefix(prefix.into());
         let parts = create_request_parts_with_path(request_path);
         let scorer = RequestMatcherScorer::default();
 
@@ -150,7 +149,7 @@ mod tests {
         #[case] expected_match: bool,
     ) {
         // Arrange
-        let matcher = PathMatcher::Prefix(StringPrefixMatcher::new(Arc::new(prefix.to_string())));
+        let matcher = PathMatcher::Prefix(prefix.into());
         let parts = create_request_parts_with_path(request_path);
         let scorer = RequestMatcherScorer::default();
 
@@ -183,8 +182,8 @@ mod tests {
         #[case] expected_match: bool,
     ) {
         // Arrange
-        let regex = Arc::new(Regex::new(pattern).unwrap());
-        let matcher = PathMatcher::RegularExpression(RegularExpressionMatcher::new(regex));
+        let regex = Regex::new(pattern).unwrap();
+        let matcher = PathMatcher::RegularExpression(regex.into());
         let parts = create_request_parts_with_path(request_path);
         let scorer = RequestMatcherScorer::default();
 
@@ -210,8 +209,8 @@ mod tests {
         #[case] expected_match: bool,
     ) {
         // Arrange
-        let regex = Arc::new(Regex::new(pattern).unwrap());
-        let matcher = PathMatcher::RegularExpression(RegularExpressionMatcher::new(regex));
+        let regex = Regex::new(pattern).unwrap();
+        let matcher = PathMatcher::RegularExpression(regex.into());
         let parts = create_request_parts_with_path(request_path);
         let scorer = RequestMatcherScorer::default();
 
@@ -230,7 +229,7 @@ mod tests {
     #[test]
     fn test_path_matcher_calls_scorer_on_exact_match() {
         // Arrange
-        let matcher = PathMatcher::Exact(ExactMatcher::new(Arc::new("/api/v1".to_string())));
+        let matcher = PathMatcher::Exact("/api/v1".into());
         let parts = create_request_parts_with_path("/api/v1");
         let scorer = RequestMatcherScorer::default();
 
@@ -245,7 +244,7 @@ mod tests {
     #[test]
     fn test_path_matcher_calls_scorer_on_prefix_match() {
         // Arrange
-        let matcher = PathMatcher::Prefix(StringPrefixMatcher::new(Arc::new("/api".to_string())));
+        let matcher = PathMatcher::Prefix("/api".into());
         let parts = create_request_parts_with_path("/api/v1");
         let scorer = RequestMatcherScorer::default();
 
@@ -260,8 +259,8 @@ mod tests {
     #[test]
     fn test_path_matcher_calls_scorer_on_regex_match() {
         // Arrange
-        let regex = Arc::new(Regex::new(r"^/api/v\d+$").unwrap());
-        let matcher = PathMatcher::RegularExpression(RegularExpressionMatcher::new(regex));
+        let regex = Regex::new(r"^/api/v\d+$").unwrap();
+        let matcher = PathMatcher::RegularExpression(regex.into());
         let parts = create_request_parts_with_path("/api/v1");
         let scorer = RequestMatcherScorer::default();
 
@@ -276,7 +275,7 @@ mod tests {
     #[test]
     fn test_path_matcher_does_not_call_scorer_on_no_match() {
         // Arrange
-        let matcher = PathMatcher::Exact(ExactMatcher::new(Arc::new("/api/v1".to_string())));
+        let matcher = PathMatcher::Exact("/api/v1".into());
         let parts = create_request_parts_with_path("/web/dashboard");
         let scorer = RequestMatcherScorer::default();
 
@@ -292,7 +291,7 @@ mod tests {
     #[test]
     fn test_path_matcher_empty_path() {
         // Arrange - empty path defaults to "/"
-        let matcher = PathMatcher::Exact(ExactMatcher::new(Arc::new("/".to_string())));
+        let matcher = PathMatcher::Exact("/".into());
         let parts = create_request_parts_with_path("");
         let scorer = RequestMatcherScorer::default();
 
@@ -314,7 +313,7 @@ mod tests {
     #[case("/path/with%20encoded")]
     fn test_path_matcher_special_characters(#[case] path: &str) {
         // Arrange
-        let matcher = PathMatcher::Exact(ExactMatcher::new(Arc::new(path.to_string())));
+        let matcher = PathMatcher::Exact(path.into());
         // Note: This might fail for invalid URIs, but tests the matcher logic
         if let Ok(uri) = format!("http://example.com{}", path).parse::<http::Uri>() {
             let request = Request::builder()
@@ -365,8 +364,7 @@ mod tests {
             );
 
             if let Ok(uri) = uri_result {
-                let matcher =
-                    PathMatcher::Exact(ExactMatcher::new(Arc::new(uri.path().to_string())));
+                let matcher = PathMatcher::Exact(uri.path().into());
                 let request = Request::builder()
                     .uri(uri)
                     .version(Version::HTTP_11)
@@ -382,29 +380,6 @@ mod tests {
     }
 
     #[test]
-    fn test_path_matcher_equality() {
-        // Arrange
-        let matcher1 = PathMatcher::Exact(ExactMatcher::new(Arc::new("/api/v1".to_string())));
-        let matcher2 = PathMatcher::Exact(ExactMatcher::new(Arc::new("/api/v1".to_string())));
-        let matcher3 = PathMatcher::Exact(ExactMatcher::new(Arc::new("/api/v2".to_string())));
-        let matcher4 = PathMatcher::Prefix(StringPrefixMatcher::new(Arc::new("/api".to_string())));
-
-        // Assert
-        assert_eq!(
-            matcher1, matcher2,
-            "PathMatchers with same exact paths should be equal"
-        );
-        assert_ne!(
-            matcher1, matcher3,
-            "PathMatchers with different exact paths should not be equal"
-        );
-        assert_ne!(
-            matcher1, matcher4,
-            "PathMatchers with different types should not be equal"
-        );
-    }
-
-    #[test]
     fn test_path_matcher_variants_comprehensive() {
         // Test all three variants work correctly
         let test_path = "/api/v1/users";
@@ -412,23 +387,22 @@ mod tests {
         let scorer = RequestMatcherScorer::default();
 
         // Exact matcher
-        let exact_matcher = PathMatcher::Exact(ExactMatcher::new(Arc::new(test_path.to_string())));
+        let exact_matcher = PathMatcher::Exact(test_path.into());
         assert!(
             exact_matcher.matches(&scorer, &parts),
             "Exact matcher should work"
         );
 
         // Prefix matcher
-        let prefix_matcher =
-            PathMatcher::Prefix(StringPrefixMatcher::new(Arc::new("/api".to_string())));
+        let prefix_matcher = PathMatcher::Prefix("/api".into());
         assert!(
             prefix_matcher.matches(&scorer, &parts),
             "Prefix matcher should work"
         );
 
         // Regex matcher
-        let regex = Arc::new(Regex::new(r"^/api/v\d+/users$").unwrap());
-        let regex_matcher = PathMatcher::RegularExpression(RegularExpressionMatcher::new(regex));
+        let regex = Regex::new(r"^/api/v\d+/users$").unwrap();
+        let regex_matcher = PathMatcher::RegularExpression(regex.into());
         assert!(
             regex_matcher.matches(&scorer, &parts),
             "Regex matcher should work"
@@ -442,7 +416,7 @@ mod tests {
     #[case("/webhooks/github")]
     fn test_path_matcher_builder_pattern_compatibility(#[case] path: &str) {
         // Arrange
-        let matcher = PathMatcher::Exact(ExactMatcher::new(Arc::new(path.to_string())));
+        let matcher = PathMatcher::Exact(path.into());
         let parts = create_request_parts_with_path(path);
         let scorer = RequestMatcherScorer::default();
 
@@ -460,7 +434,7 @@ mod tests {
     #[test]
     fn test_path_matcher_query_parameters_ignored() {
         // Arrange
-        let matcher = PathMatcher::Exact(ExactMatcher::new(Arc::new("/api/users".to_string())));
+        let matcher = PathMatcher::Exact("/api/users".into());
         let request = Request::builder()
             .uri("http://example.com/api/users?id=123&name=test")
             .version(Version::HTTP_11)
@@ -491,7 +465,7 @@ mod tests {
     #[case("/", "?redirect=/home")]
     fn test_path_matcher_exact_ignores_query_string(#[case] path: &str, #[case] query: &str) {
         // Arrange
-        let matcher = PathMatcher::Exact(ExactMatcher::new(Arc::new(path.to_string())));
+        let matcher = PathMatcher::Exact(path.into());
         let uri = format!("http://example.com{}{}", path, query);
         let request = Request::builder()
             .uri(&uri)
@@ -525,7 +499,7 @@ mod tests {
         #[case] query: &str,
     ) {
         // Arrange
-        let matcher = PathMatcher::Prefix(StringPrefixMatcher::new(Arc::new(prefix.to_string())));
+        let matcher = PathMatcher::Prefix(prefix.into());
         let uri = format!("http://example.com{}{}", path, query);
         let request = Request::builder()
             .uri(&uri)
@@ -563,8 +537,8 @@ mod tests {
         #[case] query: &str,
     ) {
         // Arrange
-        let regex = Arc::new(Regex::new(pattern).unwrap());
-        let matcher = PathMatcher::RegularExpression(RegularExpressionMatcher::new(regex));
+        let regex = Regex::new(pattern).unwrap();
+        let matcher = PathMatcher::RegularExpression(regex.into());
         let uri = format!("http://example.com{}{}", path, query);
         let request = Request::builder()
             .uri(&uri)
@@ -605,8 +579,7 @@ mod tests {
         let scorer = RequestMatcherScorer::default();
 
         // Test Exact matcher
-        let exact_matcher =
-            PathMatcher::Exact(ExactMatcher::new(Arc::new("/api/test".to_string())));
+        let exact_matcher = PathMatcher::Exact("/api/test".into());
         assert!(
             exact_matcher.matches(&scorer, &parts),
             "Exact matcher should ignore complex query: {}",
@@ -614,8 +587,7 @@ mod tests {
         );
 
         // Test Prefix matcher
-        let prefix_matcher =
-            PathMatcher::Prefix(StringPrefixMatcher::new(Arc::new("/api".to_string())));
+        let prefix_matcher = PathMatcher::Prefix("/api".into());
         assert!(
             prefix_matcher.matches(&scorer, &parts),
             "Prefix matcher should ignore complex query: {}",
@@ -623,8 +595,8 @@ mod tests {
         );
 
         // Test Regex matcher
-        let regex = Arc::new(Regex::new(r"^/api/test$").unwrap());
-        let regex_matcher = PathMatcher::RegularExpression(RegularExpressionMatcher::new(regex));
+        let regex = Regex::new(r"^/api/test$").unwrap();
+        let regex_matcher = PathMatcher::RegularExpression(regex.into());
         assert!(
             regex_matcher.matches(&scorer, &parts),
             "Regex matcher should ignore complex query: {}",
@@ -635,7 +607,7 @@ mod tests {
     #[test]
     fn test_path_matcher_fragment_ignored() {
         // Arrange
-        let matcher = PathMatcher::Exact(ExactMatcher::new(Arc::new("/api/users".to_string())));
+        let matcher = PathMatcher::Exact("/api/users".into());
         let request = Request::builder()
             .uri("http://example.com/api/users#section")
             .version(Version::HTTP_11)
