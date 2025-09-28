@@ -67,8 +67,8 @@ pub enum HeaderValueMatcherConversionError {
 impl TryFrom<&HeaderValueMatcherConfig> for HeaderValueMatcher {
     type Error = HeaderValueMatcherConversionError;
 
-    fn try_from(config: &HeaderValueMatcherConfig) -> Result<Self, Self::Error> {
-        match config {
+    fn try_from(value: &HeaderValueMatcherConfig) -> Result<Self, Self::Error> {
+        match value {
             HeaderValueMatcherConfig::Exact(value) => Ok(HeaderValueMatcher::Exact(value.into())),
             HeaderValueMatcherConfig::RegularExpression(pattern) => {
                 let regex = Regex::new(pattern)?;
@@ -122,9 +122,9 @@ pub enum HeaderMatcherConversionError {
 impl TryFrom<&HeaderMatcherConfig> for HeaderMatcher {
     type Error = HeaderMatcherConversionError;
 
-    fn try_from(config: &HeaderMatcherConfig) -> Result<Self, Self::Error> {
-        let name = config.name();
-        let value_matcher: HeaderValueMatcher = config.value().try_into()?;
+    fn try_from(value: &HeaderMatcherConfig) -> Result<Self, Self::Error> {
+        let name = value.name();
+        let value_matcher: HeaderValueMatcher = value.value().try_into()?;
         Ok(HeaderMatcher::new(name, value_matcher))
     }
 }
@@ -165,13 +165,13 @@ pub enum HeaderMatchersConversionError {
 impl TryFrom<&HeadersMatcherConfig> for HeadersMatcher {
     type Error = HeaderMatchersConversionError;
 
-    fn try_from(config: &HeadersMatcherConfig) -> Result<Self, Self::Error> {
-        let matchers = config
+    fn try_from(value: &HeadersMatcherConfig) -> Result<Self, Self::Error> {
+        let matchers = value
             .matchers()
             .iter()
             .enumerate()
-            .map(|(idx, config)| {
-                HeaderMatcher::try_from(config)
+            .map(|(idx, value)| {
+                HeaderMatcher::try_from(value)
                     .map_err(|e| HeaderMatchersConversionError::InvalidHeaderMatcher(idx, e))
             })
             .collect::<Result<_, _>>()?;

@@ -48,3 +48,11 @@ pub struct MethodMatcher {
     #[serde(with = "http_serde_ext::method")]
     method: Method,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", content = "value")]
+pub enum PathMatcher {
+    Exact(String),
+    Prefix(String),
+    RegularExpression(String),
+}

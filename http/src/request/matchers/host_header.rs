@@ -111,8 +111,8 @@ pub enum HostHeaderMatcherConversionError {
 impl TryFrom<&HostHeaderMatcherConfig> for HostHeaderMatcher {
     type Error = HostHeaderMatcherConversionError;
 
-    fn try_from(config: &HostHeaderMatcherConfig) -> Result<Self, Self::Error> {
-        let matchers = config
+    fn try_from(value: &HostHeaderMatcherConfig) -> Result<Self, Self::Error> {
+        let matchers = value
             .matchers()
             .iter()
             .enumerate()

@@ -2,7 +2,10 @@ use super::Matcher;
 use super::basic::{ExactMatcher, RegularExpressionMatcher, StringPrefixMatcher};
 use super::scoring::RequestMatcherScorer;
 use http::request::Parts;
+use regex::Regex;
+use thiserror::Error;
 use tracing::{debug, instrument};
+use vg_http_config::request::matchers::PathMatcher as PathMatcherConfig;
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -33,6 +36,27 @@ impl Matcher for PathMatcher {
         }
 
         matched
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum PathMatcherConversionError {
+    #[error("Invalid regular expression")]
+    InvalidRegularExpression(#[from] regex::Error),
+}
+
+impl TryFrom<&PathMatcherConfig> for PathMatcher {
+    type Error = PathMatcherConversionError;
+
+    fn try_from(value: &PathMatcherConfig) -> Result<Self, Self::Error> {
+        match value {
+            PathMatcherConfig::Exact(path) => Ok(PathMatcher::Exact(path.into())),
+            PathMatcherConfig::Prefix(prefix) => Ok(PathMatcher::Prefix(prefix.into())),
+            PathMatcherConfig::RegularExpression(pattern) => {
+                let regex = Regex::new(pattern)?;
+                Ok(PathMatcher::RegularExpression(regex.into()))
+            }
+        }
     }
 }
 

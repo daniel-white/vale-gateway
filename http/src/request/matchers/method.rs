@@ -44,8 +44,8 @@ pub enum MethodMatcherConversionError {}
 impl TryFrom<&MethodMatcherConfig> for MethodMatcher {
     type Error = MethodMatcherConversionError;
 
-    fn try_from(config: &MethodMatcherConfig) -> Result<Self, Self::Error> {
-        let matcher = config.method().into();
+    fn try_from(value: &MethodMatcherConfig) -> Result<Self, Self::Error> {
+        let matcher = value.method().into();
         Ok(matcher)
     }
 }
