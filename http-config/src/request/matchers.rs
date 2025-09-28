@@ -56,3 +56,26 @@ pub enum PathMatcher {
     Prefix(String),
     RegularExpression(String),
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", content = "value")]
+pub enum QueryParamValueMatcher {
+    Exact(String),
+    RegularExpression(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, TypedBuilder)]
+pub struct QueryParamMatcher {
+    #[getset(get = "pub")]
+    name: String,
+
+    #[getset(get = "pub")]
+    value: QueryParamValueMatcher,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, TypedBuilder)]
+pub struct QueryParamsMatcher {
+    #[serde(flatten)]
+    #[getset(get = "pub")]
+    matchers: Vec<QueryParamMatcher>,
+}

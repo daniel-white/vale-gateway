@@ -61,7 +61,7 @@ impl HeaderValueMatcher {
 #[derive(Error, Debug)]
 pub enum HeaderValueMatcherConversionError {
     #[error("Invalid regular expression for header value matcher: {0}")]
-    InvalidRegex(#[from] regex::Error),
+    InvalidRegularExpression(#[from] regex::Error),
 }
 
 impl TryFrom<&HeaderValueMatcherConfig> for HeaderValueMatcher {
@@ -69,10 +69,10 @@ impl TryFrom<&HeaderValueMatcherConfig> for HeaderValueMatcher {
 
     fn try_from(value: &HeaderValueMatcherConfig) -> Result<Self, Self::Error> {
         match value {
-            HeaderValueMatcherConfig::Exact(value) => Ok(HeaderValueMatcher::Exact(value.into())),
+            HeaderValueMatcherConfig::Exact(value) => Ok(Self::Exact(value.into())),
             HeaderValueMatcherConfig::RegularExpression(pattern) => {
                 let regex = Regex::new(pattern)?;
-                Ok(HeaderValueMatcher::RegularExpression(regex.into()))
+                Ok(Self::RegularExpression(regex.into()))
             }
         }
     }
@@ -116,7 +116,7 @@ impl HeaderMatcher {
 #[derive(Error, Debug)]
 pub enum HeaderMatcherConversionError {
     #[error("Invalid header value matcher: {0}")]
-    InvalidHeaderValueMatcher(#[from] HeaderValueMatcherConversionError),
+    InvalidValueMatcher(#[from] HeaderValueMatcherConversionError),
 }
 
 impl TryFrom<&HeaderMatcherConfig> for HeaderMatcher {
@@ -159,7 +159,7 @@ impl Matcher for HeadersMatcher {
 #[derive(Error, Debug)]
 pub enum HeaderMatchersConversionError {
     #[error("Invalid header matcher at index {0}: {1}")]
-    InvalidHeaderMatcher(usize, HeaderMatcherConversionError),
+    InvalidMatcher(usize, HeaderMatcherConversionError),
 }
 
 impl TryFrom<&HeadersMatcherConfig> for HeadersMatcher {
@@ -172,7 +172,7 @@ impl TryFrom<&HeadersMatcherConfig> for HeadersMatcher {
             .enumerate()
             .map(|(idx, value)| {
                 HeaderMatcher::try_from(value)
-                    .map_err(|e| HeaderMatchersConversionError::InvalidHeaderMatcher(idx, e))
+                    .map_err(|e| HeaderMatchersConversionError::InvalidMatcher(idx, e))
             })
             .collect::<Result<_, _>>()?;
 

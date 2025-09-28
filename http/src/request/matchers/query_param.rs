@@ -4,8 +4,14 @@ use super::scoring::RequestMatcherScorer;
 use http::request::Parts;
 use regex::Regex;
 use std::borrow::Cow;
+use thiserror::Error;
 use tracing::{debug, instrument};
 use typed_builder::TypedBuilder;
+use vg_http_config::request::matchers::{
+    QueryParamMatcher as QueryParamMatcherConfig,
+    QueryParamValueMatcher as QueryParamValueMatcherConfig,
+    QueryParamsMatcher as QueryParamsMatcherConfig,
+};
 
 #[derive(Debug, TypedBuilder)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -42,6 +48,26 @@ impl QueryParamValueMatcher {
     }
 }
 
+#[derive(Error, Debug)]
+pub enum QueryParamValueMatcherConversionError {
+    #[error("Invalid regular expression for query param value matcher: {0}")]
+    InvalidRegularExpression(#[from] regex::Error),
+}
+
+impl TryFrom<&QueryParamValueMatcherConfig> for QueryParamValueMatcher {
+    type Error = QueryParamValueMatcherConversionError;
+
+    fn try_from(value: &QueryParamValueMatcherConfig) -> Result<Self, Self::Error> {
+        match value {
+            QueryParamValueMatcherConfig::Exact(value) => Ok(Self::Exact(value.into())),
+            QueryParamValueMatcherConfig::RegularExpression(pattern) => {
+                let regex = Regex::new(pattern)?;
+                Ok(Self::RegularExpression(regex.into()))
+            }
+        }
+    }
+}
+
 #[derive(Debug, TypedBuilder)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct QueryParamMatcher {
@@ -74,6 +100,48 @@ impl QueryParamMatcher {
     )]
     fn matches(&self, (name, value): &(Cow<str>, Cow<str>)) -> bool {
         self.name_matcher.matches(name) && self.value_matcher.matches(value)
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum QueryParamMatcherConversionError {
+    #[error("Invalid query param value matcher: {0}")]
+    InvalidValueMatcher(#[from] QueryParamValueMatcherConversionError),
+}
+
+impl TryFrom<&QueryParamMatcherConfig> for QueryParamMatcher {
+    type Error = QueryParamMatcherConversionError;
+
+    fn try_from(value: &QueryParamMatcherConfig) -> Result<Self, Self::Error> {
+        let name = value.name();
+        let value_matcher = QueryParamValueMatcher::try_from(value.value())?;
+        Ok(Self::new(name, value_matcher))
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum QueryParamMatchersConversionError {
+    #[error("Invalid query param matcher at index {0}: {1}")]
+    InvalidMatcher(usize, QueryParamMatcherConversionError),
+}
+
+impl TryFrom<&QueryParamsMatcherConfig> for QueryParamsMatcher {
+    type Error = QueryParamMatchersConversionError;
+
+    fn try_from(value: &QueryParamsMatcherConfig) -> Result<Self, Self::Error> {
+        let matchers = value
+            .matchers()
+            .iter()
+            .enumerate()
+            .map(|(idx, value)| {
+                QueryParamMatcher::try_from(value)
+                    .map_err(|e| QueryParamMatchersConversionError::InvalidMatcher(idx, e))
+            })
+            .collect::<Result<_, _>>()?;
+
+        let matcher = Self::builder().matchers(matchers).build();
+
+        Ok(matcher)
     }
 }
 

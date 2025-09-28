@@ -105,7 +105,7 @@ impl HostHeaderMatcher {
 #[derive(Debug, Error)]
 pub enum HostHeaderMatcherConversionError {
     #[error("Invalid host header value matcher at index {0}: {1}")]
-    InvalidValue(usize, HostHeaderValueMatcherConversionError),
+    InvalidMatcher(usize, HostHeaderValueMatcherConversionError),
 }
 
 impl TryFrom<&HostHeaderMatcherConfig> for HostHeaderMatcher {
@@ -118,7 +118,7 @@ impl TryFrom<&HostHeaderMatcherConfig> for HostHeaderMatcher {
             .enumerate()
             .map(|(idx, config)| {
                 HostHeaderValueMatcher::try_from(config)
-                    .map_err(|e| HostHeaderMatcherConversionError::InvalidValue(idx, e))
+                    .map_err(|e| HostHeaderMatcherConversionError::InvalidMatcher(idx, e))
             })
             .collect::<Result<_, _>>()?;
 
