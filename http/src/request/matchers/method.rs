@@ -108,9 +108,7 @@ mod tests {
         #[case] expected_match: bool,
     ) {
         // Arrange
-        let matcher = MethodMatcher::builder()
-            .matcher(matcher_method)
-            .build();
+        let matcher = MethodMatcher::builder().matcher(matcher_method).build();
 
         let parts = create_request_parts(request_method);
         let scorer = RequestMatcherScorer::default();
@@ -208,9 +206,7 @@ mod tests {
     fn test_method_matcher_with_custom_method() {
         // Arrange
         let custom_method = Method::from_bytes(b"CUSTOM").unwrap();
-        let matcher = MethodMatcher::builder()
-            .matcher(&custom_method)
-            .build();
+        let matcher = MethodMatcher::builder().matcher(&custom_method).build();
 
         let parts = create_request_parts(custom_method);
         let scorer = RequestMatcherScorer::default();

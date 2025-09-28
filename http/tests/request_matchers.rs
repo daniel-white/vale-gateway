@@ -36,10 +36,9 @@ pub fn loads_request_matcher_from_file() {
     // let config = serde_json::to_string_pretty(&x).unwrap_or_default();
     // println!("{}", config);
 
-
     let config = include_str!("request_matcher.json");
-    let config = serde_json::from_str::<RequestMatcherConfig>(config)
-        .expect("Failed to parse JSON config");
+    let config =
+        serde_json::from_str::<RequestMatcherConfig>(config).expect("Failed to parse JSON config");
 
     let config = RequestMatcher::try_from(&config).expect("Failed to convert config");
 

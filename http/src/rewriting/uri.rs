@@ -104,7 +104,7 @@ impl UriRewriter {
                 if let Some(new_path) =
                     Self::apply_prefix_rewrite(&parts, matched_prefix.as_str(), new_prefix)
                 {
-                    // Note: prefix rewrite drops query (documented by tests)
+                    // Note: prefix rewriting drops query (documented by tests)
                     parts.path_and_query = Some(new_path.parse().unwrap());
                 }
             }
@@ -137,7 +137,7 @@ mod tests {
         Name::from_str(&format!("{host}.")).unwrap()
     }
 
-    // ---------- Full path rewrite tests ----------
+    // ---------- Full path rewriting tests ----------
     #[test]
     fn full_path_rewrite_overrides_existing_query() {
         let r = UriRewriter::builder()
@@ -248,7 +248,7 @@ mod tests {
         assert_eq!(out.scheme_str(), expected_scheme);
     }
 
-    // ---------- Prefix rewrite tests ----------
+    // ---------- Prefix rewriting tests ----------
     #[rstest]
     #[case("/api/v1/users/123", "/api/v1", "/service", "/service/users/123")]
     #[case("/api/v1/users/123", "/api/v1", "/service/", "/service/users/123")]

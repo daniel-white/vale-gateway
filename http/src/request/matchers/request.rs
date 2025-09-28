@@ -94,11 +94,8 @@ impl TryFrom<&RequestMatcherConfig> for RequestMatcher {
             .as_ref()
             .map(PathMatcher::try_from)
             .transpose()?;
-        let headers_matcher: HeadersMatcher = value
-            .headers().try_into()?;
-        let query_params_matcher: QueryParamsMatcher = value
-            .query_params()
-            .try_into()?;
+        let headers_matcher: HeadersMatcher = value.headers().try_into()?;
+        let query_params_matcher: QueryParamsMatcher = value.query_params().try_into()?;
 
         let matcher = Self::builder()
             .method_matcher(method_matcher)

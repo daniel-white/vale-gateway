@@ -1,5 +1,5 @@
 use crate::request::matchers::RequestMatchDetails;
-use crate::rewrite::uri::UriRewriter;
+use crate::rewriting::uri::UriRewriter;
 use http::Uri;
 use http::request::Parts;
 use typed_builder::TypedBuilder;
@@ -18,7 +18,7 @@ impl UpstreamUriRewriteFilterHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rewrite::uri::UriRewriter;
+    use crate::rewriting::uri::UriRewriter;
     use http::{HeaderValue, Uri};
     use rstest::*;
     use std::str::FromStr;
@@ -56,7 +56,7 @@ mod tests {
         "preserve original components"
     )]
     fn test_uri_rewrite_scenarios(#[case] input_uri: &str, #[case] scenario_name: &str) {
-        // Test URI rewrite for various scenarios
+        // Test URI rewriting for various scenarios
         let uri_rewriter = UriRewriter::builder().build();
         let handler = UpstreamUriRewriteFilterHandler::builder()
             .uri_rewriter(uri_rewriter)
@@ -68,7 +68,7 @@ mod tests {
         let match_context = MockMatchContext;
         let new_uri = handler.handle(&request_parts, &match_context);
 
-        // Verify URI rewrite occurred (actual result depends on rewriter configuration)
+        // Verify URI rewriting occurred (actual result depends on rewriter configuration)
         assert!(
             !new_uri.to_string().is_empty(),
             "Failed for scenario: {}",
@@ -78,7 +78,7 @@ mod tests {
 
     #[test]
     fn test_uri_rewrite_conditional_based_on_headers() {
-        // Test conditional URI rewrite (would need header-aware rewriter)
+        // Test conditional URI rewriting (would need header-aware rewriter)
         let uri_rewriter = UriRewriter::builder().build();
         let handler = UpstreamUriRewriteFilterHandler::builder()
             .uri_rewriter(uri_rewriter)
@@ -99,7 +99,7 @@ mod tests {
 
     #[test]
     fn test_uri_rewrite_load_balancing_backend_selection() {
-        // Test rewrite URI for load balancing
+        // Test rewriting URI for load balancing
         let uri_rewriter = UriRewriter::builder().build();
         let handler = UpstreamUriRewriteFilterHandler::builder()
             .uri_rewriter(uri_rewriter)
@@ -113,7 +113,7 @@ mod tests {
             let match_context = MockMatchContext;
             let new_uri = handler.handle(&request_parts, &match_context);
 
-            // Each rewrite should produce a valid URI
+            // Each rewriting should produce a valid URI
             assert!(!new_uri.to_string().is_empty());
         }
     }
