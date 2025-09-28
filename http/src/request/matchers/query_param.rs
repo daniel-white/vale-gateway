@@ -130,7 +130,7 @@ impl TryFrom<&QueryParamsMatcherConfig> for QueryParamsMatcher {
 
     fn try_from(value: &QueryParamsMatcherConfig) -> Result<Self, Self::Error> {
         let matchers = value
-            .matchers()
+            .query_params()
             .iter()
             .enumerate()
             .map(|(idx, value)| {

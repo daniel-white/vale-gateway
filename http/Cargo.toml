@@ -31,3 +31,4 @@ vg-http-config = { path = "../http-config" }
 [dev-dependencies]
 mockall.workspace = true
 rstest.workspace = true
+serde_json.workspace = true

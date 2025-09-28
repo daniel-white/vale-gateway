@@ -167,7 +167,7 @@ impl TryFrom<&HeadersMatcherConfig> for HeadersMatcher {
 
     fn try_from(value: &HeadersMatcherConfig) -> Result<Self, Self::Error> {
         let matchers = value
-            .matchers()
+            .headers()
             .iter()
             .enumerate()
             .map(|(idx, value)| {

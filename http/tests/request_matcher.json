@@ -1,0 +1,26 @@
+{
+  "method": "PATCH",
+  "path": {
+    "kind": "regularExpression",
+    "value": "^/api/v1/.*$"
+  },
+  "headers": [
+    {
+      "name": "content-type",
+      "kind": "exact",
+      "value": "application/json"
+    },
+    {
+      "name": "accept",
+      "kind": "regularExpression",
+      "value": "^text/.*"
+    }
+  ],
+  "queryParams": [
+    {
+      "name": "pageSize",
+      "kind": "regularExpression",
+      "value": "^\\d$"
+    }
+  ]
+}

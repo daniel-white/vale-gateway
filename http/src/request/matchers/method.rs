@@ -12,7 +12,7 @@ use vg_http_config::request::matchers::MethodMatcher as MethodMatcherConfig;
 #[cfg_attr(test, derive(PartialEq))]
 pub struct MethodMatcher {
     #[builder(setter(into))]
-    method_matcher: ExactMatcher<Method>,
+    matcher: ExactMatcher<Method>,
 }
 
 impl Matcher for MethodMatcher {
@@ -22,7 +22,7 @@ impl Matcher for MethodMatcher {
         fields(matcher = ?self)
     )]
     fn matches(&self, scorer: &RequestMatcherScorer, req: &Parts) -> bool {
-        let is_match = self.method_matcher.matches(&req.method);
+        let is_match = self.matcher.matches(&req.method);
         if is_match {
             debug!("Method matched");
             scorer.method(self);
@@ -33,7 +33,7 @@ impl Matcher for MethodMatcher {
 
 impl From<Method> for MethodMatcher {
     fn from(method: Method) -> Self {
-        Self::builder().method_matcher(&method).build()
+        Self::builder().matcher(&method).build()
     }
 }
 
@@ -77,7 +77,7 @@ mod tests {
     #[case(Method::OPTIONS)]
     fn test_method_matcher_exact_match(#[case] method: Method) {
         // Arrange
-        let matcher = MethodMatcher::builder().method_matcher(&method).build();
+        let matcher = MethodMatcher::builder().matcher(&method).build();
 
         let parts = create_request_parts(method);
         let scorer = RequestMatcherScorer::default();
@@ -109,7 +109,7 @@ mod tests {
     ) {
         // Arrange
         let matcher = MethodMatcher::builder()
-            .method_matcher(matcher_method)
+            .matcher(matcher_method)
             .build();
 
         let parts = create_request_parts(request_method);
@@ -149,7 +149,7 @@ mod tests {
     #[test]
     fn test_method_matcher_calls_scorer_on_match() {
         // Arrange
-        let matcher = MethodMatcher::builder().method_matcher(Method::GET).build();
+        let matcher = MethodMatcher::builder().matcher(Method::GET).build();
 
         let parts = create_request_parts(Method::GET);
         let scorer = RequestMatcherScorer::default();
@@ -166,7 +166,7 @@ mod tests {
     #[test]
     fn test_method_matcher_does_not_call_scorer_on_no_match() {
         // Arrange
-        let matcher = MethodMatcher::builder().method_matcher(Method::GET).build();
+        let matcher = MethodMatcher::builder().matcher(Method::GET).build();
 
         let parts = create_request_parts(Method::POST);
         let scorer = RequestMatcherScorer::default();
@@ -192,7 +192,7 @@ mod tests {
     fn test_method_matcher_with_various_http_methods(#[case] method_str: &str) {
         // Arrange
         let method = Method::from_bytes(method_str.as_bytes()).unwrap();
-        let matcher = MethodMatcher::builder().method_matcher(&method).build();
+        let matcher = MethodMatcher::builder().matcher(&method).build();
 
         let parts = create_request_parts(method);
         let scorer = RequestMatcherScorer::default();
@@ -209,7 +209,7 @@ mod tests {
         // Arrange
         let custom_method = Method::from_bytes(b"CUSTOM").unwrap();
         let matcher = MethodMatcher::builder()
-            .method_matcher(&custom_method)
+            .matcher(&custom_method)
             .build();
 
         let parts = create_request_parts(custom_method);
