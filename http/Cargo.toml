@@ -18,6 +18,7 @@ problemdetails.workspace = true
 regex.workspace = true
 serde_json.workspace = true
 strum.workspace = true
+thiserror.workspace = true
 tracing.workspace = true
 tracing-opentelemetry.workspace = true
 trusted-proxies.workspace = true

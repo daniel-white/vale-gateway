@@ -4,8 +4,13 @@ use crate::request::matchers::scoring::RequestMatcherScorer;
 use http::request::Parts;
 use http::{HeaderName, HeaderValue};
 use regex::Regex;
+use thiserror::Error;
 use tracing::{debug, instrument};
 use typed_builder::TypedBuilder;
+use vg_http_config::request::matchers::{
+    HeaderMatcher as HeaderMatcherConfig, HeaderValueMatcher as HeaderValueMatcherConfig,
+    HeadersMatcher as HeadersMatcherConfig,
+};
 
 #[derive(Debug, TypedBuilder)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -53,6 +58,26 @@ impl HeaderValueMatcher {
     }
 }
 
+#[derive(Error, Debug)]
+pub enum HeaderValueMatcherConversionError {
+    #[error("Invalid regular expression for header value matcher: {0}")]
+    InvalidRegex(#[from] regex::Error),
+}
+
+impl TryFrom<&HeaderValueMatcherConfig> for HeaderValueMatcher {
+    type Error = HeaderValueMatcherConversionError;
+
+    fn try_from(config: &HeaderValueMatcherConfig) -> Result<Self, Self::Error> {
+        match config {
+            HeaderValueMatcherConfig::Exact(value) => Ok(HeaderValueMatcher::Exact(value.into())),
+            HeaderValueMatcherConfig::RegularExpression(pattern) => {
+                let regex = Regex::new(pattern)?;
+                Ok(HeaderValueMatcher::RegularExpression(regex.into()))
+            }
+        }
+    }
+}
+
 #[derive(Debug, TypedBuilder)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct HeaderMatcher {
@@ -88,6 +113,22 @@ impl HeaderMatcher {
     }
 }
 
+#[derive(Error, Debug)]
+pub enum HeaderMatcherConversionError {
+    #[error("Invalid header value matcher: {0}")]
+    InvalidHeaderValueMatcher(#[from] HeaderValueMatcherConversionError),
+}
+
+impl TryFrom<&HeaderMatcherConfig> for HeaderMatcher {
+    type Error = HeaderMatcherConversionError;
+
+    fn try_from(config: &HeaderMatcherConfig) -> Result<Self, Self::Error> {
+        let name = config.name();
+        let value_matcher: HeaderValueMatcher = config.value().try_into()?;
+        Ok(HeaderMatcher::new(name, value_matcher))
+    }
+}
+
 #[derive(Debug, TypedBuilder)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct HeadersMatcher {
@@ -112,6 +153,32 @@ impl Matcher for HeadersMatcher {
             scorer.headers(self);
         }
         is_match
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum HeaderMatchersConversionError {
+    #[error("Invalid header matcher at index {0}: {1}")]
+    InvalidHeaderMatcher(usize, HeaderMatcherConversionError),
+}
+
+impl TryFrom<&HeadersMatcherConfig> for HeadersMatcher {
+    type Error = HeaderMatchersConversionError;
+
+    fn try_from(config: &HeadersMatcherConfig) -> Result<Self, Self::Error> {
+        let matchers = config
+            .matchers()
+            .iter()
+            .enumerate()
+            .map(|(idx, config)| {
+                HeaderMatcher::try_from(config)
+                    .map_err(|e| HeaderMatchersConversionError::InvalidHeaderMatcher(idx, e))
+            })
+            .collect::<Result<_, _>>()?;
+
+        let matcher = Self::builder().matchers(matchers).build();
+
+        Ok(matcher)
     }
 }
 

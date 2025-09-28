@@ -17,7 +17,7 @@ getset = "0.1"
 heck = "0.5"
 hickory-proto = "0.25"
 http = "1"
-http-serde = "2"
+http-serde-ext = "1"
 ipnet = { version = "2", features = ["serde"] }
 k8s-openapi = { version = "0.26", features = ["v1_34"] }
 kube = "2"
@@ -36,6 +36,7 @@ serde = { version = "1", features = ["derive", "rc"] }
 serde_json = "1"
 serde_yaml = "0.9"
 strum = { version = "0.27", features = ["derive"] }
+thiserror = "2"
 tokio = "1"
 tokio-shutdown = "0.1"
 tracing = "0.1"

@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 getset.workspace = true
 http.workspace = true
-http-serde.workspace = true
+http-serde-ext.workspace = true
 serde.workspace = true
 typed-builder.workspace = true
 vg-core = { path = "../core" }

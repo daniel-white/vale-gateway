@@ -3,6 +3,7 @@ use super::basic::ExactMatcher;
 use super::scoring::RequestMatcherScorer;
 use http::Method;
 use http::request::Parts;
+use thiserror::Error;
 use tracing::{debug, instrument};
 use typed_builder::TypedBuilder;
 use vg_http_config::request::matchers::MethodMatcher as MethodMatcherConfig;
@@ -36,8 +37,12 @@ impl From<Method> for MethodMatcher {
     }
 }
 
+#[derive(Debug, Error)]
+pub enum MethodMatcherConversionError {}
+
+#[allow(clippy::infallible_try_from)]
 impl TryFrom<&MethodMatcherConfig> for MethodMatcher {
-    type Error = ();
+    type Error = MethodMatcherConversionError;
 
     fn try_from(config: &MethodMatcherConfig) -> Result<Self, Self::Error> {
         let matcher = config.method().into();
