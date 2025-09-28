@@ -1,20 +1,24 @@
 use crate::request::matchers::Matcher;
 use crate::request::matchers::RequestMatchDetails;
-use crate::request::matchers::header::HeadersMatcher;
-use crate::request::matchers::method::MethodMatcher;
-use crate::request::matchers::path::PathMatcher;
-use crate::request::matchers::query_param::QueryParamsMatcher;
+use crate::request::matchers::header::{HeadersMatcher, HeadersMatcherConversionError};
+use crate::request::matchers::method::{MethodMatcher, MethodMatcherConversionError};
+use crate::request::matchers::path::{PathMatcher, PathMatcherConversionError};
+use crate::request::matchers::query_param::{
+    QueryParamsMatcher, QueryParamsMatcherConversionError,
+};
 use crate::request::matchers::scoring::{RequestMatchScore, RequestMatcherScorer};
 use http::request::Parts;
+use thiserror::Error;
 use tracing::{debug, instrument, trace};
 use typed_builder::TypedBuilder;
+use vg_http_config::request::matchers::RequestMatcher as RequestMatcherConfig;
 
 #[derive(Debug, TypedBuilder)]
 pub struct RequestMatcher {
     #[builder(setter(into))]
-    path_matcher: Option<PathMatcher>,
-    #[builder(setter(into))]
     method_matcher: Option<MethodMatcher>,
+    #[builder(setter(into))]
+    path_matcher: Option<PathMatcher>,
     #[builder(setter(into))]
     headers_matcher: Option<HeadersMatcher>,
     #[builder(setter(into))]
@@ -61,6 +65,54 @@ impl RequestMatcher {
         debug!("All route rule matches succeeded");
         let score = scorer.results();
         RequestMatcherResult::Matched(score)
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum RequestMatcherConversionError {
+    #[error("Invalid method matcher: {0}")]
+    InvalidMethodMatcher(#[from] MethodMatcherConversionError),
+    #[error("Invalid path matcher: {0}")]
+    InvalidPathMatcher(#[from] PathMatcherConversionError),
+    #[error("Invalid headers matcher: {0}")]
+    InvalidHeadersMatcher(#[from] HeadersMatcherConversionError),
+    #[error("Invalid query params matcher: {0}")]
+    InvalidQueryParamsMatcher(#[from] QueryParamsMatcherConversionError),
+}
+
+impl TryFrom<&RequestMatcherConfig> for RequestMatcher {
+    type Error = RequestMatcherConversionError;
+
+    fn try_from(value: &RequestMatcherConfig) -> Result<Self, Self::Error> {
+        let method_matcher = value
+            .method()
+            .as_ref()
+            .map(MethodMatcher::try_from)
+            .transpose()?;
+        let path_matcher = value
+            .path()
+            .as_ref()
+            .map(PathMatcher::try_from)
+            .transpose()?;
+        let headers_matcher = value
+            .headers()
+            .as_ref()
+            .map(HeadersMatcher::try_from)
+            .transpose()?;
+        let query_params_matcher = value
+            .query_params()
+            .as_ref()
+            .map(QueryParamsMatcher::try_from)
+            .transpose()?;
+
+        let matcher = Self::builder()
+            .method_matcher(method_matcher)
+            .path_matcher(path_matcher)
+            .headers_matcher(headers_matcher)
+            .query_params_matcher(query_params_matcher)
+            .build();
+
+        Ok(matcher)
     }
 }
 

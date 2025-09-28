@@ -157,13 +157,13 @@ impl Matcher for HeadersMatcher {
 }
 
 #[derive(Error, Debug)]
-pub enum HeaderMatchersConversionError {
+pub enum HeadersMatcherConversionError {
     #[error("Invalid header matcher at index {0}: {1}")]
     InvalidMatcher(usize, HeaderMatcherConversionError),
 }
 
 impl TryFrom<&HeadersMatcherConfig> for HeadersMatcher {
-    type Error = HeaderMatchersConversionError;
+    type Error = HeadersMatcherConversionError;
 
     fn try_from(value: &HeadersMatcherConfig) -> Result<Self, Self::Error> {
         let matchers = value
@@ -172,7 +172,7 @@ impl TryFrom<&HeadersMatcherConfig> for HeadersMatcher {
             .enumerate()
             .map(|(idx, value)| {
                 HeaderMatcher::try_from(value)
-                    .map_err(|e| HeaderMatchersConversionError::InvalidMatcher(idx, e))
+                    .map_err(|e| HeadersMatcherConversionError::InvalidMatcher(idx, e))
             })
             .collect::<Result<_, _>>()?;
 

@@ -120,13 +120,13 @@ impl TryFrom<&QueryParamMatcherConfig> for QueryParamMatcher {
 }
 
 #[derive(Error, Debug)]
-pub enum QueryParamMatchersConversionError {
+pub enum QueryParamsMatcherConversionError {
     #[error("Invalid query param matcher at index {0}: {1}")]
     InvalidMatcher(usize, QueryParamMatcherConversionError),
 }
 
 impl TryFrom<&QueryParamsMatcherConfig> for QueryParamsMatcher {
-    type Error = QueryParamMatchersConversionError;
+    type Error = QueryParamsMatcherConversionError;
 
     fn try_from(value: &QueryParamsMatcherConfig) -> Result<Self, Self::Error> {
         let matchers = value
@@ -135,7 +135,7 @@ impl TryFrom<&QueryParamsMatcherConfig> for QueryParamsMatcher {
             .enumerate()
             .map(|(idx, value)| {
                 QueryParamMatcher::try_from(value)
-                    .map_err(|e| QueryParamMatchersConversionError::InvalidMatcher(idx, e))
+                    .map_err(|e| QueryParamsMatcherConversionError::InvalidMatcher(idx, e))
             })
             .collect::<Result<_, _>>()?;
 

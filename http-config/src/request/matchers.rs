@@ -79,3 +79,19 @@ pub struct QueryParamsMatcher {
     #[getset(get = "pub")]
     matchers: Vec<QueryParamMatcher>,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, TypedBuilder)]
+pub struct RequestMatcher {
+    #[getset(get = "pub")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    method: Option<MethodMatcher>,
+    #[getset(get = "pub")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    path: Option<PathMatcher>,
+    #[getset(get = "pub")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    headers: Option<HeadersMatcher>,
+    #[getset(get = "pub")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    query_params: Option<QueryParamsMatcher>,
+}
