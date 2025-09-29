@@ -134,7 +134,10 @@ mod tests {
             .build();
 
         let json = serde_json::to_string(&filter).unwrap();
-        assert_eq!(json, r#"{"extractor":"none","upstreamHeader":"x-client-ip"}"#);
+        assert_eq!(
+            json,
+            r#"{"extractor":"none","upstreamHeader":"x-client-ip"}"#
+        );
     }
 
     #[test]
@@ -145,7 +148,10 @@ mod tests {
             .build();
 
         let json = serde_json::to_string(&filter).unwrap();
-        assert_eq!(json, r#"{"extractor":"direct","upstreamHeader":"x-client-ip"}"#);
+        assert_eq!(
+            json,
+            r#"{"extractor":"direct","upstreamHeader":"x-client-ip"}"#
+        );
     }
 
     #[test]

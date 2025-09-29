@@ -7,10 +7,20 @@ edition = "2024"
 name = "vg_kube"
 path = "src/lib.rs"
 
+[features]
+default = ["config"]
+config = [
+    "http",
+    "thiserror",
+    "vg-core",
+    "vg-http-config"
+]
+
 [dependencies]
 assertables.workspace = true
 gateway-api.workspace = true
 getset.workspace = true
+http = { workspace = true, optional = true }
 ipnet.workspace = true
 k8s-openapi.workspace = true
 kube = { workspace = true, features = ["kube-derive", "derive"] }
@@ -22,7 +32,10 @@ schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 strum.workspace = true
+thiserror = { workspace = true, optional = true }
 typed-builder.workspace = true
+vg-core = { path = "../core", optional = true }
+vg-http-config = { path = "../http-config", optional = true }
 
 [build-dependencies]
 serde_yaml.workspace = true

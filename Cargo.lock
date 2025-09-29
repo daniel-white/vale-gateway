@@ -2995,6 +2995,7 @@ dependencies = [
  "assertables",
  "gateway-api",
  "getset",
+ "http",
  "ipnet",
  "k8s-openapi",
  "kube",
@@ -3007,7 +3008,10 @@ dependencies = [
  "serde_json",
  "serde_yaml 0.9.34+deprecated",
  "strum 0.27.2",
+ "thiserror 2.0.16",
  "typed-builder",
+ "vg-core",
+ "vg-http-config",
 ]
 
 [[package]]

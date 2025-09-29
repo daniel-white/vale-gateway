@@ -3,6 +3,7 @@ use std::fmt::Display;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::num::NonZeroU16;
 use std::str::FromStr;
+use std::sync::OnceLock;
 use thiserror::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -31,6 +32,27 @@ pub enum IpRef {
     Net(IpNet),
 }
 
+impl IpRef {
+    pub fn trusted_private() -> &'static [IpRef] {
+        static TRUSTED_PRIVATE_IP_REFS: OnceLock<Vec<IpRef>> = OnceLock::new();
+
+        TRUSTED_PRIVATE_IP_REFS.get_or_init(|| {
+            vec![
+                // IPV4 Loopback
+                "127.0.0.0/8".parse().unwrap(),
+                // IPV4 Private networks
+                "10.0.0.0/8".parse().unwrap(),
+                "172.16.0.0/12".parse().unwrap(),
+                "192.168.0.0/16".parse().unwrap(),
+                // IPV6 Loopback
+                "::1/128".parse().unwrap(),
+                // IPV6 Private network
+                "fd00::/8".parse().unwrap(),
+            ]
+        })
+    }
+}
+
 impl From<IpRef> for String {
     fn from(value: IpRef) -> Self {
         match value {
@@ -43,6 +65,12 @@ impl From<IpRef> for String {
 impl From<IpAddr> for IpRef {
     fn from(value: IpAddr) -> Self {
         Self::Addr(value)
+    }
+}
+
+impl From<&IpAddr> for IpRef {
+    fn from(value: &IpAddr) -> Self {
+        Self::Addr(*value)
     }
 }
 
@@ -61,6 +89,12 @@ impl From<Ipv6Addr> for IpRef {
 impl From<IpNet> for IpRef {
     fn from(value: IpNet) -> Self {
         Self::Net(value)
+    }
+}
+
+impl From<&IpNet> for IpRef {
+    fn from(value: &IpNet) -> Self {
+        Self::Net(*value)
     }
 }
 

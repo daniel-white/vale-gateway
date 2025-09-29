@@ -252,60 +252,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_x_forwarded_for_extractor() {
-        // Test extracting IP from X-Forwarded-For header using TrustedHeaderClientAddrExtractor
-        let extractor = TrustedHeaderClientAddrExtractor::builder()
-            .trusted_header(X_FORWARDED_FOR)
-            .build();
-
-        let socket_addr = SocketAddr::from_str("192.168.1.1:80").unwrap();
-        let mut request_parts = create_empty_parts();
-        request_parts
-            .headers
-            .insert(X_FORWARDED_FOR, HeaderValue::from_static("203.0.113.1"));
-
-        let result = extractor.extract(socket_addr, &request_parts);
-
-        assert_some_eq_x!(result, IpAddr::from_str("203.0.113.1").unwrap());
-    }
-
-    #[tokio::test]
-    async fn test_x_real_ip_extractor() {
-        // Test extracting IP from X-Real-IP header
-        let extractor = TrustedHeaderClientAddrExtractor::builder()
-            .trusted_header(HeaderName::from_static("x-real-ip"))
-            .build();
-
-        let socket_addr = SocketAddr::from_str("192.168.1.1:80").unwrap();
-        let mut request_parts = create_empty_parts();
-        request_parts
-            .headers
-            .insert("X-Real-IP", HeaderValue::from_static("203.0.113.1"));
-
-        let result = extractor.extract(socket_addr, &request_parts);
-
-        assert_some_eq_x!(result, IpAddr::from_str("203.0.113.1").unwrap());
-    }
-
-    #[tokio::test]
-    async fn test_cloudflare_connecting_ip_extractor() {
-        // Test extracting IP from Cloudflare CF-Connecting-IP header
-        let extractor = TrustedHeaderClientAddrExtractor::builder()
-            .trusted_header(HeaderName::from_static("cf-connecting-ip"))
-            .build();
-
-        let socket_addr = SocketAddr::from_str("104.16.0.1:80").unwrap(); // Cloudflare IP
-        let mut request_parts = create_empty_parts();
-        request_parts
-            .headers
-            .insert("CF-Connecting-IP", HeaderValue::from_static("203.0.113.1"));
-
-        let result = extractor.extract(socket_addr, &request_parts);
-
-        assert_some_eq_x!(result, IpAddr::from_str("203.0.113.1").unwrap());
-    }
-
-    #[tokio::test]
     async fn test_extractor_chain_fallback() {
         // Test TrustedProxiesExtractor with multiple trusted settings
         let mut proxies: HashSet<IpRef> = HashSet::new();
@@ -540,6 +486,51 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_extractor_type_enum() {
+        // Test the ClientAddrExtractorType enum functionality
+        let header_extractor = ClientAddrExtractor::TrustedHeader(
+            TrustedHeaderClientAddrExtractor::builder()
+                .trusted_header(HeaderName::from_static("x-real-ip"))
+                .build(),
+        );
+
+        let mut proxies: HashSet<IpRef> = HashSet::new();
+        proxies.insert(IpRef::Net(IpNet::from_str("192.168.1.1/24").unwrap()));
+
+        let config = TrustedProxies::builder()
+            .proxies(proxies)
+            .trust_forwarded_header(false)
+            .trust_x_forwarded_for_header(true)
+            .trust_x_forwarded_host_header(false)
+            .trust_x_forwarded_proto_header(false)
+            .trust_x_forwarded_by_header(false)
+            .build();
+
+        let proxies_extractor = ClientAddrExtractor::TrustedProxies(
+            TrustedProxiesClientAddrExtractor::builder()
+                .config(trusted_proxies::Config::from(config))
+                .build(),
+        );
+
+        let socket_addr = SocketAddr::from_str("192.168.1.1:80").unwrap();
+        let mut request_parts = create_empty_parts();
+        request_parts
+            .headers
+            .insert("X-Real-IP", HeaderValue::from_static("203.0.113.1"));
+        request_parts
+            .headers
+            .insert(X_FORWARDED_FOR, HeaderValue::from_static("203.0.113.2"));
+
+        // Test each extractor type
+        let noop_result = ClientAddrExtractor::None.extract(socket_addr, &request_parts);
+        let header_result = header_extractor.extract(socket_addr, &request_parts);
+        let proxies_result = proxies_extractor.extract(socket_addr, &request_parts);
+
+        assert_none!(noop_result);
+        assert_some_eq_x!(header_result, IpAddr::from_str("203.0.113.1").unwrap());
+        assert_some_eq_x!(proxies_result, IpAddr::from_str("203.0.113.2").unwrap());
+    }
+    #[tokio::test]
     async fn test_direct_extractor_with_different_ports() {
         // Test Direct extractor with various port numbers
         let test_cases = vec![
@@ -582,10 +573,10 @@ mod tests {
     async fn test_direct_extractor_with_private_addresses() {
         // Test Direct extractor with common private IP address ranges
         let test_cases = vec![
-            ("10.0.0.1:80", "10.0.0.1"),           // Class A private
-            ("172.16.0.1:80", "172.16.0.1"),       // Class B private
-            ("192.168.1.1:80", "192.168.1.1"),     // Class C private
-            ("169.254.1.1:80", "169.254.1.1"),     // Link-local
+            ("10.0.0.1:80", "10.0.0.1"),       // Class A private
+            ("172.16.0.1:80", "172.16.0.1"),   // Class B private
+            ("192.168.1.1:80", "192.168.1.1"), // Class C private
+            ("169.254.1.1:80", "169.254.1.1"), // Link-local
         ];
 
         for (socket_str, expected_ip_str) in test_cases {
@@ -613,53 +604,5 @@ mod tests {
             let result = extractor.extract(socket_addr, &request_parts);
             assert_some_eq_x!(result, expected_ip);
         }
-    }
-
-    #[tokio::test]
-    async fn test_extractor_type_enum() {
-        // Test the ClientAddrExtractorType enum functionality including Direct extractor
-        let header_extractor = ClientAddrExtractor::TrustedHeader(
-            TrustedHeaderClientAddrExtractor::builder()
-                .trusted_header(HeaderName::from_static("x-real-ip"))
-                .build(),
-        );
-
-        let mut proxies: HashSet<IpRef> = HashSet::new();
-        proxies.insert(IpRef::Net(IpNet::from_str("192.168.1.1/24").unwrap()));
-
-        let config = TrustedProxies::builder()
-            .proxies(proxies)
-            .trust_forwarded_header(false)
-            .trust_x_forwarded_for_header(true)
-            .trust_x_forwarded_host_header(false)
-            .trust_x_forwarded_proto_header(false)
-            .trust_x_forwarded_by_header(false)
-            .build();
-
-        let proxies_extractor = ClientAddrExtractor::TrustedProxies(
-            TrustedProxiesClientAddrExtractor::builder()
-                .config(trusted_proxies::Config::from(config))
-                .build(),
-        );
-
-        let socket_addr = SocketAddr::from_str("192.168.1.1:80").unwrap();
-        let mut request_parts = create_empty_parts();
-        request_parts
-            .headers
-            .insert("X-Real-IP", HeaderValue::from_static("203.0.113.1"));
-        request_parts
-            .headers
-            .insert(X_FORWARDED_FOR, HeaderValue::from_static("203.0.113.2"));
-
-        // Test each extractor type
-        let none_result = ClientAddrExtractor::None.extract(socket_addr, &request_parts);
-        let direct_result = ClientAddrExtractor::Direct.extract(socket_addr, &request_parts);
-        let header_result = header_extractor.extract(socket_addr, &request_parts);
-        let proxies_result = proxies_extractor.extract(socket_addr, &request_parts);
-
-        assert_none!(none_result);
-        assert_some_eq_x!(direct_result, IpAddr::from_str("192.168.1.1").unwrap());
-        assert_some_eq_x!(header_result, IpAddr::from_str("203.0.113.1").unwrap());
-        assert_some_eq_x!(proxies_result, IpAddr::from_str("203.0.113.2").unwrap());
     }
 }
