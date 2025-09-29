@@ -9,8 +9,9 @@ path = "src/lib.rs"
 
 [dependencies]
 assertables.workspace = true
-schemars.workspace = true
-serde.workspace = true
+http.workspace = true
+ipnet.workspace = true
+thiserror.workspace = true
 tokio.workspace = true
 tokio.features = ["full", "tracing"]
 tokio-shutdown.workspace = true

@@ -32,13 +32,6 @@ impl From<HeaderName> for HeaderNameMatcher {
     }
 }
 
-impl From<&HeaderName> for HeaderNameMatcher {
-    fn from(name: &HeaderName) -> Self {
-        let matcher: ExactMatcher<HeaderName> = name.into();
-        Self::builder().matcher(matcher).build()
-    }
-}
-
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub enum HeaderValueMatcher {
@@ -69,7 +62,7 @@ impl TryFrom<&HeaderValueMatcherConfig> for HeaderValueMatcher {
 
     fn try_from(value: &HeaderValueMatcherConfig) -> Result<Self, Self::Error> {
         match value {
-            HeaderValueMatcherConfig::Exact(value) => Ok(Self::Exact(value.into())),
+            HeaderValueMatcherConfig::Exact(value) => Ok(Self::Exact(value.clone().into())),
             HeaderValueMatcherConfig::RegularExpression(pattern) => {
                 let regex = Regex::new(pattern)?;
                 Ok(Self::RegularExpression(regex.into()))
@@ -81,24 +74,26 @@ impl TryFrom<&HeaderValueMatcherConfig> for HeaderValueMatcher {
 #[derive(Debug, TypedBuilder)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct HeaderMatcher {
+    #[builder(setter(into))]
     name_matcher: HeaderNameMatcher,
+    #[builder(setter(into))]
     value_matcher: HeaderValueMatcher,
 }
 
 impl HeaderMatcher {
-    fn new(name: &HeaderName, value_matcher: HeaderValueMatcher) -> Self {
+    fn new(name: HeaderName, value_matcher: HeaderValueMatcher) -> Self {
         Self::builder()
-            .name_matcher(name.into())
+            .name_matcher(name)
             .value_matcher(value_matcher)
             .build()
     }
 
-    pub fn new_exact(name: &HeaderName, value: &HeaderValue) -> Self {
+    pub fn new_exact(name: HeaderName, value: HeaderValue) -> Self {
         let value_matcher = HeaderValueMatcher::Exact(value.into());
         Self::new(name, value_matcher)
     }
 
-    pub fn new_matching(name: &HeaderName, regex: &Regex) -> Self {
+    pub fn new_matching(name: HeaderName, regex: Regex) -> Self {
         let value_matcher = HeaderValueMatcher::RegularExpression(regex.into());
         Self::new(name, value_matcher)
     }
@@ -213,7 +208,7 @@ mod tests {
     fn test_header_name_matcher_exact_match(#[case] header_name: &'static str) {
         // Arrange
         let name = HeaderName::from_static(header_name);
-        let matcher = HeaderNameMatcher::from(&name);
+        let matcher = HeaderNameMatcher::from(name.clone());
 
         // Act & Assert
         assert!(
@@ -233,7 +228,7 @@ mod tests {
     ) {
         // Arrange
         let name = HeaderName::from_static(matcher_name);
-        let matcher = HeaderNameMatcher::from(&name);
+        let matcher = HeaderNameMatcher::from(name);
         let test_header_name = HeaderName::from_static(test_name);
 
         // Act
@@ -255,7 +250,7 @@ mod tests {
     fn test_header_value_matcher_exact_match(#[case] value: &'static str) {
         // Arrange
         let header_value = HeaderValue::from_static(value);
-        let matcher = HeaderValueMatcher::Exact((&header_value).into());
+        let matcher = HeaderValueMatcher::Exact(header_value.clone().into());
 
         // Act & Assert
         assert!(
@@ -275,7 +270,7 @@ mod tests {
     ) {
         // Arrange
         let header_value = HeaderValue::from_static(matcher_value);
-        let matcher = HeaderValueMatcher::Exact((&header_value).into());
+        let matcher = HeaderValueMatcher::Exact(header_value.clone().into());
         let test_header_value = HeaderValue::from_static(test_value);
 
         // Act
@@ -323,7 +318,7 @@ mod tests {
         let value = HeaderValue::from_static("application/json");
 
         // Act
-        let matcher = HeaderMatcher::new_exact(&CONTENT_TYPE, &value);
+        let matcher = HeaderMatcher::new_exact(CONTENT_TYPE, value.clone());
 
         // Assert
         let header_pair = (&CONTENT_TYPE, &value);
@@ -340,7 +335,7 @@ mod tests {
         let test_value = HeaderValue::from_static("Mozilla/5.0 (compatible)");
 
         // Act
-        let matcher = HeaderMatcher::new_matching(&USER_AGENT, &regex);
+        let matcher = HeaderMatcher::new_matching(USER_AGENT, regex);
 
         // Assert
         let header_pair = (&USER_AGENT, &test_value);
@@ -371,7 +366,7 @@ mod tests {
         // Arrange
         let matcher_name = HeaderName::from_static(matcher_name);
         let matcher_value = HeaderValue::from_static(matcher_value);
-        let matcher = HeaderMatcher::new_exact(&matcher_name, &matcher_value);
+        let matcher = HeaderMatcher::new_exact(matcher_name.clone(), matcher_value.clone());
         let test_header_name = HeaderName::from_static(test_name);
         let test_header_value = HeaderValue::from_static(test_value);
 
@@ -410,7 +405,7 @@ mod tests {
     fn test_headers_matcher_single_exact_match() {
         // Arrange
         let header_value = HeaderValue::from_static("application/json");
-        let header_matcher = HeaderMatcher::new_exact(&CONTENT_TYPE, &header_value);
+        let header_matcher = HeaderMatcher::new_exact(CONTENT_TYPE, header_value.clone());
         let matcher = HeadersMatcher::builder()
             .matchers(vec![header_matcher])
             .build();
@@ -436,7 +431,7 @@ mod tests {
     fn test_headers_matcher_single_no_match() {
         // Arrange
         let header_value = HeaderValue::from_static("application/json");
-        let header_matcher = HeaderMatcher::new_exact(&CONTENT_TYPE, &header_value);
+        let header_matcher = HeaderMatcher::new_exact(CONTENT_TYPE, header_value);
         let matcher = HeadersMatcher::builder()
             .matchers(vec![header_matcher])
             .build();
@@ -458,8 +453,8 @@ mod tests {
         // Arrange
         let content_type = HeaderValue::from_static("application/json");
         let authorization = HeaderValue::from_static("Bearer token123");
-        let header_matcher1 = HeaderMatcher::new_exact(&CONTENT_TYPE, &content_type);
-        let header_matcher2 = HeaderMatcher::new_exact(&AUTHORIZATION, &authorization);
+        let header_matcher1 = HeaderMatcher::new_exact(CONTENT_TYPE, content_type);
+        let header_matcher2 = HeaderMatcher::new_exact(AUTHORIZATION, authorization);
         let matcher = HeadersMatcher::builder()
             .matchers(vec![header_matcher1, header_matcher2])
             .build();
@@ -486,8 +481,8 @@ mod tests {
         // Arrange
         let content_type = HeaderValue::from_static("application/json");
         let authorization = HeaderValue::from_static("Bearer token123");
-        let header_matcher1 = HeaderMatcher::new_exact(&CONTENT_TYPE, &content_type);
-        let header_matcher2 = HeaderMatcher::new_exact(&AUTHORIZATION, &authorization);
+        let header_matcher1 = HeaderMatcher::new_exact(CONTENT_TYPE, content_type);
+        let header_matcher2 = HeaderMatcher::new_exact(AUTHORIZATION, authorization);
         let matcher = HeadersMatcher::builder()
             .matchers(vec![header_matcher1, header_matcher2])
             .build();
@@ -511,7 +506,7 @@ mod tests {
     fn test_headers_matcher_with_regex() {
         // Arrange
         let mozilla_regex = Regex::new(r"Mozilla.*").unwrap();
-        let header_matcher = HeaderMatcher::new_matching(&USER_AGENT, &mozilla_regex);
+        let header_matcher = HeaderMatcher::new_matching(USER_AGENT, mozilla_regex);
         let matcher = HeadersMatcher::builder()
             .matchers(vec![header_matcher])
             .build();
@@ -532,7 +527,7 @@ mod tests {
     fn test_headers_matcher_extra_headers_in_request() {
         // Arrange
         let content_type = HeaderValue::from_static("application/json");
-        let header_matcher = HeaderMatcher::new_exact(&CONTENT_TYPE, &content_type);
+        let header_matcher = HeaderMatcher::new_exact(CONTENT_TYPE, content_type);
         let matcher = HeadersMatcher::builder()
             .matchers(vec![header_matcher])
             .build();
@@ -556,7 +551,7 @@ mod tests {
     fn test_headers_matcher_calls_scorer_on_match() {
         // Arrange
         let content_type = HeaderValue::from_static("application/json");
-        let header_matcher = HeaderMatcher::new_exact(&CONTENT_TYPE, &content_type);
+        let header_matcher = HeaderMatcher::new_exact(CONTENT_TYPE, content_type);
         let matcher = HeadersMatcher::builder()
             .matchers(vec![header_matcher])
             .build();
@@ -575,7 +570,7 @@ mod tests {
     fn test_headers_matcher_does_not_call_scorer_on_no_match() {
         // Arrange
         let content_type = HeaderValue::from_static("application/json");
-        let header_matcher = HeaderMatcher::new_exact(&CONTENT_TYPE, &content_type);
+        let header_matcher = HeaderMatcher::new_exact(CONTENT_TYPE, content_type);
         let matcher = HeadersMatcher::builder()
             .matchers(vec![header_matcher])
             .build();

@@ -2933,8 +2933,9 @@ name = "vg-core"
 version = "0.0.0"
 dependencies = [
  "assertables",
- "schemars",
- "serde",
+ "http",
+ "ipnet",
+ "thiserror 2.0.16",
  "tokio",
  "tokio-shutdown",
  "tracing",
@@ -2975,10 +2976,14 @@ dependencies = [
 name = "vg-http-config"
 version = "0.0.0"
 dependencies = [
+ "assertables",
  "getset",
  "http",
  "http-serde-ext",
+ "ipnet",
+ "rstest",
  "serde",
+ "serde_json",
  "typed-builder",
  "vg-core",
 ]

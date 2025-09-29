@@ -63,20 +63,8 @@ impl From<HeaderName> for ExactMatcher<HeaderName> {
     }
 }
 
-impl From<&HeaderName> for ExactMatcher<HeaderName> {
-    fn from(val: &HeaderName) -> Self {
-        ExactMatcher::builder().value(val).build()
-    }
-}
-
 impl From<HeaderValue> for ExactMatcher<HeaderValue> {
     fn from(val: HeaderValue) -> Self {
-        ExactMatcher::builder().value(val).build()
-    }
-}
-
-impl From<&HeaderValue> for ExactMatcher<HeaderValue> {
-    fn from(val: &HeaderValue) -> Self {
         ExactMatcher::builder().value(val).build()
     }
 }

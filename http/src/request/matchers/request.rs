@@ -198,7 +198,7 @@ mod tests {
     #[fixture]
     fn headers_matcher_single() -> HeadersMatcher {
         let header_value = HeaderValue::from_static("application/json");
-        let header_matcher = HeaderMatcher::new_exact(&CONTENT_TYPE, &header_value);
+        let header_matcher = HeaderMatcher::new_exact(CONTENT_TYPE, header_value);
         HeadersMatcher::builder()
             .matchers(vec![header_matcher])
             .build()
@@ -207,8 +207,8 @@ mod tests {
     #[fixture]
     fn headers_matcher_multiple() -> HeadersMatcher {
         let header_value = HeaderValue::from_static("application/json");
-        let header1 = HeaderMatcher::new_exact(&CONTENT_TYPE, &header_value);
-        let header2 = HeaderMatcher::new_exact(&ACCEPT, &header_value);
+        let header1 = HeaderMatcher::new_exact(CONTENT_TYPE, header_value.clone());
+        let header2 = HeaderMatcher::new_exact(ACCEPT, header_value);
         HeadersMatcher::builder()
             .matchers(vec![header1, header2])
             .build()
@@ -851,7 +851,7 @@ mod tests {
         let path_matcher = PathMatcher::RegularExpression(regex.into());
         let method_matcher: MethodMatcher = Method::GET.into();
         let bearer_token = HeaderValue::from_static("Bearer token123");
-        let auth_header = HeaderMatcher::new_exact(&AUTHORIZATION, &bearer_token);
+        let auth_header = HeaderMatcher::new_exact(AUTHORIZATION, bearer_token);
         let headers_matcher = HeadersMatcher::builder()
             .matchers(vec![auth_header])
             .build();
@@ -880,7 +880,7 @@ mod tests {
         let path_matcher = PathMatcher::Exact("/graphql".into());
         let method_matcher: MethodMatcher = Method::POST.into();
         let content_type = HeaderValue::from_static("application/json");
-        let content_type_header = HeaderMatcher::new_exact(&CONTENT_TYPE, &content_type);
+        let content_type_header = HeaderMatcher::new_exact(CONTENT_TYPE, content_type);
         let headers_matcher = HeadersMatcher::builder()
             .matchers(vec![content_type_header])
             .build();

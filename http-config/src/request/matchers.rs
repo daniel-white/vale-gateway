@@ -12,10 +12,12 @@ pub enum HeaderValueMatcher {
     RegularExpression(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, TypedBuilder)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct HeaderMatcher {
-    #[getset(get = "pub")]
+    #[getset(get_clone = "pub")]
     #[serde(with = "http_serde_ext::header_name")]
     name: HeaderName,
 

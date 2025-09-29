@@ -176,7 +176,7 @@ mod tests {
     #[fixture]
     fn headers_matcher_single() -> HeadersMatcher {
         let content_type = HeaderValue::from_static("application/json");
-        let header_matcher = HeaderMatcher::new_exact(&CONTENT_TYPE, &content_type);
+        let header_matcher = HeaderMatcher::new_exact(CONTENT_TYPE, content_type);
         HeadersMatcher::builder()
             .matchers(vec![header_matcher])
             .build()
@@ -185,8 +185,8 @@ mod tests {
     #[fixture]
     fn headers_matcher_multiple() -> HeadersMatcher {
         let content_type = HeaderValue::from_static("application/json");
-        let header1 = HeaderMatcher::new_exact(&CONTENT_TYPE, &content_type);
-        let header2 = HeaderMatcher::new_exact(&ACCEPT, &content_type);
+        let header1 = HeaderMatcher::new_exact(CONTENT_TYPE, content_type.clone());
+        let header2 = HeaderMatcher::new_exact(ACCEPT, content_type);
         HeadersMatcher::builder()
             .matchers(vec![header1, header2])
             .build()
