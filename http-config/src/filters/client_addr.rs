@@ -78,10 +78,11 @@ impl TrustedProxiesClientAddrExtractor {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged, rename_all = "camelCase")]
+#[serde(tag = "extractor", rename_all = "camelCase")]
 pub enum ClientAddrExtractor {
     #[default]
     None,
+    Direct,
     TrustedHeader(TrustedHeaderClientAddrExtractor),
     TrustedProxies(TrustedProxiesClientAddrExtractor),
 }
@@ -133,7 +134,18 @@ mod tests {
             .build();
 
         let json = serde_json::to_string(&filter).unwrap();
-        assert_eq!(json, r#"{"upstreamHeader":"x-client-ip"}"#);
+        assert_eq!(json, r#"{"extractor":"none","upstreamHeader":"x-client-ip"}"#);
+    }
+
+    #[test]
+    fn test_serialize_client_addr_filter_direct() {
+        let filter = ClientAddrFilter::builder()
+            .extractor(ClientAddrExtractor::Direct)
+            .upstream_header(Some(HeaderName::from_static("x-client-ip")))
+            .build();
+
+        let json = serde_json::to_string(&filter).unwrap();
+        assert_eq!(json, r#"{"extractor":"direct","upstreamHeader":"x-client-ip"}"#);
     }
 
     #[test]
@@ -149,7 +161,7 @@ mod tests {
         let json = serde_json::to_string(&filter).unwrap();
         assert_eq!(
             json,
-            r#"{"trustedHeader":"x-real-ip","upstreamHeader":"x-client-ip"}"#
+            r#"{"extractor":"trustedHeader","trustedHeader":"x-real-ip","upstreamHeader":"x-client-ip"}"#
         );
     }
 
@@ -172,7 +184,7 @@ mod tests {
         let json = serde_json::to_string(&filter).unwrap();
         assert_eq!(
             json,
-            r#"{"trustedHeaders":["x-forwarded-for","forwarded"],"proxies":["192.168.1.1","192.168.1.1/24"],"upstreamHeader":"x-real-ip"}"#
+            r#"{"extractor":"trustedProxies","trustedHeaders":["x-forwarded-for","forwarded"],"proxies":["192.168.1.1","192.168.1.1/24"],"upstreamHeader":"x-real-ip"}"#
         );
     }
 }

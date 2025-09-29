@@ -18,6 +18,7 @@ trait Extractor {
 #[derive(Debug)]
 pub enum ClientAddrExtractor {
     None,
+    Direct,
     TrustedHeader(TrustedHeaderClientAddrExtractor),
     TrustedProxies(TrustedProxiesClientAddrExtractor),
 }
@@ -26,6 +27,7 @@ impl ClientAddrExtractor {
     pub fn extract(&self, client_addr: SocketAddr, req: &Parts) -> Option<IpAddr> {
         match self {
             Self::None => None,
+            Self::Direct => Some(client_addr.ip()),
             Self::TrustedHeader(extractor) => extractor.extract(client_addr, req),
             Self::TrustedProxies(extractor) => extractor.extract(client_addr, req),
         }
@@ -46,6 +48,7 @@ impl TryFrom<&ClientAddrExtractorConfig> for ClientAddrExtractor {
     fn try_from(value: &ClientAddrExtractorConfig) -> Result<Self, Self::Error> {
         let extractor = match value {
             ClientAddrExtractorConfig::None => Self::None,
+            ClientAddrExtractorConfig::Direct => Self::Direct,
             ClientAddrExtractorConfig::TrustedHeader(config) => {
                 let extractor = TrustedHeaderClientAddrExtractor::try_from(config)?;
                 Self::TrustedHeader(extractor)
@@ -191,16 +194,61 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_direct_connection_extractor() {
-        // Test extracting IP from direct socket connection using NoopClientAddrExtractor
+    async fn test_none_extractor() {
+        // Test None extractor that always returns None
         let socket_addr = SocketAddr::from_str("192.168.1.100:12345").unwrap();
         let request_parts = create_empty_parts();
 
         let extractor = ClientAddrExtractor::None;
         let result = extractor.extract(socket_addr, &request_parts);
 
-        // NoopClientAddrExtractor always returns None
+        // None extractor always returns None
         assert_none!(result);
+    }
+
+    #[tokio::test]
+    async fn test_direct_extractor() {
+        // Test Direct extractor that returns the socket address IP
+        let socket_addr = SocketAddr::from_str("192.168.1.100:12345").unwrap();
+        let request_parts = create_empty_parts();
+
+        let extractor = ClientAddrExtractor::Direct;
+        let result = extractor.extract(socket_addr, &request_parts);
+
+        // Direct extractor returns the socket address IP
+        assert_some_eq_x!(result, IpAddr::from_str("192.168.1.100").unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_direct_extractor_ipv6() {
+        // Test Direct extractor with IPv6 address
+        let socket_addr = SocketAddr::from_str("[2001:db8::1]:8080").unwrap();
+        let request_parts = create_empty_parts();
+
+        let extractor = ClientAddrExtractor::Direct;
+        let result = extractor.extract(socket_addr, &request_parts);
+
+        // Direct extractor returns the socket address IP (IPv6)
+        assert_some_eq_x!(result, IpAddr::from_str("2001:db8::1").unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_direct_extractor_ignores_headers() {
+        // Test that Direct extractor ignores headers and always returns socket IP
+        let socket_addr = SocketAddr::from_str("192.168.1.100:12345").unwrap();
+        let mut request_parts = create_empty_parts();
+        request_parts
+            .headers
+            .insert(X_FORWARDED_FOR, HeaderValue::from_static("203.0.113.1"));
+        request_parts
+            .headers
+            .insert("X-Real-IP", HeaderValue::from_static("198.51.100.1"));
+
+        let extractor = ClientAddrExtractor::Direct;
+        let result = extractor.extract(socket_addr, &request_parts);
+
+        // Direct extractor always returns the socket address IP, ignoring headers
+        assert_some_eq_x!(result, IpAddr::from_str("192.168.1.100").unwrap());
     }
 
     #[tokio::test]
@@ -492,8 +540,84 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_direct_extractor_with_different_ports() {
+        // Test Direct extractor with various port numbers
+        let test_cases = vec![
+            ("127.0.0.1:80", "127.0.0.1"),
+            ("203.0.113.5:443", "203.0.113.5"),
+            ("10.0.0.1:8080", "10.0.0.1"),
+            ("192.168.1.254:65535", "192.168.1.254"),
+        ];
+
+        for (socket_str, expected_ip_str) in test_cases {
+            let socket_addr = SocketAddr::from_str(socket_str).unwrap();
+            let request_parts = create_empty_parts();
+
+            let extractor = ClientAddrExtractor::Direct;
+            let result = extractor.extract(socket_addr, &request_parts);
+
+            assert_some_eq_x!(result, IpAddr::from_str(expected_ip_str).unwrap());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_direct_extractor_with_loopback_addresses() {
+        // Test Direct extractor with loopback addresses
+        let ipv4_loopback = SocketAddr::from_str("127.0.0.1:3000").unwrap();
+        let ipv6_loopback = SocketAddr::from_str("[::1]:3000").unwrap();
+        let request_parts = create_empty_parts();
+
+        let extractor = ClientAddrExtractor::Direct;
+
+        // Test IPv4 loopback
+        let ipv4_result = extractor.extract(ipv4_loopback, &request_parts);
+        assert_some_eq_x!(ipv4_result, IpAddr::from_str("127.0.0.1").unwrap());
+
+        // Test IPv6 loopback
+        let ipv6_result = extractor.extract(ipv6_loopback, &request_parts);
+        assert_some_eq_x!(ipv6_result, IpAddr::from_str("::1").unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_direct_extractor_with_private_addresses() {
+        // Test Direct extractor with common private IP address ranges
+        let test_cases = vec![
+            ("10.0.0.1:80", "10.0.0.1"),           // Class A private
+            ("172.16.0.1:80", "172.16.0.1"),       // Class B private
+            ("192.168.1.1:80", "192.168.1.1"),     // Class C private
+            ("169.254.1.1:80", "169.254.1.1"),     // Link-local
+        ];
+
+        for (socket_str, expected_ip_str) in test_cases {
+            let socket_addr = SocketAddr::from_str(socket_str).unwrap();
+            let request_parts = create_empty_parts();
+
+            let extractor = ClientAddrExtractor::Direct;
+            let result = extractor.extract(socket_addr, &request_parts);
+
+            assert_some_eq_x!(result, IpAddr::from_str(expected_ip_str).unwrap());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_direct_extractor_consistency() {
+        // Test that Direct extractor returns consistent results across multiple calls
+        let socket_addr = SocketAddr::from_str("198.51.100.42:9000").unwrap();
+        let request_parts = create_empty_parts();
+
+        let extractor = ClientAddrExtractor::Direct;
+        let expected_ip = IpAddr::from_str("198.51.100.42").unwrap();
+
+        // Call extract multiple times and verify consistent results
+        for _ in 0..5 {
+            let result = extractor.extract(socket_addr, &request_parts);
+            assert_some_eq_x!(result, expected_ip);
+        }
+    }
+
+    #[tokio::test]
     async fn test_extractor_type_enum() {
-        // Test the ClientAddrExtractorType enum functionality
+        // Test the ClientAddrExtractorType enum functionality including Direct extractor
         let header_extractor = ClientAddrExtractor::TrustedHeader(
             TrustedHeaderClientAddrExtractor::builder()
                 .trusted_header(HeaderName::from_static("x-real-ip"))
@@ -528,11 +652,13 @@ mod tests {
             .insert(X_FORWARDED_FOR, HeaderValue::from_static("203.0.113.2"));
 
         // Test each extractor type
-        let noop_result = ClientAddrExtractor::None.extract(socket_addr, &request_parts);
+        let none_result = ClientAddrExtractor::None.extract(socket_addr, &request_parts);
+        let direct_result = ClientAddrExtractor::Direct.extract(socket_addr, &request_parts);
         let header_result = header_extractor.extract(socket_addr, &request_parts);
         let proxies_result = proxies_extractor.extract(socket_addr, &request_parts);
 
-        assert_none!(noop_result);
+        assert_none!(none_result);
+        assert_some_eq_x!(direct_result, IpAddr::from_str("192.168.1.1").unwrap());
         assert_some_eq_x!(header_result, IpAddr::from_str("203.0.113.1").unwrap());
         assert_some_eq_x!(proxies_result, IpAddr::from_str("203.0.113.2").unwrap());
     }

@@ -96,6 +96,8 @@ pub struct ErrorResponseFilterStatus {
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub enum ClientAddressFilterSource {
+    None,
+    DirectConnection,
     Header,
     Proxies,
 }
