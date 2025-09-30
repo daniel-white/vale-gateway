@@ -11,7 +11,7 @@ use vg_http_config::filters::client_addr::{
     TrustedProxiesClientAddrExtractor as TrustedProxiesClientAddrExtractorConfig,
 };
 
-trait Extractor {
+trait Extractor: Into<ClientAddrExtractor> {
     fn extract(&self, client_addr: SocketAddr, req: &Parts) -> Option<IpAddr>;
 }
 
@@ -50,12 +50,10 @@ impl TryFrom<&ClientAddrExtractorConfig> for ClientAddrExtractor {
             ClientAddrExtractorConfig::None => Self::None,
             ClientAddrExtractorConfig::Direct => Self::Direct,
             ClientAddrExtractorConfig::TrustedHeader(config) => {
-                let extractor = TrustedHeaderClientAddrExtractor::try_from(config)?;
-                Self::TrustedHeader(extractor)
+                TrustedHeaderClientAddrExtractor::try_from(config)?.into()
             }
             ClientAddrExtractorConfig::TrustedProxies(config) => {
-                let extractor = TrustedProxiesClientAddrExtractor::try_from(config)?;
-                Self::TrustedProxies(extractor)
+                TrustedProxiesClientAddrExtractor::try_from(config)?.into()
             }
         };
 
@@ -94,6 +92,12 @@ impl Extractor for TrustedHeaderClientAddrExtractor {
     }
 }
 
+impl From<TrustedHeaderClientAddrExtractor> for ClientAddrExtractor {
+    fn from(val: TrustedHeaderClientAddrExtractor) -> Self {
+        Self::TrustedHeader(val)
+    }
+}
+
 #[derive(Debug, TypedBuilder)]
 pub struct TrustedProxiesClientAddrExtractor {
     #[builder(setter(into))]
@@ -104,6 +108,12 @@ impl Extractor for TrustedProxiesClientAddrExtractor {
     fn extract(&self, client_addr: SocketAddr, req: &Parts) -> Option<IpAddr> {
         let trusted_ip = trusted_proxies::Trusted::from(client_addr.ip(), req, &self.config).ip();
         Some(trusted_ip)
+    }
+}
+
+impl From<TrustedProxiesClientAddrExtractor> for ClientAddrExtractor {
+    fn from(val: TrustedProxiesClientAddrExtractor) -> Self {
+        Self::TrustedProxies(val)
     }
 }
 
@@ -487,12 +497,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_extractor_type_enum() {
-        // Test the ClientAddrExtractorType enum functionality
-        let header_extractor = ClientAddrExtractor::TrustedHeader(
-            TrustedHeaderClientAddrExtractor::builder()
-                .trusted_header(HeaderName::from_static("x-real-ip"))
-                .build(),
-        );
+        let header_extractor: ClientAddrExtractor = TrustedHeaderClientAddrExtractor::builder()
+            .trusted_header(HeaderName::from_static("x-real-ip"))
+            .build()
+            .into();
 
         let mut proxies: HashSet<IpRef> = HashSet::new();
         proxies.insert(IpRef::Net(IpNet::from_str("192.168.1.1/24").unwrap()));
@@ -506,11 +514,10 @@ mod tests {
             .trust_x_forwarded_by_header(false)
             .build();
 
-        let proxies_extractor = ClientAddrExtractor::TrustedProxies(
-            TrustedProxiesClientAddrExtractor::builder()
-                .config(trusted_proxies::Config::from(config))
-                .build(),
-        );
+        let proxies_extractor: ClientAddrExtractor = TrustedProxiesClientAddrExtractor::builder()
+            .config(trusted_proxies::Config::from(config))
+            .build()
+            .into();
 
         let socket_addr = SocketAddr::from_str("192.168.1.1:80").unwrap();
         let mut request_parts = create_empty_parts();

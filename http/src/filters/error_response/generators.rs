@@ -6,18 +6,23 @@ use opentelemetry::TraceId;
 use opentelemetry::trace::TraceContextExt;
 use problemdetails::Problem;
 use std::borrow::Cow;
+use thiserror::Error;
 use tracing::Span;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use typed_builder::TypedBuilder;
+use vg_http_config::filters::error_response::{
+    ErrorResponseGenerator as ErrorResponseGeneratorConfig,
+    ProblemDetailErrorResponseGenerator as ProblemDetailErrorResponseGeneratorConfig,
+};
 
 #[derive(Debug)]
-pub enum ErrorResponseGeneratorType {
+pub enum ErrorResponseGenerator {
     Empty(EmptyErrorResponseGenerator),
     Html(HtmlErrorResponseGenerator),
     ProblemDetail(ProblemDetailErrorResponseGenerator),
 }
 
-impl ErrorResponseGeneratorType {
+impl ErrorResponseGenerator {
     pub fn generate_response(&self, code: ErrorResponseCode) -> Response<Option<Bytes>> {
         match self {
             Self::Empty(generator) => generator.generate_response(code),
@@ -27,7 +32,34 @@ impl ErrorResponseGeneratorType {
     }
 }
 
-trait ErrorResponseGenerator {
+#[derive(Debug, Error)]
+pub enum ErrorResponseGeneratorConversionError {
+    #[error("Failed to convert problem detail generator: {0}")]
+    ProblemDetail(#[from] ProblemDetailErrorResponseGeneratorConversionError),
+}
+
+#[allow(clippy::infallible_try_from)]
+impl TryFrom<&ErrorResponseGeneratorConfig> for ErrorResponseGenerator {
+    type Error = ErrorResponseGeneratorConversionError;
+
+    fn try_from(config: &ErrorResponseGeneratorConfig) -> Result<Self, Self::Error> {
+        let generator = match config {
+            ErrorResponseGeneratorConfig::Empty => {
+                EmptyErrorResponseGenerator::builder().build().into()
+            }
+            ErrorResponseGeneratorConfig::Html => {
+                HtmlErrorResponseGenerator::builder().build().into()
+            }
+            ErrorResponseGeneratorConfig::ProblemDetail(config) => {
+                ProblemDetailErrorResponseGenerator::try_from(config)?.into()
+            }
+        };
+
+        Ok(generator)
+    }
+}
+
+trait Generator: Into<ErrorResponseGenerator> {
     fn generate_response(&self, code: ErrorResponseCode) -> Response<Option<Bytes>> {
         let status_code: StatusCode = code.into();
         let body = self.body(code);
@@ -66,12 +98,18 @@ trait ErrorResponseGenerator {
 #[derive(Debug, TypedBuilder)]
 pub struct EmptyErrorResponseGenerator {}
 
-impl ErrorResponseGenerator for EmptyErrorResponseGenerator {}
+impl Generator for EmptyErrorResponseGenerator {}
+
+impl From<EmptyErrorResponseGenerator> for ErrorResponseGenerator {
+    fn from(val: EmptyErrorResponseGenerator) -> Self {
+        ErrorResponseGenerator::Empty(val)
+    }
+}
 
 #[derive(Debug, TypedBuilder)]
 pub struct HtmlErrorResponseGenerator {}
 
-impl ErrorResponseGenerator for HtmlErrorResponseGenerator {
+impl Generator for HtmlErrorResponseGenerator {
     fn body(&self, code: ErrorResponseCode) -> Option<(HeaderValue, Cow<'static, str>)> {
         let message = code.message();
         let body = format!("<html><body><h1>{message}</h1></body></html>");
@@ -79,13 +117,18 @@ impl ErrorResponseGenerator for HtmlErrorResponseGenerator {
     }
 }
 
+impl From<HtmlErrorResponseGenerator> for ErrorResponseGenerator {
+    fn from(val: HtmlErrorResponseGenerator) -> Self {
+        Self::Html(val)
+    }
+}
+
 #[derive(Debug, TypedBuilder)]
 pub struct ProblemDetailErrorResponseGenerator {
-    #[builder(default)]
     authority: Option<Uri>,
 }
 
-impl ErrorResponseGenerator for ProblemDetailErrorResponseGenerator {
+impl Generator for ProblemDetailErrorResponseGenerator {
     fn body(&self, code: ErrorResponseCode) -> Option<(HeaderValue, Cow<'static, str>)> {
         let message = code.message();
         let code_str = code.to_str();
@@ -118,17 +161,38 @@ impl ErrorResponseGenerator for ProblemDetailErrorResponseGenerator {
     }
 }
 
+impl From<ProblemDetailErrorResponseGenerator> for ErrorResponseGenerator {
+    fn from(val: ProblemDetailErrorResponseGenerator) -> Self {
+        ErrorResponseGenerator::ProblemDetail(val)
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum ProblemDetailErrorResponseGeneratorConversionError {}
+
+#[allow(clippy::infallible_try_from)]
+impl TryFrom<&ProblemDetailErrorResponseGeneratorConfig> for ProblemDetailErrorResponseGenerator {
+    type Error = ProblemDetailErrorResponseGeneratorConversionError;
+
+    fn try_from(config: &ProblemDetailErrorResponseGeneratorConfig) -> Result<Self, Self::Error> {
+        let generator = Self::builder().authority(config.authority()).build();
+
+        Ok(generator)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::filters::error_response::ErrorResponseFilterHandler;
 
     use http::StatusCode;
 
     #[tokio::test]
     async fn test_json_error_response_generator() {
         // Test the actual ProblemDetailErrorResponseGenerator (JSON format)
-        let generator = ProblemDetailErrorResponseGenerator::builder().build();
+        let generator = ProblemDetailErrorResponseGenerator::builder()
+            .authority(None)
+            .build();
 
         let response = generator.generate_response(ErrorResponseCode::UpstreamUnavailable);
 
@@ -232,7 +296,9 @@ mod tests {
     #[tokio::test]
     async fn test_error_response_with_correlation_id() {
         // Test that trace ID is included when available in tracing context
-        let generator = ProblemDetailErrorResponseGenerator::builder().build();
+        let generator = ProblemDetailErrorResponseGenerator::builder()
+            .authority(None)
+            .build();
 
         // Create a tracing span to test trace ID functionality
         let span = tracing::info_span!("test_span");
@@ -292,7 +358,9 @@ mod tests {
     #[tokio::test]
     async fn test_error_response_rate_limit_info() {
         // Test rate limit error response format
-        let generator = ProblemDetailErrorResponseGenerator::builder().build();
+        let generator = ProblemDetailErrorResponseGenerator::builder()
+            .authority(None)
+            .build();
 
         // Using a generic error code (rate limiting would be a custom error code)
         let response = generator.generate_response(ErrorResponseCode::AccessDenied);
@@ -305,37 +373,5 @@ mod tests {
 
         // Rate limit specific headers would be added by higher-level middleware
         assert!(response.body().is_some());
-    }
-
-    #[tokio::test]
-    async fn test_error_response_content_negotiation() {
-        // Test different generators for content negotiation
-        let html_generator =
-            ErrorResponseGeneratorType::Html(HtmlErrorResponseGenerator::builder().build());
-        let json_generator = ErrorResponseGeneratorType::ProblemDetail(
-            ProblemDetailErrorResponseGenerator::builder().build(),
-        );
-
-        let html_handler = ErrorResponseFilterHandler::builder()
-            .generator(html_generator)
-            .build();
-        let json_handler = ErrorResponseFilterHandler::builder()
-            .generator(json_generator)
-            .build();
-
-        let error_code = ErrorResponseCode::UpstreamUnavailable;
-
-        let html_response = html_handler.generate_response(error_code);
-        let json_response = json_handler.generate_response(error_code);
-
-        // Same error code, different formats
-        assert_eq!(html_response.status(), StatusCode::SERVICE_UNAVAILABLE);
-        assert_eq!(json_response.status(), StatusCode::SERVICE_UNAVAILABLE);
-
-        assert_eq!(html_response.headers()["content-type"], "text/html");
-        assert_eq!(
-            json_response.headers()["content-type"],
-            "application/problem+json"
-        );
     }
 }

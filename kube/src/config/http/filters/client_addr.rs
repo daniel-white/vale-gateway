@@ -1,4 +1,4 @@
-use crate::api::v1::parameters::listeners::http::filters::{
+use crate::api::v1::parameters::listeners::http::filters::client_addr::{
     ClientAddressFilterProxies, ClientAddressFilterProxiesTrustedHeaders,
     ClientAddressFilterSource, ClientAddressFilterSpec,
 };
@@ -18,74 +18,68 @@ pub enum ClientAddrFilterConversionError {
     InvalidConfiguration,
     #[error("Invalid backend header name: {0}")]
     InvalidBackendHeaderName(InvalidHeaderName),
-    #[error("Source header is required for 'Header' source")]
-    MissingHeader,
+    #[error("`header` is required for 'Header' source")]
+    MissingHeaderConfiguration,
     #[error("Invalid source header name: {0}")]
-    InvalidHeaderName(InvalidHeaderName),
-    #[error("Proxies configuration is required for 'Proxies' source")]
-    MissingProxies,
+    InvalidHeaderConfiguration(InvalidHeaderName),
+    #[error("`proxies` is required for 'Proxies' source")]
+    MissingProxiesConfiguration,
     #[error("Invalid source proxies configuration: {0}")]
-    InvalidProxies(#[from] TrustedProxiesClientAddrExtractorConversionError),
+    InvalidProxiesConfiguration(#[from] TrustedProxiesClientAddrExtractorConversionError),
 }
 
 impl TryFrom<&ClientAddressFilterSpec> for ClientAddrFilter {
     type Error = ClientAddrFilterConversionError;
 
     fn try_from(value: &ClientAddressFilterSpec) -> Result<Self, Self::Error> {
-        let backend_header = match &value.backend_header {
+        let builder = Self::builder();
+
+        let builder = match &value.backend_header {
             Some(header) => {
                 let backend_header: HeaderName = header.parse().map_err(|err| {
                     ClientAddrFilterConversionError::InvalidBackendHeaderName(err)
                 })?;
-                Some(backend_header)
+                builder.upstream_header(Some(backend_header))
             }
-            None => None,
+            None => builder.upstream_header(None),
         };
 
-        let extractor = match (
+        let builder = match (
             &value.source,
             value.header.as_deref(),
             value.proxies.as_ref(),
         ) {
-            (ClientAddressFilterSource::None, None, None) => ClientAddrFilter::builder()
-                .extractor(ClientAddrExtractor::None)
-                .upstream_header(backend_header)
-                .build(),
+            (ClientAddressFilterSource::None, None, None) => {
+                builder.extractor(ClientAddrExtractor::None)
+            }
             (ClientAddressFilterSource::DirectConnection, None, None) => {
-                ClientAddrFilter::builder()
-                    .extractor(ClientAddrExtractor::Direct)
-                    .upstream_header(backend_header)
-                    .build()
+                builder.extractor(ClientAddrExtractor::Direct)
             }
             (ClientAddressFilterSource::Header, Some(header), None) => {
                 let trusted_header = header
                     .parse()
-                    .map_err(ClientAddrFilterConversionError::InvalidHeaderName)?;
+                    .map_err(ClientAddrFilterConversionError::InvalidHeaderConfiguration)?;
                 let extractor = TrustedHeaderClientAddrExtractor::builder()
                     .trusted_header(trusted_header)
                     .build();
-                ClientAddrFilter::builder()
-                    .extractor(ClientAddrExtractor::from(extractor))
-                    .upstream_header(backend_header)
-                    .build()
+                builder.extractor(extractor)
             }
             (ClientAddressFilterSource::Header, None, _) => {
-                return Err(ClientAddrFilterConversionError::MissingHeader);
+                return Err(ClientAddrFilterConversionError::MissingHeaderConfiguration);
             }
             (ClientAddressFilterSource::Proxies, _, Some(proxies)) => {
                 let extractor: TrustedProxiesClientAddrExtractor = proxies.try_into()?;
-                ClientAddrFilter::builder()
-                    .extractor(ClientAddrExtractor::from(extractor))
-                    .upstream_header(backend_header)
-                    .build()
+                builder.extractor(extractor)
             }
             (ClientAddressFilterSource::Proxies, _, None) => {
-                return Err(ClientAddrFilterConversionError::MissingProxies);
+                return Err(ClientAddrFilterConversionError::MissingProxiesConfiguration);
             }
             _ => return Err(ClientAddrFilterConversionError::InvalidConfiguration),
         };
 
-        Ok(extractor)
+        let filter = builder.build();
+
+        Ok(filter)
     }
 }
 

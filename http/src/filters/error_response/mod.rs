@@ -1,15 +1,20 @@
-mod error_codes;
-mod generators;
+pub mod error_codes;
+pub mod generators;
 
+use crate::filters::error_response::error_codes::ErrorResponseCode;
+use crate::filters::error_response::generators::{
+    ErrorResponseGenerator, ErrorResponseGeneratorConversionError,
+};
 use bytes::Bytes;
-pub use error_codes::*;
-pub use generators::*;
 use http::Response;
+use thiserror::Error;
 use typed_builder::TypedBuilder;
+use vg_http_config::filters::error_response::ErrorResponseFilter;
 
 #[derive(Debug, TypedBuilder)]
 pub struct ErrorResponseFilterHandler {
-    generator: ErrorResponseGeneratorType,
+    #[builder(setter(into))]
+    generator: ErrorResponseGenerator,
 }
 
 impl ErrorResponseFilterHandler {
@@ -18,17 +23,39 @@ impl ErrorResponseFilterHandler {
     }
 }
 
+#[derive(Debug, Error)]
+pub enum ErrorResponseFilterConversionError {
+    #[error("Invalid error response generator: {0}")]
+    InvalidGenerator(#[from] ErrorResponseGeneratorConversionError),
+}
+
+#[allow(clippy::infallible_try_from)]
+impl TryFrom<&ErrorResponseFilter> for ErrorResponseFilterHandler {
+    type Error = ErrorResponseFilterConversionError;
+
+    fn try_from(value: &ErrorResponseFilter) -> Result<Self, Self::Error> {
+        let generator = ErrorResponseGenerator::try_from(value.generator())?;
+
+        let handler = Self::builder().generator(generator).build();
+
+        Ok(handler)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    use crate::filters::error_response::generators::{
+        EmptyErrorResponseGenerator, HtmlErrorResponseGenerator,
+        ProblemDetailErrorResponseGenerator,
+    };
     use http::{StatusCode, Uri};
 
     #[tokio::test]
     async fn test_error_response_handler_creation() {
         // Test creating error response handlers for different status codes using actual ErrorResponseFilterHandler
-        let generator =
-            ErrorResponseGeneratorType::Empty(EmptyErrorResponseGenerator::builder().build());
+        let generator = EmptyErrorResponseGenerator::builder().build();
 
         let handler = ErrorResponseFilterHandler::builder()
             .generator(generator)
@@ -44,8 +71,7 @@ mod tests {
     #[tokio::test]
     async fn test_error_response_with_custom_message() {
         // Test error responses with HTML body
-        let generator =
-            ErrorResponseGeneratorType::Html(HtmlErrorResponseGenerator::builder().build());
+        let generator = HtmlErrorResponseGenerator::builder().build();
 
         let handler = ErrorResponseFilterHandler::builder()
             .generator(generator)
@@ -61,9 +87,9 @@ mod tests {
     #[tokio::test]
     async fn test_error_response_json_format() {
         // Test generating Problem Details (JSON) error responses
-        let generator = ErrorResponseGeneratorType::ProblemDetail(
-            ProblemDetailErrorResponseGenerator::builder().build(),
-        );
+        let generator = ProblemDetailErrorResponseGenerator::builder()
+            .authority(None)
+            .build();
 
         let handler = ErrorResponseFilterHandler::builder()
             .generator(generator)
@@ -82,8 +108,7 @@ mod tests {
     #[tokio::test]
     async fn test_error_response_html_format() {
         // Test generating HTML error responses
-        let generator =
-            ErrorResponseGeneratorType::Html(HtmlErrorResponseGenerator::builder().build());
+        let generator = HtmlErrorResponseGenerator::builder().build();
 
         let handler = ErrorResponseFilterHandler::builder()
             .generator(generator)
@@ -105,11 +130,9 @@ mod tests {
     #[tokio::test]
     async fn test_error_response_problem_details_format() {
         let authority = Uri::from_static("https://api.example.com/problems/");
-        let generator = ErrorResponseGeneratorType::ProblemDetail(
-            ProblemDetailErrorResponseGenerator::builder()
-                .authority(Some(authority))
-                .build(),
-        );
+        let generator = ProblemDetailErrorResponseGenerator::builder()
+            .authority(Some(authority))
+            .build();
 
         let handler = ErrorResponseFilterHandler::builder()
             .generator(generator)
@@ -135,9 +158,9 @@ mod tests {
     #[tokio::test]
     async fn test_error_response_with_trace_id() {
         // Test that error responses can include trace IDs when available
-        let generator = ErrorResponseGeneratorType::ProblemDetail(
-            ProblemDetailErrorResponseGenerator::builder().build(),
-        );
+        let generator = ProblemDetailErrorResponseGenerator::builder()
+            .authority(None)
+            .build();
 
         let handler = ErrorResponseFilterHandler::builder()
             .generator(generator)
@@ -162,8 +185,7 @@ mod tests {
     #[tokio::test]
     async fn test_error_response_content_length_header() {
         // Test that Content-Length header is set correctly for error responses
-        let generator =
-            ErrorResponseGeneratorType::Html(HtmlErrorResponseGenerator::builder().build());
+        let generator = HtmlErrorResponseGenerator::builder().build();
 
         let handler = ErrorResponseFilterHandler::builder()
             .generator(generator)
@@ -185,15 +207,11 @@ mod tests {
     #[tokio::test]
     async fn test_error_response_different_generators() {
         // Test that different generators produce different output formats
-        let empty_generator =
-            ErrorResponseGeneratorType::Empty(EmptyErrorResponseGenerator::builder().build());
-        let html_generator =
-            ErrorResponseGeneratorType::Html(HtmlErrorResponseGenerator::builder().build());
-        let problem_generator = ErrorResponseGeneratorType::ProblemDetail(
-            ProblemDetailErrorResponseGenerator::builder()
-                .authority(None)
-                .build(),
-        );
+        let empty_generator = EmptyErrorResponseGenerator::builder().build();
+        let html_generator = HtmlErrorResponseGenerator::builder().build();
+        let problem_generator = ProblemDetailErrorResponseGenerator::builder()
+            .authority(None)
+            .build();
 
         let empty_handler = ErrorResponseFilterHandler::builder()
             .generator(empty_generator)

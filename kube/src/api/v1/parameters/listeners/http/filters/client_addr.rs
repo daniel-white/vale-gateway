@@ -1,7 +1,7 @@
 use ipnet::IpNet;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::{Condition, Time};
 use kube::CustomResource;
-use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
 
@@ -72,7 +72,7 @@ pub struct ClientAddressFilterProxies {
     pub trusted_ips: Vec<IpAddr>,
 
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[schemars(schema_with = "cidr_array_schema")]
+    #[schemars(schema_with = "crate::api::v1::schemars::cidr_array_schema")]
     pub trusted_ranges: Vec<IpNet>,
 
     #[serde(
@@ -88,19 +88,4 @@ fn trusted_private_ranges_default() -> bool {
 
 fn trusted_headers_default() -> Vec<ClientAddressFilterProxiesTrustedHeaders> {
     vec![ClientAddressFilterProxiesTrustedHeaders::XForwardedFor]
-}
-
-pub fn cidr_array_schema(_: &mut SchemaGenerator) -> Schema {
-    // Create schema for a single CIDR
-    let item_schema = json_schema!({
-        "type": "string",
-        "format": "cidr",
-    });
-
-    // Create schema for array of CIDRs
-    json_schema!({
-        "type": "array",
-        "items": item_schema,
-        "uniqueItems": true,
-    })
 }

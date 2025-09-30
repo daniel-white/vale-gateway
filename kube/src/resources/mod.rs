@@ -4,8 +4,10 @@ mod kinds;
 mod macros;
 mod namespace_scoped;
 
+use crate::api::v1::parameters::listeners::http::filters::client_addr::ClientAddressFilter;
+use crate::api::v1::parameters::listeners::http::filters::error_response::ErrorResponseFilter;
 use crate::api::v1::parameters::listeners::http::filters::{
-    AccessControlFilter, ClientAddressFilter, ErrorResponseFilter, StaticResponseFilter,
+    AccessControlFilter, StaticResponseFilter,
 };
 use crate::api::v1::parameters::{GatewayClassParameters, GatewayParameters};
 use crate::{cluster_scope, namespace_scope};
