@@ -11,6 +11,7 @@ members = [
 [workspace.dependencies]
 assertables = "9"
 async-trait = "0.1"
+base64ct = { version = "1", features = ["alloc"] }
 bytes = "1"
 gateway-api = { git = "https://github.com/daniel-white/gateway-api-rs.git", branch = "deps" }
 getset = "0.1"

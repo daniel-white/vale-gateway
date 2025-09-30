@@ -72,7 +72,7 @@ pub struct ClientAddressFilterProxies {
     pub trusted_ips: Vec<IpAddr>,
 
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[schemars(schema_with = "crate::api::v1::schemars::cidr_array_schema")]
+    #[schemars(schema_with = "crate::api::v1::schemars::cidr_array")]
     pub trusted_ranges: Vec<IpNet>,
 
     #[serde(
@@ -85,7 +85,6 @@ pub struct ClientAddressFilterProxies {
 fn trusted_private_ranges_default() -> bool {
     true
 }
-
 fn trusted_headers_default() -> Vec<ClientAddressFilterProxiesTrustedHeaders> {
     vec![ClientAddressFilterProxiesTrustedHeaders::XForwardedFor]
 }

@@ -13,9 +13,9 @@ pub enum ErrorResponseFilterConversionError {
     #[error("Invalid configuration")]
     InvalidConfiguration,
     #[error("`problem_detail` is required for 'ProblemDetail' kind")]
-    MissingProblemDetailConfiguration,
+    MissingProblemDetail,
     #[error("Problem detail configuration error: {0}")]
-    ProblemDetailConfigurationError(#[from] ProblemDetailErrorResponseGeneratorConversionError),
+    ProblemDetail(#[from] ProblemDetailErrorResponseGeneratorConversionError),
 }
 
 impl TryFrom<&ErrorResponseFilterSpec> for ErrorResponseFilter {
@@ -36,7 +36,7 @@ impl TryFrom<&ErrorResponseFilterSpec> for ErrorResponseFilter {
                 builder.generator(generator)
             }
             (ErrorResponseFilterKind::ProblemDetail, None) => {
-                return Err(ErrorResponseFilterConversionError::MissingProblemDetailConfiguration);
+                return Err(ErrorResponseFilterConversionError::MissingProblemDetail);
             }
             _ => {
                 return Err(ErrorResponseFilterConversionError::InvalidConfiguration);
@@ -52,7 +52,7 @@ impl TryFrom<&ErrorResponseFilterSpec> for ErrorResponseFilter {
 #[derive(Debug, Error)]
 pub enum ProblemDetailErrorResponseGeneratorConversionError {
     #[error("Invalid problem detail authority URI: {0}")]
-    InvalidAuthority(#[from] InvalidUri),
+    Authority(#[from] InvalidUri),
 }
 
 impl TryFrom<&ProblemDetailErrorResponse> for ProblemDetailErrorResponseGenerator {

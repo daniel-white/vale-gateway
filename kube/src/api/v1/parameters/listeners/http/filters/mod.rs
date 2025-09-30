@@ -75,7 +75,7 @@ pub struct AccessControlFilterClientMatches {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ips: Vec<IpAddr>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[schemars(schema_with = "crate::api::v1::schemars::cidr_array_schema")]
+    #[schemars(schema_with = "crate::api::v1::schemars::cidr_array")]
     pub ip_ranges: Vec<IpNet>,
 }
 

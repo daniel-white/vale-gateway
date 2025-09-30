@@ -10,11 +10,13 @@ path = "src/lib.rs"
 [features]
 default = ["config"]
 config = [
+    "base64ct",
     "vg-http-config"
 ]
 
 [dependencies]
 assertables.workspace = true
+base64ct = { workspace = true, optional = true }
 gateway-api.workspace = true
 getset.workspace = true
 http.workspace = true

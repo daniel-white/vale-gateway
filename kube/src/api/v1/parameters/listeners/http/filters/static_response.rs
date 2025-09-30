@@ -29,12 +29,13 @@ pub enum StaticResponseFilterBodyFormat {
 
 #[derive(Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq)]
 pub struct StaticResponseFilterBody {
+    pub content_type: String,
     pub format: StaticResponseFilterBodyFormat,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(schema_with = "crate::api::v1::schemars::base64_string")]
     pub binary: Option<String>,
-    pub content_type: String,
 }
 
 #[derive(Default, Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq)]

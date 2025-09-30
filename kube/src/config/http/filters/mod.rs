@@ -1,5 +1,3 @@
-mod client_addr;
-mod error_response;
-
-pub use client_addr::*;
-pub use error_response::*;
+pub mod client_addr;
+pub mod error_response;
+pub mod static_response;

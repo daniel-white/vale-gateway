@@ -6,6 +6,7 @@ use mediatype::{MediaType, MediaTypeBuf, MediaTypeError, Name, Value, names};
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::ops::Deref;
+use std::str::FromStr;
 use thiserror::Error;
 
 const PROBLEM: Name = Name::new_unchecked("problem");
@@ -90,6 +91,14 @@ impl TryFrom<ContentTypeBuf> for HeaderValue {
     }
 }
 
+impl TryFrom<&ContentTypeBuf> for HeaderValue {
+    type Error = InvalidHeaderValue;
+
+    fn try_from(value: &ContentTypeBuf) -> Result<Self, Self::Error> {
+        HeaderValue::from_str(value.as_str())
+    }
+}
+
 #[derive(Debug, Error, PartialEq, Eq, Clone, Copy)]
 pub enum ContentTypeConversionError {
     #[error("Invalid header value")]
@@ -105,7 +114,16 @@ impl TryFrom<HeaderValue> for ContentTypeBuf {
         let value = value
             .to_str()
             .map_err(|_| ContentTypeConversionError::HeaderValue)?;
-        let value = MediaTypeBuf::from_string(value.to_string())?;
+        let value = value.parse()?;
+        Ok(value)
+    }
+}
+
+impl FromStr for ContentTypeBuf {
+    type Err = ContentTypeConversionError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let value = MediaTypeBuf::from_string(s.to_string())?;
         Ok(value.into())
     }
 }

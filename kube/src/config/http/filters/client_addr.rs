@@ -16,15 +16,15 @@ pub enum ClientAddrFilterConversionError {
     #[error("Invalid configuration")]
     InvalidConfiguration,
     #[error("Invalid backend header name: {0}")]
-    InvalidBackendHeaderName(InvalidHeaderName),
+    BackendHeaderName(InvalidHeaderName),
     #[error("`header` is required for 'Header' source")]
-    MissingHeaderConfiguration,
+    MissingHeader,
     #[error("Invalid source header name: {0}")]
-    InvalidHeaderConfiguration(InvalidHeaderName),
+    Header(InvalidHeaderName),
     #[error("`proxies` is required for 'Proxies' source")]
-    MissingProxiesConfiguration,
+    MissingProxies,
     #[error("Invalid source proxies configuration: {0}")]
-    InvalidProxiesConfiguration(#[from] TrustedProxiesClientAddrExtractorConversionError),
+    Proxies(#[from] TrustedProxiesClientAddrExtractorConversionError),
 }
 
 impl TryFrom<&ClientAddressFilterSpec> for ClientAddrFilter {
@@ -36,7 +36,7 @@ impl TryFrom<&ClientAddressFilterSpec> for ClientAddrFilter {
         let builder = match &value.backend_header {
             Some(header) => {
                 let backend_header: HeaderName = header.parse().map_err(|err| {
-                    ClientAddrFilterConversionError::InvalidBackendHeaderName(err)
+                    ClientAddrFilterConversionError::BackendHeaderName(err)
                 })?;
                 builder.upstream_header(Some(backend_header))
             }
@@ -57,21 +57,21 @@ impl TryFrom<&ClientAddressFilterSpec> for ClientAddrFilter {
             (ClientAddressFilterSource::Header, Some(header), None) => {
                 let trusted_header = header
                     .parse()
-                    .map_err(ClientAddrFilterConversionError::InvalidHeaderConfiguration)?;
+                    .map_err(ClientAddrFilterConversionError::Header)?;
                 let extractor = TrustedHeaderClientAddrExtractor::builder()
                     .trusted_header(trusted_header)
                     .build();
                 builder.extractor(extractor)
             }
             (ClientAddressFilterSource::Header, None, _) => {
-                return Err(ClientAddrFilterConversionError::MissingHeaderConfiguration);
+                return Err(ClientAddrFilterConversionError::MissingHeader);
             }
             (ClientAddressFilterSource::Proxies, _, Some(proxies)) => {
                 let extractor: TrustedProxiesClientAddrExtractor = proxies.try_into()?;
                 builder.extractor(extractor)
             }
             (ClientAddressFilterSource::Proxies, _, None) => {
-                return Err(ClientAddrFilterConversionError::MissingProxiesConfiguration);
+                return Err(ClientAddrFilterConversionError::MissingProxies);
             }
             _ => return Err(ClientAddrFilterConversionError::InvalidConfiguration),
         };

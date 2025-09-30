@@ -1,6 +1,13 @@
 use schemars::{Schema, SchemaGenerator, json_schema};
 
-pub fn cidr_array_schema(_: &mut SchemaGenerator) -> Schema {
+pub fn base64_string(_: &mut SchemaGenerator) -> Schema {
+    json_schema!({
+        "type": "string",
+        "format": "base64",
+    })
+}
+
+pub fn cidr_array(_: &mut SchemaGenerator) -> Schema {
     // Create schema for a single CIDR
     let item_schema = json_schema!({
         "type": "string",
