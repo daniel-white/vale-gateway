@@ -1,10 +1,10 @@
-use crate::IpRef;
 use getset::{CloneGetters, Getters};
 use http::HeaderName;
 use http::header::FORWARDED;
 use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
 use vg_core::http::header::{X_FORWARDED_BY, X_FORWARDED_FOR, X_FORWARDED_HOST, X_FORWARDED_PROTO};
+use vg_core::net::IpRef;
 
 #[derive(
     Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,

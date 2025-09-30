@@ -1,7 +1,7 @@
 use super::error_codes::ErrorResponseCode;
 use bytes::Bytes;
 use http::header::{CONTENT_LENGTH, CONTENT_TYPE};
-use http::{HeaderValue, Response, StatusCode, Uri};
+use http::{Response, StatusCode, Uri};
 use opentelemetry::TraceId;
 use opentelemetry::trace::TraceContextExt;
 use problemdetails::Problem;
@@ -10,6 +10,7 @@ use thiserror::Error;
 use tracing::Span;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use typed_builder::TypedBuilder;
+use vg_core::http::content_type::{ContentType, HTML, PROBLEM_DETAIL};
 use vg_http_config::filters::error_response::{
     ErrorResponseGenerator as ErrorResponseGeneratorConfig,
     ProblemDetailErrorResponseGenerator as ProblemDetailErrorResponseGeneratorConfig,
@@ -79,7 +80,7 @@ trait Generator: Into<ErrorResponseGenerator> {
         }
     }
 
-    fn body(&self, _code: ErrorResponseCode) -> Option<(HeaderValue, Cow<'static, str>)> {
+    fn body(&self, _code: ErrorResponseCode) -> Option<(ContentType<'static>, Cow<'static, str>)> {
         None
     }
 
@@ -110,10 +111,10 @@ impl From<EmptyErrorResponseGenerator> for ErrorResponseGenerator {
 pub struct HtmlErrorResponseGenerator {}
 
 impl Generator for HtmlErrorResponseGenerator {
-    fn body(&self, code: ErrorResponseCode) -> Option<(HeaderValue, Cow<'static, str>)> {
+    fn body(&self, code: ErrorResponseCode) -> Option<(ContentType<'static>, Cow<'static, str>)> {
         let message = code.message();
         let body = format!("<html><body><h1>{message}</h1></body></html>");
-        Some((HeaderValue::from_static("text/html"), body.into()))
+        Some((HTML, body.into()))
     }
 }
 
@@ -129,7 +130,7 @@ pub struct ProblemDetailErrorResponseGenerator {
 }
 
 impl Generator for ProblemDetailErrorResponseGenerator {
-    fn body(&self, code: ErrorResponseCode) -> Option<(HeaderValue, Cow<'static, str>)> {
+    fn body(&self, code: ErrorResponseCode) -> Option<(ContentType<'static>, Cow<'static, str>)> {
         let message = code.message();
         let code_str = code.to_str();
         let status_code: StatusCode = code.into();
@@ -154,10 +155,7 @@ impl Generator for ProblemDetailErrorResponseGenerator {
 
         let body: String = serde_json::to_string(&problem.body).unwrap();
 
-        Some((
-            HeaderValue::from_static("application/problem+json"),
-            body.into(),
-        ))
+        Some((PROBLEM_DETAIL, body.into()))
     }
 }
 
@@ -199,7 +197,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
         assert_eq!(
             response.headers()["content-type"],
-            "application/problem+json"
+            PROBLEM_DETAIL.to_string()
         );
 
         if let Some(body) = response.body() {
@@ -217,7 +215,7 @@ mod tests {
         let response = generator.generate_response(ErrorResponseCode::NoRoute);
 
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
-        assert_eq!(response.headers()["content-type"], "text/html");
+        assert_eq!(response.headers()["content-type"], HTML.to_string());
 
         // Verify HTML structure
         if let Some(body) = response.body() {
@@ -258,7 +256,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
         assert_eq!(
             response.headers()["content-type"],
-            "application/problem+json"
+            PROBLEM_DETAIL.to_string()
         );
 
         if let Some(body) = response.body() {
@@ -309,7 +307,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
         assert_eq!(
             response.headers()["content-type"],
-            "application/problem+json"
+            PROBLEM_DETAIL.to_string()
         );
 
         // Response should be generated successfully (trace ID inclusion depends on active span)
@@ -368,7 +366,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
         assert_eq!(
             response.headers()["content-type"],
-            "application/problem+json"
+            PROBLEM_DETAIL.to_string()
         );
 
         // Rate limit specific headers would be added by higher-level middleware

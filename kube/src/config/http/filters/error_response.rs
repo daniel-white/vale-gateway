@@ -15,7 +15,7 @@ pub enum ErrorResponseFilterConversionError {
     #[error("`problem_detail` is required for 'ProblemDetail' kind")]
     MissingProblemDetailConfiguration,
     #[error("Problem detail configuration error: {0}")]
-    ProblemDetailConfigurationError(ProblemDetailErrorResponseGeneratorConversionError),
+    ProblemDetailConfigurationError(#[from] ProblemDetailErrorResponseGeneratorConversionError),
 }
 
 impl TryFrom<&ErrorResponseFilterSpec> for ErrorResponseFilter {

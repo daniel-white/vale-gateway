@@ -8,6 +8,7 @@ getset.workspace = true
 http.workspace = true
 http-serde-ext.workspace = true
 ipnet.workspace = true
+mediatype.workspace = true
 serde.workspace = true
 typed-builder.workspace = true
 vg-core = { path = "../core" }

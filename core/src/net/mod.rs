@@ -1,4 +1,5 @@
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
+use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::num::NonZeroU16;
@@ -6,7 +7,8 @@ use std::str::FromStr;
 use std::sync::OnceLock;
 use thiserror::Error;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Port(NonZeroU16);
 
 impl Port {
@@ -14,6 +16,7 @@ impl Port {
     pub fn new(port: u16) -> Option<Self> {
         NonZeroU16::new(port).map(Self)
     }
+
     // Access underlying numeric value
     pub fn get(self) -> u16 {
         self.0.get()
@@ -26,7 +29,8 @@ impl Display for Port {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum IpRef {
     Addr(IpAddr),
     Net(IpNet),

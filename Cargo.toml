@@ -22,6 +22,7 @@ ipnet = { version = "2", features = ["serde"] }
 k8s-openapi = { version = "0.26", features = ["v1_34"] }
 kube = "2"
 kube-leader-election = { git = "https://github.com/daniel-white/kube-leader-election.git", branch = "feat/change-result-type" }
+mediatype = { version = "0.20", features = ["serde"] }
 mockall = "0.13"
 multi-map = "1"
 ouroboros = "0.18"
@@ -44,3 +45,4 @@ tracing-opentelemetry = "0.31"
 trusted-proxies = "0.3"
 typed-builder = "0.22"
 url = "2"
+

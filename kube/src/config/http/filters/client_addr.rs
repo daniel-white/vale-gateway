@@ -6,7 +6,6 @@ use http::HeaderName;
 use http::header::InvalidHeaderName;
 use thiserror::Error;
 use vg_core::net::IpRef;
-use vg_http_config::IpRef as IpRefConfig;
 use vg_http_config::filters::client_addr::{
     ClientAddrExtractor, ClientAddrFilter, TrustedHeaderClientAddrExtractor,
     TrustedProxiesClientAddrExtractor, TrustedProxyHeaderName,
@@ -109,7 +108,7 @@ impl TryFrom<&ClientAddressFilterProxies> for TrustedProxiesClientAddrExtractor 
             proxies.extend(value.trusted_ips.iter().map(IpRef::from));
             proxies.extend(value.trusted_ranges.iter().map(IpRef::from));
 
-            proxies.iter().map(IpRefConfig::from).collect()
+            proxies
         };
 
         let trusted_headers = value

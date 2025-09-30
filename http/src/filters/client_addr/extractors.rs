@@ -127,7 +127,7 @@ impl TryFrom<&TrustedProxiesClientAddrExtractorConfig> for TrustedProxiesClientA
     type Error = TrustedProxiesClientAddrExtractorConversionError;
 
     fn try_from(value: &TrustedProxiesClientAddrExtractorConfig) -> Result<Self, Self::Error> {
-        let proxies: HashSet<IpRef> = value.proxies().iter().map(IpRef::from).collect();
+        let proxies: HashSet<IpRef> = value.proxies().iter().copied().collect();
         if proxies.is_empty() && value.trusted_headers().is_empty() {
             return Err(
                 TrustedProxiesClientAddrExtractorConversionError::NoTrustedProxiesOrHeaders,

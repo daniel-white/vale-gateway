@@ -51,6 +51,7 @@ mod tests {
         ProblemDetailErrorResponseGenerator,
     };
     use http::{StatusCode, Uri};
+    use vg_core::http::content_type::HTML;
 
     #[tokio::test]
     async fn test_error_response_handler_creation() {
@@ -80,7 +81,7 @@ mod tests {
         let response = handler.generate_response(ErrorResponseCode::AccessDenied);
 
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
-        assert_eq!(response.headers()["content-type"], "text/html");
+        assert_eq!(response.headers()["content-type"], HTML.to_string());
         assert!(response.body().is_some());
     }
 
@@ -117,7 +118,7 @@ mod tests {
         let response = handler.generate_response(ErrorResponseCode::InvalidConfiguration);
 
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
-        assert_eq!(response.headers()["content-type"], "text/html");
+        assert_eq!(response.headers()["content-type"], HTML.to_string());
 
         // Verify HTML structure in the body
         if let Some(body) = response.body() {
@@ -236,7 +237,7 @@ mod tests {
 
         // But different content types and bodies
         assert!(empty_response.body().is_none());
-        assert_eq!(html_response.headers()["content-type"], "text/html");
+        assert_eq!(html_response.headers()["content-type"], HTML.to_string());
         assert_eq!(
             problem_response.headers()["content-type"],
             "application/problem+json"
