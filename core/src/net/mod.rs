@@ -1,3 +1,4 @@
+use derive_more::From;
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
@@ -7,7 +8,9 @@ use std::str::FromStr;
 use std::sync::OnceLock;
 use thiserror::Error;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, From,
+)]
 #[serde(transparent)]
 pub struct Port(NonZeroU16);
 

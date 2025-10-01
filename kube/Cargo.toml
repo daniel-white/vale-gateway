@@ -17,6 +17,7 @@ config = [
 [dependencies]
 assertables.workspace = true
 base64ct = { workspace = true, optional = true }
+derive_more.workspace = true
 gateway-api.workspace = true
 getset.workspace = true
 http.workspace = true

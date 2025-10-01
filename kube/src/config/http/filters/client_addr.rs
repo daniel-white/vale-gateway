@@ -35,9 +35,9 @@ impl TryFrom<&ClientAddressFilterSpec> for ClientAddrFilter {
 
         let builder = match &value.backend_header {
             Some(header) => {
-                let backend_header: HeaderName = header.parse().map_err(|err| {
-                    ClientAddrFilterConversionError::BackendHeaderName(err)
-                })?;
+                let backend_header: HeaderName = header
+                    .parse()
+                    .map_err(ClientAddrFilterConversionError::BackendHeaderName)?;
                 builder.upstream_header(Some(backend_header))
             }
             None => builder.upstream_header(None),
@@ -114,6 +114,7 @@ impl TryFrom<&ClientAddressFilterProxies> for TrustedProxiesClientAddrExtractor 
         let trusted_headers = value
             .trusted_headers
             .iter()
+            .cloned()
             .map(TrustedProxyHeaderName::from)
             .collect();
 
@@ -126,8 +127,8 @@ impl TryFrom<&ClientAddressFilterProxies> for TrustedProxiesClientAddrExtractor 
     }
 }
 
-impl From<&ClientAddressFilterProxiesTrustedHeaders> for TrustedProxyHeaderName {
-    fn from(value: &ClientAddressFilterProxiesTrustedHeaders) -> Self {
+impl From<ClientAddressFilterProxiesTrustedHeaders> for TrustedProxyHeaderName {
+    fn from(value: ClientAddressFilterProxiesTrustedHeaders) -> Self {
         match value {
             ClientAddressFilterProxiesTrustedHeaders::Forwarded => Self::Forwarded,
             ClientAddressFilterProxiesTrustedHeaders::XForwardedFor => Self::XForwardedFor,

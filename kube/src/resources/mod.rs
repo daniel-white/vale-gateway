@@ -4,7 +4,7 @@ mod kinds;
 mod macros;
 mod namespace_scoped;
 
-use crate::api::v1::parameters::listeners::http::filters::AccessControlFilter;
+use crate::api::v1::parameters::listeners::http::filters::access_control::AccessControlFilter;
 use crate::api::v1::parameters::listeners::http::filters::client_addr::ClientAddressFilter;
 use crate::api::v1::parameters::listeners::http::filters::error_response::ErrorResponseFilter;
 use crate::api::v1::parameters::listeners::http::filters::static_response::StaticResponseFilter;

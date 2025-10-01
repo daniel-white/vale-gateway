@@ -103,7 +103,7 @@ impl Generator for EmptyErrorResponseGenerator {}
 
 impl From<EmptyErrorResponseGenerator> for ErrorResponseGenerator {
     fn from(val: EmptyErrorResponseGenerator) -> Self {
-        ErrorResponseGenerator::Empty(val)
+        Self::Empty(val)
     }
 }
 
@@ -161,7 +161,7 @@ impl Generator for ProblemDetailErrorResponseGenerator {
 
 impl From<ProblemDetailErrorResponseGenerator> for ErrorResponseGenerator {
     fn from(val: ProblemDetailErrorResponseGenerator) -> Self {
-        ErrorResponseGenerator::ProblemDetail(val)
+        Self::ProblemDetail(val)
     }
 }
 

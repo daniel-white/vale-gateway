@@ -1,3 +1,4 @@
+use derive_more::{Deref, From};
 use http::HeaderValue;
 use http::header::InvalidHeaderValue;
 use mediatype::names::{APPLICATION, CHARSET, JSON, TEXT};
@@ -5,7 +6,6 @@ use mediatype::values::UTF_8;
 use mediatype::{MediaType, MediaTypeBuf, MediaTypeError, Name, Value, names};
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
-use std::ops::Deref;
 use std::str::FromStr;
 use thiserror::Error;
 
@@ -17,7 +17,7 @@ pub const PROBLEM_DETAIL: ContentType =
 pub const HTML: ContentType =
     ContentType::from_parts(TEXT, names::HTML, None, [(CHARSET, UTF_8)].as_slice());
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, From, Deref)]
 pub struct ContentType<'a>(MediaType<'a>);
 
 impl<'a> ContentType<'a> {
@@ -37,14 +37,6 @@ impl<'a> ContentType<'a> {
     }
 }
 
-impl<'a> Deref for ContentType<'a> {
-    type Target = MediaType<'a>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 impl<'a> TryFrom<ContentType<'a>> for HeaderValue {
     type Error = InvalidHeaderValue;
 
@@ -53,23 +45,9 @@ impl<'a> TryFrom<ContentType<'a>> for HeaderValue {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, From, Deref)]
 #[serde(transparent)]
 pub struct ContentTypeBuf(MediaTypeBuf);
-
-impl Deref for ContentTypeBuf {
-    type Target = MediaTypeBuf;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl From<MediaTypeBuf> for ContentTypeBuf {
-    fn from(value: MediaTypeBuf) -> Self {
-        Self(value)
-    }
-}
 
 impl From<MediaType<'_>> for ContentTypeBuf {
     fn from(value: MediaType<'_>) -> Self {
