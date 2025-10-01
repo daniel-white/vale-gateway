@@ -1,4 +1,4 @@
-use crate::api::v1::http::filters::header_modifier::HeaderModifier;
+use super::HeaderModifier;
 use http::header::{InvalidHeaderName, InvalidHeaderValue};
 use http::{HeaderMap, HeaderName, HeaderValue};
 use thiserror::Error;

@@ -1,22 +1,10 @@
-use crate::api::v1::http::filters::error_response::{
-    ErrorResponseFilterKind, ErrorResponseFilterSpec, ProblemDetailErrorResponse,
-};
+use super::{ErrorResponseFilterKind, ErrorResponseFilterSpec, ProblemDetailErrorResponse};
 use http::Uri;
 use http::uri::InvalidUri;
 use thiserror::Error;
 use vg_http_config::filters::error_response::{
     ErrorResponseFilter, ErrorResponseGenerator, ProblemDetailErrorResponseGenerator,
 };
-
-#[derive(Debug, Error)]
-pub enum ErrorResponseFilterConversionError {
-    #[error("Invalid configuration")]
-    InvalidConfiguration,
-    #[error("`problem_detail` is required for 'ProblemDetail' kind")]
-    MissingProblemDetail,
-    #[error("Problem detail configuration error: {0}")]
-    ProblemDetail(#[from] ProblemDetailErrorResponseGeneratorConversionError),
-}
 
 impl TryFrom<&ErrorResponseFilterSpec> for ErrorResponseFilter {
     type Error = ErrorResponseFilterConversionError;
@@ -47,6 +35,16 @@ impl TryFrom<&ErrorResponseFilterSpec> for ErrorResponseFilter {
 
         Ok(filter)
     }
+}
+
+#[derive(Debug, Error)]
+pub enum ErrorResponseFilterConversionError {
+    #[error("Invalid configuration")]
+    InvalidConfiguration,
+    #[error("`problem_detail` is required for 'ProblemDetail' kind")]
+    MissingProblemDetail,
+    #[error("Problem detail configuration error: {0}")]
+    ProblemDetail(#[from] ProblemDetailErrorResponseGeneratorConversionError),
 }
 
 #[derive(Debug, Error)]

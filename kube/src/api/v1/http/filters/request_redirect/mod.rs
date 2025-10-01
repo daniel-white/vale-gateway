@@ -3,6 +3,9 @@ use gateway_api::common::RequestRedirect as RequestRedirectInner;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "config")]
+pub mod config;
+
 #[derive(Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq, Deref, DerefMut, From)]
 #[serde(transparent)]
 pub struct RequestRedirect(RequestRedirectInner);

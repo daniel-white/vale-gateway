@@ -1,10 +1,9 @@
-use crate::api::v1::http::filters::access_control::{
-    AccessControlFilterEffect, AccessControlFilterSpec,
-};
+use super::{AccessControlFilterEffect, AccessControlFilterSpec};
 use std::collections::HashSet;
 use thiserror::Error;
 use vg_core::net::IpRef;
 use vg_http_config::filters::access_control::{AccessControlEffect, AccessControlFilter};
+
 #[derive(Debug, Error)]
 pub enum AccessControlFilterConversionError {
     #[error("Invalid configuration")]

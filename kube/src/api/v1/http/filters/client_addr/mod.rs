@@ -5,6 +5,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
 
+#[cfg(feature = "config")]
+pub mod config;
+
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub enum ClientAddressFilterSource {

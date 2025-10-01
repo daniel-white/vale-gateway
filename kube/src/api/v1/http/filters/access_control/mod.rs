@@ -1,47 +1,49 @@
+use ipnet::IpNet;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::{Condition, Time};
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::net::IpAddr;
 
-#[derive(Default, CustomResource, Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq)]
+#[cfg(feature = "config")]
+pub mod config;
+
+#[derive(CustomResource, Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq)]
 #[kube(
-    kind = "StaticResponseFilter",
+    kind = "AccessControlFilter",
     group = "vale-gateway.whitefamily.in",
     version = "v1alpha1",
     namespaced,
-    singular = "staticresponsefilter",
-    plural = "staticresponsefilters"
+    singular = "accesscontrolfilter",
+    plural = "accesscontrolfilters"
 )]
-#[kube(derive = "Default")]
 #[kube(derive = "PartialEq")]
-#[kube(status = "StaticResponseFilterStatus")]
-pub struct StaticResponseFilterSpec {
-    pub status_code: u16,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub body: Option<StaticResponseFilterBody>,
+#[kube(status = "AccessControlFilterStatus")]
+pub struct AccessControlFilterSpec {
+    pub effect: AccessControlFilterEffect,
+    pub clients: AccessControlFilterClientMatches,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq)]
-pub enum StaticResponseFilterBodyFormat {
-    Text,
-    Binary,
+pub enum AccessControlFilterEffect {
+    Allow,
+    Deny,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq)]
-pub struct StaticResponseFilterBody {
-    pub content_type: String,
-    pub format: StaticResponseFilterBodyFormat,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub text: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schemars(schema_with = "crate::api::v1::schemars::base64_string")]
-    pub binary: Option<String>,
+#[serde(rename_all = "camelCase")]
+pub struct AccessControlFilterClientMatches {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ips: Vec<IpAddr>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schemars(schema_with = "crate::api::v1::schemars::cidr_array")]
+    pub ip_ranges: Vec<IpNet>,
 }
 
 #[derive(Default, Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct StaticResponseFilterStatus {
-    /// Conditions describe the current conditions of the `StaticResponseFilter`
+pub struct AccessControlFilterStatus {
+    /// Conditions describe the current conditions of the `AccessControlFilter`
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub conditions: Option<Vec<Condition>>,
 
@@ -54,9 +56,9 @@ pub struct StaticResponseFilterStatus {
     pub last_updated: Option<Time>,
 }
 
-/// Condition types for `StaticResponseFilter` status
+/// Condition types for `AccessControlFilter` status
 #[derive(Debug, Clone, PartialEq)]
-pub enum StaticResponseFilterConditionType {
+pub enum AccessControlFilterConditionType {
     /// Accepted indicates whether the filter configuration is valid and accepted
     Accepted,
     /// Ready indicates whether the filter is ready to serve responses
@@ -65,19 +67,19 @@ pub enum StaticResponseFilterConditionType {
     Attached,
 }
 
-impl StaticResponseFilterConditionType {
+impl AccessControlFilterConditionType {
     pub fn as_str(&self) -> &'static str {
         match self {
-            StaticResponseFilterConditionType::Accepted => "Accepted",
-            StaticResponseFilterConditionType::Ready => "Ready",
-            StaticResponseFilterConditionType::Attached => "Attached",
+            Self::Accepted => "Accepted",
+            Self::Ready => "Ready",
+            Self::Attached => "Attached",
         }
     }
 }
 
 /// Condition reasons for `StaticResponseFilter` status
 #[derive(Debug, Clone, PartialEq)]
-pub enum StaticResponseFilterConditionReason {
+pub enum AccessControlFilterConditionReason {
     /// Accepted - The filter configuration is valid
     Accepted,
     /// `InvalidConfiguration` - The filter configuration is invalid
@@ -92,15 +94,15 @@ pub enum StaticResponseFilterConditionReason {
     NotAttached,
 }
 
-impl StaticResponseFilterConditionReason {
+impl AccessControlFilterConditionReason {
     pub fn as_str(&self) -> &'static str {
         match self {
-            StaticResponseFilterConditionReason::Accepted => "Accepted",
-            StaticResponseFilterConditionReason::InvalidConfiguration => "InvalidConfiguration",
-            StaticResponseFilterConditionReason::Ready => "Ready",
-            StaticResponseFilterConditionReason::NotReady => "NotReady",
-            StaticResponseFilterConditionReason::AttachedToRoute => "AttachedToRoute",
-            StaticResponseFilterConditionReason::NotAttached => "NotAttached",
+            Self::Accepted => "Accepted",
+            Self::InvalidConfiguration => "InvalidConfiguration",
+            Self::Ready => "Ready",
+            Self::NotReady => "NotReady",
+            Self::AttachedToRoute => "AttachedToRoute",
+            Self::NotAttached => "NotAttached",
         }
     }
 }

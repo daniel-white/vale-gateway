@@ -3,6 +3,9 @@ use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "config")]
+pub mod config;
+
 #[derive(Default, Deserialize, Serialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub enum ErrorResponseFilterKind {
