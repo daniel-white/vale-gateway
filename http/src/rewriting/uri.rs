@@ -1,9 +1,15 @@
 use crate::request::matchers::RequestMatchDetails;
+use hickory_proto::ProtoError;
 use hickory_proto::rr::Name;
 use http::Uri;
 use http::uri::{Authority, Scheme};
+use std::str::FromStr;
+use thiserror::Error;
 use typed_builder::TypedBuilder;
 use vg_core::net::Port;
+use vg_http_config::rewriting::uri::{
+    PathRewrite as PathRewriteConfig, UriRewriter as UriRewriterConfig,
+};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum PathRewrite {
@@ -11,7 +17,16 @@ pub enum PathRewrite {
     PrefixMatch(String),
 }
 
-#[derive(Debug, PartialEq, Eq, TypedBuilder)]
+impl From<PathRewriteConfig> for PathRewrite {
+    fn from(value: PathRewriteConfig) -> Self {
+        match value {
+            PathRewriteConfig::Full(value) => PathRewrite::Full(value),
+            PathRewriteConfig::PrefixMatch(value) => PathRewrite::PrefixMatch(value),
+        }
+    }
+}
+
+#[derive(Debug, TypedBuilder)]
 pub struct UriRewriter {
     #[builder(default, setter(into))]
     scheme: Option<Scheme>,
@@ -24,6 +39,38 @@ pub struct UriRewriter {
 
     #[builder(default, setter(into))]
     path: Option<PathRewrite>,
+}
+
+#[derive(Debug, Error)]
+pub enum UriRewriterConversionError {
+    #[error("No fields set in UriRewriter")]
+    Unset,
+    #[error("Invalid host: {0}")]
+    InvalidHost(#[from] ProtoError),
+}
+
+impl TryFrom<&UriRewriterConfig> for UriRewriter {
+    type Error = UriRewriterConversionError;
+
+    fn try_from(value: &UriRewriterConfig) -> Result<Self, Self::Error> {
+        if value.is_unset() {
+            return Err(UriRewriterConversionError::Unset);
+        }
+
+        let host = match value.host() {
+            Some(host) => Some(Name::from_str(host)?),
+            None => None,
+        };
+
+        let rewriter = Self::builder()
+            .scheme(value.scheme())
+            .host(host)
+            .port(value.port())
+            .path(value.path().map(PathRewrite::from))
+            .build();
+
+        Ok(rewriter)
+    }
 }
 
 impl UriRewriter {

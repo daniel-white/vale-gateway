@@ -1,17 +1,37 @@
 use crate::request::matchers::RequestMatchDetails;
-use crate::rewriting::uri::UriRewriter;
+use crate::rewriting::uri::{UriRewriter, UriRewriterConversionError};
 use http::Uri;
 use http::request::Parts;
+use thiserror::Error;
 use typed_builder::TypedBuilder;
+use vg_http_config::filters::upstream_uri_rewrite::UpstreamUriRewriteFilter;
 
 #[derive(Debug, TypedBuilder)]
 pub struct UpstreamUriRewriteFilterHandler {
-    uri_rewriter: UriRewriter,
+    uri: UriRewriter,
 }
 
 impl UpstreamUriRewriteFilterHandler {
     pub fn handle(&self, req: &Parts, match_context: &impl RequestMatchDetails) -> Uri {
-        self.uri_rewriter.rewrite(&req.uri, match_context)
+        self.uri.rewrite(&req.uri, match_context)
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum UpstreamUriRewriteFilterHandlerConversionError {
+    #[error("URI rewriter is invalid")]
+    UriRewriter(#[from] UriRewriterConversionError),
+}
+
+impl TryFrom<&UpstreamUriRewriteFilter> for UpstreamUriRewriteFilterHandler {
+    type Error = UpstreamUriRewriteFilterHandlerConversionError;
+
+    fn try_from(value: &UpstreamUriRewriteFilter) -> Result<Self, Self::Error> {
+        let uri = value.uri().try_into()?;
+
+        let handler = Self::builder().uri(uri).build();
+
+        Ok(handler)
     }
 }
 
@@ -59,7 +79,7 @@ mod tests {
         // Test URI rewriting for various scenarios
         let uri_rewriter = UriRewriter::builder().build();
         let handler = UpstreamUriRewriteFilterHandler::builder()
-            .uri_rewriter(uri_rewriter)
+            .uri(uri_rewriter)
             .build();
 
         let mut request_parts = create_empty_parts();
@@ -81,7 +101,7 @@ mod tests {
         // Test conditional URI rewriting (would need header-aware rewriter)
         let uri_rewriter = UriRewriter::builder().build();
         let handler = UpstreamUriRewriteFilterHandler::builder()
-            .uri_rewriter(uri_rewriter)
+            .uri(uri_rewriter)
             .build();
 
         let mut request_parts = create_empty_parts();
@@ -102,7 +122,7 @@ mod tests {
         // Test rewriting URI for load balancing
         let uri_rewriter = UriRewriter::builder().build();
         let handler = UpstreamUriRewriteFilterHandler::builder()
-            .uri_rewriter(uri_rewriter)
+            .uri(uri_rewriter)
             .build();
 
         // Test multiple requests to see consistent behavior

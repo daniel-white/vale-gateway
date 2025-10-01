@@ -1,25 +1,54 @@
 use crate::request::matchers::RequestMatchDetails;
-use crate::rewriting::uri::UriRewriter;
+use crate::rewriting::uri::{UriRewriter, UriRewriterConversionError};
 use http::header::LOCATION;
 use http::request::Parts;
 use http::{Response, StatusCode};
+use thiserror::Error;
 use typed_builder::TypedBuilder;
+use vg_http_config::filters::redirect_response::RedirectResponseFilter;
 
 #[derive(Debug, TypedBuilder)]
 pub struct RedirectResponseFilterHandler {
     #[builder(setter(into))]
     status_code: StatusCode,
-    uri_rewriter: UriRewriter,
+    uri: UriRewriter,
 }
 
 impl RedirectResponseFilterHandler {
     pub fn handle(&self, req: &Parts, match_context: &impl RequestMatchDetails) -> Response<()> {
-        let new_uri = self.uri_rewriter.rewrite(&req.uri, match_context);
+        let uri = self.uri.rewrite(&req.uri, match_context);
         Response::builder()
             .status(self.status_code)
-            .header(LOCATION, new_uri.to_string())
+            .header(LOCATION, uri.to_string())
             .body(())
             .unwrap()
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum RedirectResponseFilterHandlerConversionError {
+    #[error("Invalid status code for redirect")]
+    StatusCode,
+    #[error("URI rewriter is invalid")]
+    UriRewriter(#[from] UriRewriterConversionError),
+}
+
+impl TryFrom<&RedirectResponseFilter> for RedirectResponseFilterHandler {
+    type Error = RedirectResponseFilterHandlerConversionError;
+
+    fn try_from(value: &RedirectResponseFilter) -> Result<Self, Self::Error> {
+        if !value.status_code().is_redirection() {
+            return Err(RedirectResponseFilterHandlerConversionError::StatusCode);
+        }
+
+        let uri = value.uri().try_into()?;
+
+        let handler = Self::builder()
+            .status_code(value.status_code())
+            .uri(uri)
+            .build();
+
+        Ok(handler)
     }
 }
 
@@ -48,7 +77,7 @@ mod tests {
 
         let handler = RedirectResponseFilterHandler::builder()
             .status_code(StatusCode::MOVED_PERMANENTLY)
-            .uri_rewriter(uri_rewriter)
+            .uri(uri_rewriter)
             .build();
 
         // Create mock request parts
@@ -81,7 +110,7 @@ mod tests {
 
         let handler = RedirectResponseFilterHandler::builder()
             .status_code(StatusCode::FOUND)
-            .uri_rewriter(uri_rewriter)
+            .uri(uri_rewriter)
             .build();
 
         let mut request_parts = create_empty_parts();
@@ -111,7 +140,7 @@ mod tests {
 
         let handler = RedirectResponseFilterHandler::builder()
             .status_code(StatusCode::SEE_OTHER)
-            .uri_rewriter(uri_rewriter)
+            .uri(uri_rewriter)
             .build();
 
         let mut request_parts = create_empty_parts();
@@ -141,7 +170,7 @@ mod tests {
 
         let handler = RedirectResponseFilterHandler::builder()
             .status_code(StatusCode::PERMANENT_REDIRECT)
-            .uri_rewriter(uri_rewriter)
+            .uri(uri_rewriter)
             .build();
 
         let mut request_parts = create_empty_parts();
@@ -172,7 +201,7 @@ mod tests {
 
         let handler = RedirectResponseFilterHandler::builder()
             .status_code(StatusCode::MOVED_PERMANENTLY)
-            .uri_rewriter(uri_rewriter)
+            .uri(uri_rewriter)
             .build();
 
         // Test with different host headers (would need header-aware rewriter)
@@ -206,7 +235,7 @@ mod tests {
 
         let handler = RedirectResponseFilterHandler::builder()
             .status_code(StatusCode::MOVED_PERMANENTLY)
-            .uri_rewriter(uri_rewriter)
+            .uri(uri_rewriter)
             .build();
 
         // Test legacy path redirect
@@ -239,7 +268,7 @@ mod tests {
 
         let handler = RedirectResponseFilterHandler::builder()
             .status_code(StatusCode::MOVED_PERMANENTLY)
-            .uri_rewriter(uri_rewriter)
+            .uri(uri_rewriter)
             .build();
 
         let mut request_parts = create_empty_parts();
@@ -271,7 +300,7 @@ mod tests {
 
         let handler = RedirectResponseFilterHandler::builder()
             .status_code(StatusCode::MOVED_PERMANENTLY)
-            .uri_rewriter(uri_rewriter)
+            .uri(uri_rewriter)
             .build();
 
         let mut request_parts = create_empty_parts();
@@ -301,7 +330,7 @@ mod tests {
 
         let handler = RedirectResponseFilterHandler::builder()
             .status_code(StatusCode::MOVED_PERMANENTLY)
-            .uri_rewriter(uri_rewriter)
+            .uri(uri_rewriter)
             .build();
 
         let mut request_parts = create_empty_parts();
@@ -336,7 +365,7 @@ mod tests {
 
         let handler = RedirectResponseFilterHandler::builder()
             .status_code(StatusCode::MOVED_PERMANENTLY)
-            .uri_rewriter(uri_rewriter)
+            .uri(uri_rewriter)
             .build();
 
         let mut request_parts = create_empty_parts();
@@ -370,7 +399,7 @@ mod tests {
 
         let handler = RedirectResponseFilterHandler::builder()
             .status_code(StatusCode::MOVED_PERMANENTLY)
-            .uri_rewriter(uri_rewriter)
+            .uri(uri_rewriter)
             .build();
 
         let mut request_parts = create_empty_parts();
@@ -401,7 +430,7 @@ mod tests {
 
         let handler = RedirectResponseFilterHandler::builder()
             .status_code(StatusCode::MOVED_PERMANENTLY)
-            .uri_rewriter(uri_rewriter)
+            .uri(uri_rewriter)
             .build();
 
         let mut request_parts = create_empty_parts();
@@ -435,7 +464,7 @@ mod tests {
 
         let handler = RedirectResponseFilterHandler::builder()
             .status_code(StatusCode::MOVED_PERMANENTLY)
-            .uri_rewriter(uri_rewriter)
+            .uri(uri_rewriter)
             .build();
 
         let mut request_parts = create_empty_parts();
