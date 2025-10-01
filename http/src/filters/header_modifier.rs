@@ -1,7 +1,9 @@
 use crate::header::HeaderModifier;
 use http::{HeaderMap, HeaderName};
 use std::collections::HashSet;
+use thiserror::Error;
 use typed_builder::TypedBuilder;
+use vg_http_config::filters::header_modifier::HeaderModifierFilter;
 
 #[derive(Debug, TypedBuilder)]
 pub struct HeaderModifierFilterHandler {
@@ -26,6 +28,24 @@ impl HeaderModifierFilterHandler {
         for (name, value) in &self.add {
             modifier.append(name, value);
         }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum HeaderModifierFilterConversionError {}
+
+#[allow(clippy::infallible_try_from)]
+impl TryFrom<&HeaderModifierFilter> for HeaderModifierFilterHandler {
+    type Error = HeaderModifierFilterConversionError;
+
+    fn try_from(value: &HeaderModifierFilter) -> Result<Self, Self::Error> {
+        let handler = Self::builder()
+            .add(value.add())
+            .set(value.set())
+            .remove(value.remove().into_iter().collect())
+            .build();
+
+        Ok(handler)
     }
 }
 
