@@ -1,10 +1,18 @@
 use super::{ErrorResponseFilterKind, ErrorResponseFilterSpec, ProblemDetailErrorResponse};
+use crate::resources::ErrorResponseFilterRef;
 use http::Uri;
 use http::uri::InvalidUri;
 use thiserror::Error;
 use vg_http_config::filters::error_response::{
-    ErrorResponseFilter, ErrorResponseGenerator, ProblemDetailErrorResponseGenerator,
+    ErrorResponseFilter, ErrorResponseFilterRef as ErrorResponseFilterRefConfig,
+    ErrorResponseGenerator, ProblemDetailErrorResponseGenerator,
 };
+
+impl From<ErrorResponseFilterRef> for ErrorResponseFilterRefConfig {
+    fn from(value: ErrorResponseFilterRef) -> Self {
+        value.to_string().into()
+    }
+}
 
 impl TryFrom<&ErrorResponseFilterSpec> for ErrorResponseFilter {
     type Error = ErrorResponseFilterConversionError;

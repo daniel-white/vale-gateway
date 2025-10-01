@@ -2,14 +2,21 @@ use super::{
     ClientAddressFilterProxies, ClientAddressFilterProxiesTrustedHeaders,
     ClientAddressFilterSource, ClientAddressFilterSpec,
 };
+use crate::resources::ClientAddressFilterRef;
 use http::HeaderName;
 use http::header::InvalidHeaderName;
 use thiserror::Error;
 use vg_core::net::IpRef;
 use vg_http_config::filters::client_addr::{
-    ClientAddrExtractor, ClientAddrFilter, TrustedHeaderClientAddrExtractor,
-    TrustedProxiesClientAddrExtractor, TrustedProxyHeaderName,
+    ClientAddrExtractor, ClientAddrFilter, ClientAddrFilterRef as ClientAddrFilterRefConfig,
+    TrustedHeaderClientAddrExtractor, TrustedProxiesClientAddrExtractor, TrustedProxyHeaderName,
 };
+
+impl From<ClientAddressFilterRef> for ClientAddrFilterRefConfig {
+    fn from(value: ClientAddressFilterRef) -> Self {
+        value.to_string().into()
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum ClientAddrFilterConversionError {

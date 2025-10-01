@@ -1,9 +1,14 @@
+use derive_more::{From, FromStr};
 use getset::{CloneGetters, CopyGetters, Getters};
 use http::{StatusCode, Uri};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
 use vg_core::http::content_type::ContentTypeBuf;
+
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Hash, From, FromStr)]
+#[serde(transparent)]
+pub struct StaticResponseFilterRef(String);
 
 #[derive(
     Debug,

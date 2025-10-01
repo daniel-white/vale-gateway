@@ -1,10 +1,20 @@
 use super::{StaticResponseFilterBody, StaticResponseFilterBodyFormat, StaticResponseFilterSpec};
+use crate::resources::StaticResponseFilterRef;
 use base64ct::{Base64Unpadded, Encoding};
 use http::StatusCode;
 use http::status::InvalidStatusCode;
 use thiserror::Error;
 use vg_core::http::content_type::{ContentTypeBuf, ContentTypeConversionError};
-use vg_http_config::filters::static_response::{Body, BodyContent, StaticResponseFilter};
+use vg_http_config::filters::static_response::{
+    Body, BodyContent, StaticResponseFilter,
+    StaticResponseFilterRef as StaticResponseFilterRefConfig,
+};
+
+impl From<StaticResponseFilterRef> for StaticResponseFilterRefConfig {
+    fn from(value: StaticResponseFilterRef) -> Self {
+        value.to_string().into()
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum StaticResponseFilterConversionError {

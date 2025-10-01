@@ -1,3 +1,4 @@
+use derive_more::{From, FromStr};
 use getset::{CloneGetters, Getters};
 use http::HeaderName;
 use http::header::FORWARDED;
@@ -5,6 +6,10 @@ use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
 use vg_core::http::header::{X_FORWARDED_BY, X_FORWARDED_FOR, X_FORWARDED_HOST, X_FORWARDED_PROTO};
 use vg_core::net::IpRef;
+
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Hash, From, FromStr)]
+#[serde(transparent)]
+pub struct ClientAddrFilterRef(String);
 
 #[derive(
     Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,

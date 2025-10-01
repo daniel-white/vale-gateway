@@ -4,6 +4,7 @@ version = "0.0.0"
 edition = "2024"
 
 [dependencies]
+derive_more.workspace = true
 getset.workspace = true
 http.workspace = true
 http-serde-ext.workspace = true

@@ -1,8 +1,18 @@
 use super::{AccessControlFilterEffect, AccessControlFilterSpec};
+use crate::resources::AccessControlFilterRef;
 use std::collections::HashSet;
 use thiserror::Error;
 use vg_core::net::IpRef;
-use vg_http_config::filters::access_control::{AccessControlEffect, AccessControlFilter};
+use vg_http_config::filters::access_control::{
+    AccessControlEffect, AccessControlFilter,
+    AccessControlFilterRef as AccessControlFilterRefConfig,
+};
+
+impl From<AccessControlFilterRef> for AccessControlFilterRefConfig {
+    fn from(value: AccessControlFilterRef) -> Self {
+        value.to_string().into()
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum AccessControlFilterConversionError {

@@ -3024,6 +3024,7 @@ name = "vg-http-config"
 version = "0.0.0"
 dependencies = [
  "assertables",
+ "derive_more",
  "getset",
  "http",
  "http-serde-ext",

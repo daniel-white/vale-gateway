@@ -1,7 +1,12 @@
+use derive_more::{From, FromStr};
 use getset::{CloneGetters, Getters};
 use http::Uri;
 use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
+
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Hash, From, FromStr)]
+#[serde(transparent)]
+pub struct ErrorResponseFilterRef(String);
 
 #[derive(
     Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
