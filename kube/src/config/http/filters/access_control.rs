@@ -1,4 +1,4 @@
-use crate::api::v1::parameters::listeners::http::filters::access_control::{
+use crate::api::v1::http::filters::access_control::{
     AccessControlFilterEffect, AccessControlFilterSpec,
 };
 use std::collections::HashSet;

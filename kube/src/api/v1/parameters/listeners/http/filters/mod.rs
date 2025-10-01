@@ -1,28 +1,8 @@
 use crate::api::v1::common::Ref;
-use derive_more::{Deref, DerefMut, From};
-use gateway_api::common::{
-    HTTPRouteUrlRewrite as HTTPRouteUrlRewriteInner, HeaderModifier as HeaderModifierInner,
-    RequestRedirect as RequestRedirectInner,
-};
+use crate::api::v1::http::filters::header_modifier::HeaderModifier;
+use crate::api::v1::http::filters::request_redirect::RequestRedirect;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-
-pub mod access_control;
-pub mod client_addr;
-pub mod error_response;
-pub mod static_response;
-
-#[derive(Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq, Deref, DerefMut, From)]
-#[serde(transparent)]
-pub struct HeaderModifier(HeaderModifierInner);
-
-#[derive(Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq, Deref, DerefMut, From)]
-#[serde(transparent)]
-pub struct RequestRedirect(RequestRedirectInner);
-
-#[derive(Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq, Deref, DerefMut, From)]
-#[serde(transparent)]
-pub struct HTTPRouteUrlRewrite(HTTPRouteUrlRewriteInner);
 
 #[derive(Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq)]
 #[serde(rename_all = "camelCase")]

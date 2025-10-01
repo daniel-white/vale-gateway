@@ -3,10 +3,10 @@ use std::fs::File;
 use std::fs::create_dir_all;
 use std::io::Write;
 use std::path::Path;
-use vg_kube::api::v1::parameters::listeners::http::filters::access_control::AccessControlFilter;
-use vg_kube::api::v1::parameters::listeners::http::filters::client_addr::ClientAddressFilter;
-use vg_kube::api::v1::parameters::listeners::http::filters::error_response::ErrorResponseFilter;
-use vg_kube::api::v1::parameters::listeners::http::filters::static_response::StaticResponseFilter;
+use vg_kube::api::v1::http::filters::access_control::AccessControlFilter;
+use vg_kube::api::v1::http::filters::client_addr::ClientAddressFilter;
+use vg_kube::api::v1::http::filters::error_response::ErrorResponseFilter;
+use vg_kube::api::v1::http::filters::static_response::StaticResponseFilter;
 use vg_kube::api::v1::parameters::{GatewayClassParameters, GatewayParameters};
 
 fn main() {

@@ -1,4 +1,4 @@
-use crate::api::v1::parameters::listeners::http::filters::RequestRedirect;
+use crate::api::v1::http::filters::request_redirect::RequestRedirect;
 use gateway_api::common::{RequestOperationType, RequestRedirectScheme};
 use http::StatusCode;
 use http::uri::Scheme;

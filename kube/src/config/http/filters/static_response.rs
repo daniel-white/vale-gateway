@@ -1,4 +1,4 @@
-use crate::api::v1::parameters::listeners::http::filters::static_response::{
+use crate::api::v1::http::filters::static_response::{
     StaticResponseFilterBody, StaticResponseFilterBodyFormat, StaticResponseFilterSpec,
 };
 use base64ct::{Base64Unpadded, Encoding};

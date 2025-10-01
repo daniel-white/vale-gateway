@@ -1,4 +1,4 @@
-use crate::api::v1::parameters::listeners::http::filters::HTTPRouteUrlRewrite;
+use crate::api::v1::http::filters::http_route_url_rewrite::HTTPRouteUrlRewrite;
 use gateway_api::common::RequestOperationType;
 use thiserror::Error;
 use vg_http_config::filters::upstream_uri_rewrite::UpstreamUriRewriteFilter;

@@ -1,4 +1,4 @@
-use crate::api::v1::parameters::listeners::http::filters::client_addr::{
+use crate::api::v1::http::filters::client_addr::{
     ClientAddressFilterProxies, ClientAddressFilterProxiesTrustedHeaders,
     ClientAddressFilterSource, ClientAddressFilterSpec,
 };

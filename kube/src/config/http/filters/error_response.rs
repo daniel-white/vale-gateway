@@ -1,4 +1,4 @@
-use crate::api::v1::parameters::listeners::http::filters::error_response::{
+use crate::api::v1::http::filters::error_response::{
     ErrorResponseFilterKind, ErrorResponseFilterSpec, ProblemDetailErrorResponse,
 };
 use http::Uri;
