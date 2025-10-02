@@ -26,7 +26,7 @@ pub struct HeaderMatcher {
     value: HeaderValueMatcher,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, TypedBuilder)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, TypedBuilder)]
 #[serde(rename_all = "camelCase")]
 pub struct HeadersMatcher {
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
@@ -85,7 +85,7 @@ pub struct QueryParamMatcher {
     value: QueryParamValueMatcher,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, TypedBuilder)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, TypedBuilder)]
 #[serde(rename_all = "camelCase")]
 pub struct QueryParamsMatcher {
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
