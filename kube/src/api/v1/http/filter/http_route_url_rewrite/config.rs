@@ -1,5 +1,5 @@
-use super::HTTPRouteUrlRewrite;
-use gateway_api::common::RequestOperationType;
+use derive_more::{Deref, From};
+use gateway_api::common::{HTTPRouteUrlRewrite, RequestOperationType};
 use thiserror::Error;
 use vg_http_config::filter::upstream_uri_rewrite::UpstreamUriRewriteFilter;
 use vg_http_config::rewriting::uri::{PathRewrite, UriRewriter};
@@ -12,10 +12,10 @@ pub enum UpstreamUriRewriteConversionError {
     Path,
 }
 
-impl TryFrom<&HTTPRouteUrlRewrite> for UpstreamUriRewriteFilter {
+impl TryFrom<HTTPRouteUrlRewriteWrapper<'_>> for UpstreamUriRewriteFilter {
     type Error = UpstreamUriRewriteConversionError;
 
-    fn try_from(value: &HTTPRouteUrlRewrite) -> Result<Self, Self::Error> {
+    fn try_from(value: HTTPRouteUrlRewriteWrapper) -> Result<Self, Self::Error> {
         let path = value
             .path
             .as_ref()
@@ -48,3 +48,6 @@ impl TryFrom<&HTTPRouteUrlRewrite> for UpstreamUriRewriteFilter {
         Ok(filter)
     }
 }
+
+#[derive(Debug, Deref, From)]
+pub struct HTTPRouteUrlRewriteWrapper<'a>(&'a HTTPRouteUrlRewrite);

@@ -1,4 +1,5 @@
-use super::HeaderModifier;
+use derive_more::{Deref, From};
+use gateway_api::common::HeaderModifier;
 use http::header::{InvalidHeaderName, InvalidHeaderValue};
 use http::{HeaderMap, HeaderName, HeaderValue};
 use thiserror::Error;
@@ -20,10 +21,10 @@ pub enum HeaderModifierFilterConversionError {
     RemoveHeaderName(usize, InvalidHeaderName),
 }
 
-impl TryFrom<&HeaderModifier> for HeaderModifierFilter {
+impl TryFrom<HeaderModifierWrapper<'_>> for HeaderModifierFilter {
     type Error = HeaderModifierFilterConversionError;
 
-    fn try_from(value: &HeaderModifier) -> Result<Self, Self::Error> {
+    fn try_from(value: HeaderModifierWrapper) -> Result<Self, Self::Error> {
         let mut add = HeaderMap::new();
         if let Some(config) = &value.add {
             for (i, header) in config.iter().enumerate() {
@@ -72,3 +73,6 @@ impl TryFrom<&HeaderModifier> for HeaderModifierFilter {
         Ok(filter)
     }
 }
+
+#[derive(Debug, Deref, From)]
+pub struct HeaderModifierWrapper<'a>(&'a HeaderModifier);

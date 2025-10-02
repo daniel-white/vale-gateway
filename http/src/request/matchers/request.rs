@@ -16,13 +16,13 @@ use vg_http_config::request::matchers::RequestMatcher as RequestMatcherConfig;
 #[derive(Debug, TypedBuilder)]
 pub struct RequestMatcher {
     #[builder(setter(into))]
-    method_matcher: Option<MethodMatcher>,
+    method: Option<MethodMatcher>,
     #[builder(setter(into))]
-    path_matcher: Option<PathMatcher>,
+    path: Option<PathMatcher>,
     #[builder(setter(into))]
-    headers_matcher: Option<HeadersMatcher>,
+    headers: Option<HeadersMatcher>,
     #[builder(setter(into))]
-    query_params_matcher: Option<QueryParamsMatcher>,
+    query_params: Option<QueryParamsMatcher>,
 }
 
 impl RequestMatcher {
@@ -30,33 +30,33 @@ impl RequestMatcher {
     pub fn matches(&self, req: &Parts) -> RequestMatcherResult {
         let scorer = RequestMatcherScorer::default();
 
-        if let Some(method_matcher) = &self.method_matcher {
+        if let Some(method) = &self.method {
             trace!("Testing method for match");
-            if !method_matcher.matches(&scorer, req) {
+            if !method.matches(&scorer, req) {
                 debug!("Method did not match");
                 return RequestMatcherResult::NotMatched;
             }
         }
 
-        if let Some(path_matcher) = &self.path_matcher {
+        if let Some(path) = &self.path {
             trace!("Testing path for match");
-            if !path_matcher.matches(&scorer, req) {
+            if !path.matches(&scorer, req) {
                 debug!("Path did not match");
                 return RequestMatcherResult::NotMatched;
             }
         }
 
-        if let Some(headers_matcher) = &self.headers_matcher {
+        if let Some(headers) = &self.headers{
             trace!("Testing headers for match");
-            if !headers_matcher.matches(&scorer, req) {
+            if !headers.matches(&scorer, req) {
                 debug!("Headers did not match");
                 return RequestMatcherResult::NotMatched;
             }
         }
 
-        if let Some(query_params_matcher) = &self.query_params_matcher {
+        if let Some(query_params) = &self.query_params {
             trace!("Testing query parameters for match");
-            if !query_params_matcher.matches(&scorer, req) {
+            if !query_params.matches(&scorer, req) {
                 debug!("Query parameters did not match");
                 return RequestMatcherResult::NotMatched;
             }
@@ -84,24 +84,24 @@ impl TryFrom<&RequestMatcherConfig> for RequestMatcher {
     type Error = RequestMatcherConversionError;
 
     fn try_from(value: &RequestMatcherConfig) -> Result<Self, Self::Error> {
-        let method_matcher = value
+        let method = value
             .method()
             .as_ref()
             .map(MethodMatcher::try_from)
             .transpose()?;
-        let path_matcher = value
+        let path = value
             .path()
             .as_ref()
             .map(PathMatcher::try_from)
             .transpose()?;
-        let headers_matcher: HeadersMatcher = value.headers().try_into()?;
-        let query_params_matcher: QueryParamsMatcher = value.query_params().try_into()?;
+        let headers: HeadersMatcher = value.headers().try_into()?;
+        let query_params: QueryParamsMatcher = value.query_params().try_into()?;
 
         let matcher = Self::builder()
-            .method_matcher(method_matcher)
-            .path_matcher(path_matcher)
-            .headers_matcher(headers_matcher)
-            .query_params_matcher(query_params_matcher)
+            .method(method)
+            .path(path)
+            .headers(headers)
+            .query_params(query_params)
             .build();
 
         Ok(matcher)
@@ -226,10 +226,10 @@ mod tests {
     #[rstest]
     fn test_no_matchers_always_matches() {
         let matcher = RequestMatcher::builder()
-            .path_matcher(None)
-            .method_matcher(None)
-            .headers_matcher(None)
-            .query_params_matcher(None)
+            .path(None)
+            .method(None)
+            .headers(None)
+            .query_params(None)
             .build();
 
         let parts = create_request_parts(Method::GET, "http://example.com/any/path");
@@ -243,10 +243,10 @@ mod tests {
     #[rstest]
     fn test_method_matcher_success() {
         let matcher = RequestMatcher::builder()
-            .path_matcher(None)
-            .method_matcher(Some(MethodMatcher::from(Method::GET)))
-            .headers_matcher(None)
-            .query_params_matcher(None)
+            .path(None)
+            .method(Some(MethodMatcher::from(Method::GET)))
+            .headers(None)
+            .query_params(None)
             .build();
 
         let parts = create_request_parts(Method::GET, "http://example.com/test");
@@ -259,10 +259,10 @@ mod tests {
     #[rstest]
     fn test_method_matcher_failure() {
         let matcher = RequestMatcher::builder()
-            .path_matcher(None)
-            .method_matcher(Some(MethodMatcher::from(Method::PATCH)))
-            .headers_matcher(None)
-            .query_params_matcher(None)
+            .path(None)
+            .method(Some(MethodMatcher::from(Method::PATCH)))
+            .headers(None)
+            .query_params(None)
             .build();
 
         let parts = create_request_parts(Method::POST, "http://example.com/test");
@@ -277,10 +277,10 @@ mod tests {
     #[rstest]
     fn test_path_exact_matcher_success(path_exact_matcher: PathMatcher) {
         let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_exact_matcher))
-            .method_matcher(None)
-            .headers_matcher(None)
-            .query_params_matcher(None)
+            .path(Some(path_exact_matcher))
+            .method(None)
+            .headers(None)
+            .query_params(None)
             .build();
 
         let parts = create_request_parts(Method::GET, "http://example.com/api/v1/test");
@@ -293,10 +293,10 @@ mod tests {
     #[rstest]
     fn test_path_exact_matcher_failure(path_exact_matcher: PathMatcher) {
         let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_exact_matcher))
-            .method_matcher(None)
-            .headers_matcher(None)
-            .query_params_matcher(None)
+            .path(Some(path_exact_matcher))
+            .method(None)
+            .headers(None)
+            .query_params(None)
             .build();
 
         let parts = create_request_parts(Method::GET, "http://example.com/api/v2/test");
@@ -309,10 +309,10 @@ mod tests {
     #[rstest]
     fn test_path_prefix_matcher_success(path_prefix_matcher: PathMatcher) {
         let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_prefix_matcher))
-            .method_matcher(None)
-            .headers_matcher(None)
-            .query_params_matcher(None)
+            .path(Some(path_prefix_matcher))
+            .method(None)
+            .headers(None)
+            .query_params(None)
             .build();
 
         let parts = create_request_parts(Method::GET, "http://example.com/api/v1/users");
@@ -325,10 +325,10 @@ mod tests {
     #[rstest]
     fn test_path_prefix_matcher_failure(path_prefix_matcher: PathMatcher) {
         let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_prefix_matcher))
-            .method_matcher(None)
-            .headers_matcher(None)
-            .query_params_matcher(None)
+            .path(Some(path_prefix_matcher))
+            .method(None)
+            .headers(None)
+            .query_params(None)
             .build();
 
         let parts = create_request_parts(Method::GET, "http://example.com/web/v1/users");
@@ -340,10 +340,10 @@ mod tests {
     #[rstest]
     fn test_path_regex_matcher_success(path_regex_matcher: PathMatcher) {
         let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_regex_matcher))
-            .method_matcher(None)
-            .headers_matcher(None)
-            .query_params_matcher(None)
+            .path(Some(path_regex_matcher))
+            .method(None)
+            .headers(None)
+            .query_params(None)
             .build();
 
         let parts = create_request_parts(Method::GET, "http://example.com/api/v2/users");
@@ -356,10 +356,10 @@ mod tests {
     #[rstest]
     fn test_path_regex_matcher_failure(path_regex_matcher: PathMatcher) {
         let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_regex_matcher))
-            .method_matcher(None)
-            .headers_matcher(None)
-            .query_params_matcher(None)
+            .path(Some(path_regex_matcher))
+            .method(None)
+            .headers(None)
+            .query_params(None)
             .build();
 
         let parts = create_request_parts(Method::GET, "http://example.com/web/v1/users");
@@ -372,10 +372,10 @@ mod tests {
     #[rstest]
     fn test_headers_matcher_success(headers_matcher_single: HeadersMatcher) {
         let matcher = RequestMatcher::builder()
-            .path_matcher(None)
-            .method_matcher(None)
-            .headers_matcher(Some(headers_matcher_single))
-            .query_params_matcher(None)
+            .path(None)
+            .method(None)
+            .headers(Some(headers_matcher_single))
+            .query_params(None)
             .build();
 
         let parts = create_request_parts_with_headers(
@@ -391,10 +391,10 @@ mod tests {
     #[rstest]
     fn test_headers_matcher_failure(headers_matcher_single: HeadersMatcher) {
         let matcher = RequestMatcher::builder()
-            .path_matcher(None)
-            .method_matcher(None)
-            .headers_matcher(Some(headers_matcher_single))
-            .query_params_matcher(None)
+            .path(None)
+            .method(None)
+            .headers(Some(headers_matcher_single))
+            .query_params(None)
             .build();
 
         let parts = create_request_parts_with_headers(
@@ -410,10 +410,10 @@ mod tests {
     #[rstest]
     fn test_headers_matcher_missing_header(headers_matcher_single: HeadersMatcher) {
         let matcher = RequestMatcher::builder()
-            .path_matcher(None)
-            .method_matcher(None)
-            .headers_matcher(Some(headers_matcher_single))
-            .query_params_matcher(None)
+            .path(None)
+            .method(None)
+            .headers(Some(headers_matcher_single))
+            .query_params(None)
             .build();
 
         let parts = create_request_parts(Method::GET, "http://example.com/test");
@@ -425,10 +425,10 @@ mod tests {
     #[rstest]
     fn test_headers_matcher_multiple_success(headers_matcher_multiple: HeadersMatcher) {
         let matcher = RequestMatcher::builder()
-            .path_matcher(None)
-            .method_matcher(None)
-            .headers_matcher(Some(headers_matcher_multiple))
-            .query_params_matcher(None)
+            .path(None)
+            .method(None)
+            .headers(Some(headers_matcher_multiple))
+            .query_params(None)
             .build();
 
         let parts = create_request_parts_with_headers(
@@ -448,10 +448,10 @@ mod tests {
     #[rstest]
     fn test_headers_matcher_multiple_partial_failure(headers_matcher_multiple: HeadersMatcher) {
         let matcher = RequestMatcher::builder()
-            .path_matcher(None)
-            .method_matcher(None)
-            .headers_matcher(Some(headers_matcher_multiple))
-            .query_params_matcher(None)
+            .path(None)
+            .method(None)
+            .headers(Some(headers_matcher_multiple))
+            .query_params(None)
             .build();
 
         let parts = create_request_parts_with_headers(
@@ -468,10 +468,10 @@ mod tests {
     #[rstest]
     fn test_query_params_matcher_success(query_params_matcher: QueryParamsMatcher) {
         let matcher = RequestMatcher::builder()
-            .path_matcher(None)
-            .method_matcher(None)
-            .headers_matcher(None)
-            .query_params_matcher(Some(query_params_matcher))
+            .path(None)
+            .method(None)
+            .headers(None)
+            .query_params(Some(query_params_matcher))
             .build();
 
         let parts = create_request_parts(Method::GET, "http://example.com/test?version=v1");
@@ -484,10 +484,10 @@ mod tests {
     #[rstest]
     fn test_query_params_matcher_failure(query_params_matcher: QueryParamsMatcher) {
         let matcher = RequestMatcher::builder()
-            .path_matcher(None)
-            .method_matcher(None)
-            .headers_matcher(None)
-            .query_params_matcher(Some(query_params_matcher))
+            .path(None)
+            .method(None)
+            .headers(None)
+            .query_params(Some(query_params_matcher))
             .build();
 
         let parts = create_request_parts(Method::GET, "http://example.com/test?version=v2");
@@ -499,10 +499,10 @@ mod tests {
     #[rstest]
     fn test_query_params_matcher_missing_param(query_params_matcher: QueryParamsMatcher) {
         let matcher = RequestMatcher::builder()
-            .path_matcher(None)
-            .method_matcher(None)
-            .headers_matcher(None)
-            .query_params_matcher(Some(query_params_matcher))
+            .path(None)
+            .method(None)
+            .headers(None)
+            .query_params(Some(query_params_matcher))
             .build();
 
         let parts = create_request_parts(Method::GET, "http://example.com/test");
@@ -515,10 +515,10 @@ mod tests {
     #[rstest]
     fn test_all_matchers_success() {
         let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_prefix_matcher()))
-            .method_matcher(Some(MethodMatcher::from(Method::GET)))
-            .headers_matcher(Some(headers_matcher_single()))
-            .query_params_matcher(Some(query_params_matcher()))
+            .path(Some(path_prefix_matcher()))
+            .method(Some(MethodMatcher::from(Method::GET)))
+            .headers(Some(headers_matcher_single()))
+            .query_params(Some(query_params_matcher()))
             .build();
 
         let parts = create_request_parts_with_headers(
@@ -535,10 +535,10 @@ mod tests {
     #[rstest]
     fn test_all_matchers_method_failure() {
         let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_prefix_matcher()))
-            .method_matcher(Some(MethodMatcher::from(Method::GET)))
-            .headers_matcher(Some(headers_matcher_single()))
-            .query_params_matcher(Some(query_params_matcher()))
+            .path(Some(path_prefix_matcher()))
+            .method(Some(MethodMatcher::from(Method::GET)))
+            .headers(Some(headers_matcher_single()))
+            .query_params(Some(query_params_matcher()))
             .build();
 
         let parts = create_request_parts_with_headers(
@@ -554,10 +554,10 @@ mod tests {
     #[rstest]
     fn test_all_matchers_path_failure() {
         let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_prefix_matcher()))
-            .method_matcher(Some(MethodMatcher::from(Method::GET)))
-            .headers_matcher(Some(headers_matcher_single()))
-            .query_params_matcher(Some(query_params_matcher()))
+            .path(Some(path_prefix_matcher()))
+            .method(Some(MethodMatcher::from(Method::GET)))
+            .headers(Some(headers_matcher_single()))
+            .query_params(Some(query_params_matcher()))
             .build();
 
         let parts = create_request_parts_with_headers(
@@ -573,10 +573,10 @@ mod tests {
     #[rstest]
     fn test_all_matchers_headers_failure() {
         let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_prefix_matcher()))
-            .method_matcher(Some(MethodMatcher::from(Method::GET)))
-            .headers_matcher(Some(headers_matcher_single()))
-            .query_params_matcher(Some(query_params_matcher()))
+            .path(Some(path_prefix_matcher()))
+            .method(Some(MethodMatcher::from(Method::GET)))
+            .headers(Some(headers_matcher_single()))
+            .query_params(Some(query_params_matcher()))
             .build();
 
         let parts = create_request_parts_with_headers(
@@ -592,10 +592,10 @@ mod tests {
     #[rstest]
     fn test_all_matchers_query_params_failure() {
         let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_prefix_matcher()))
-            .method_matcher(Some(MethodMatcher::from(Method::GET)))
-            .headers_matcher(Some(headers_matcher_single()))
-            .query_params_matcher(Some(query_params_matcher()))
+            .path(Some(path_prefix_matcher()))
+            .method(Some(MethodMatcher::from(Method::GET)))
+            .headers(Some(headers_matcher_single()))
+            .query_params(Some(query_params_matcher()))
             .build();
 
         let parts = create_request_parts_with_headers(
@@ -667,10 +667,10 @@ mod tests {
     #[rstest]
     fn test_short_circuit_on_method_failure() {
         let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_exact_matcher())) // This would match
-            .method_matcher(Some(MethodMatcher::from(Method::GET))) // This will fail
-            .headers_matcher(Some(headers_matcher_single()))
-            .query_params_matcher(Some(query_params_matcher()))
+            .path(Some(path_exact_matcher())) // This would match
+            .method(Some(MethodMatcher::from(Method::GET))) // This will fail
+            .headers(Some(headers_matcher_single()))
+            .query_params(Some(query_params_matcher()))
             .build();
 
         let parts = create_request_parts_with_headers(
@@ -688,10 +688,10 @@ mod tests {
     fn test_empty_uri_path() {
         let path_matcher = PathMatcher::Exact("".into());
         let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_matcher))
-            .method_matcher(None)
-            .headers_matcher(None)
-            .query_params_matcher(None)
+            .path(Some(path_matcher))
+            .method(None)
+            .headers(None)
+            .query_params(None)
             .build();
 
         let parts = create_request_parts(Method::GET, "http://example.com");
@@ -704,10 +704,10 @@ mod tests {
     fn test_root_path() {
         let path_matcher = PathMatcher::Exact("/".into());
         let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_matcher))
-            .method_matcher(None)
-            .headers_matcher(None)
-            .query_params_matcher(None)
+            .path(Some(path_matcher))
+            .method(None)
+            .headers(None)
+            .query_params(None)
             .build();
 
         let parts = create_request_parts(Method::GET, "http://example.com/");
@@ -720,10 +720,10 @@ mod tests {
     fn test_complex_uri_with_query_and_fragment() {
         let path_matcher = PathMatcher::Prefix("/api".into());
         let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_matcher))
-            .method_matcher(None)
-            .headers_matcher(None)
-            .query_params_matcher(None)
+            .path(Some(path_matcher))
+            .method(None)
+            .headers(None)
+            .query_params(None)
             .build();
 
         let parts = create_request_parts(
@@ -742,10 +742,10 @@ mod tests {
     fn test_case_sensitive_path_matching() {
         let path_matcher = PathMatcher::Exact("/API/Test".into());
         let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_matcher))
-            .method_matcher(None)
-            .headers_matcher(None)
-            .query_params_matcher(None)
+            .path(Some(path_matcher))
+            .method(None)
+            .headers(None)
+            .query_params(None)
             .build();
 
         let parts_exact = create_request_parts(Method::GET, "http://example.com/API/Test");
@@ -762,10 +762,10 @@ mod tests {
     fn test_special_characters_in_path() {
         let path_matcher = PathMatcher::Exact("/api/users/user-123_test.json".into());
         let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_matcher))
-            .method_matcher(None)
-            .headers_matcher(None)
-            .query_params_matcher(None)
+            .path(Some(path_matcher))
+            .method(None)
+            .headers(None)
+            .query_params(None)
             .build();
 
         let parts = create_request_parts(
@@ -781,10 +781,10 @@ mod tests {
     #[rstest]
     fn test_comprehensive_scoring_exact_path() {
         let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_exact_matcher()))
-            .method_matcher(Some(MethodMatcher::from(Method::GET)))
-            .headers_matcher(Some(headers_matcher_multiple()))
-            .query_params_matcher(Some(query_params_matcher()))
+            .path(Some(path_exact_matcher()))
+            .method(Some(MethodMatcher::from(Method::GET)))
+            .headers(Some(headers_matcher_multiple()))
+            .query_params(Some(query_params_matcher()))
             .build();
 
         let parts = create_request_parts_with_headers(
@@ -804,10 +804,10 @@ mod tests {
     #[rstest]
     fn test_comprehensive_scoring_prefix_path() {
         let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_prefix_matcher()))
-            .method_matcher(Some(MethodMatcher::from(Method::GET)))
-            .headers_matcher(Some(headers_matcher_single()))
-            .query_params_matcher(Some(query_params_matcher()))
+            .path(Some(path_prefix_matcher()))
+            .method(Some(MethodMatcher::from(Method::GET)))
+            .headers(Some(headers_matcher_single()))
+            .query_params(Some(query_params_matcher()))
             .build();
 
         let parts = create_request_parts_with_headers(
@@ -829,10 +829,10 @@ mod tests {
         let path_matcher = PathMatcher::RegularExpression(complex_regex.into());
 
         let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_matcher))
-            .method_matcher(None)
-            .headers_matcher(None)
-            .query_params_matcher(None)
+            .path(Some(path_matcher))
+            .method(None)
+            .headers(None)
+            .query_params(None)
             .build();
 
         let uuid = "550e8400-e29b-41d4-a716-446655440000";
@@ -857,10 +857,10 @@ mod tests {
             .build();
 
         let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_matcher))
-            .method_matcher(Some(method_matcher))
-            .headers_matcher(Some(headers_matcher))
-            .query_params_matcher(None)
+            .path(Some(path_matcher))
+            .method(Some(method_matcher))
+            .headers(Some(headers_matcher))
+            .query_params(None)
             .build();
 
         let parts = create_request_parts_with_headers(
@@ -886,10 +886,10 @@ mod tests {
             .build();
 
         let matcher = RequestMatcher::builder()
-            .path_matcher(Some(path_matcher))
-            .method_matcher(Some(method_matcher))
-            .headers_matcher(Some(headers_matcher))
-            .query_params_matcher(None)
+            .path(Some(path_matcher))
+            .method(Some(method_matcher))
+            .headers(Some(headers_matcher))
+            .query_params(None)
             .build();
 
         let parts = create_request_parts_with_headers(

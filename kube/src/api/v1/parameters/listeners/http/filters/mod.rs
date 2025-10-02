@@ -1,8 +1,18 @@
 use crate::api::v1::common::Ref;
-use crate::api::v1::http::filter::header_modifier::HeaderModifier;
-use crate::api::v1::http::filter::request_redirect::RequestRedirect;
+use derive_more::{Deref, DerefMut, From};
+use gateway_api::common::{
+    HeaderModifier as HeaderModifierInner, RequestRedirect as RequestRedirectInner,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+#[derive(Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq, Deref, DerefMut, From)]
+#[serde(transparent)]
+pub struct RequestRedirect(RequestRedirectInner);
+
+#[derive(Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq, Deref, DerefMut, From)]
+#[serde(transparent)]
+pub struct HeaderModifier(HeaderModifierInner);
 
 #[derive(Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq)]
 #[serde(rename_all = "camelCase")]

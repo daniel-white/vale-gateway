@@ -1,5 +1,5 @@
-use super::RequestRedirect;
-use gateway_api::common::{RequestOperationType, RequestRedirectScheme};
+use derive_more::{Deref, From};
+use gateway_api::common::{RequestOperationType, RequestRedirect, RequestRedirectScheme};
 use http::StatusCode;
 use http::uri::Scheme;
 use thiserror::Error;
@@ -19,10 +19,10 @@ pub enum RedirectResponseFilterConversionError {
     Port,
 }
 
-impl TryFrom<&RequestRedirect> for RedirectResponseFilter {
+impl TryFrom<RequestRedirectWrapper<'_>> for RedirectResponseFilter {
     type Error = RedirectResponseFilterConversionError;
 
-    fn try_from(value: &RequestRedirect) -> Result<Self, Self::Error> {
+    fn try_from(value: RequestRedirectWrapper) -> Result<Self, Self::Error> {
         let status_code = value
             .status_code
             .map(u16::try_from)
@@ -46,10 +46,10 @@ impl TryFrom<&RequestRedirect> for RedirectResponseFilter {
     }
 }
 
-impl TryFrom<&RequestRedirect> for UriRewriter {
+impl TryFrom<RequestRedirectWrapper<'_>> for UriRewriter {
     type Error = RedirectResponseFilterConversionError;
 
-    fn try_from(value: &RequestRedirect) -> Result<Self, Self::Error> {
+    fn try_from(value: RequestRedirectWrapper) -> Result<Self, Self::Error> {
         let scheme = value.scheme.as_ref().map(|scheme| match scheme {
             RequestRedirectScheme::Http => Scheme::HTTP,
             RequestRedirectScheme::Https => Scheme::HTTPS,
@@ -96,3 +96,6 @@ impl TryFrom<&RequestRedirect> for UriRewriter {
         Ok(uri)
     }
 }
+
+#[derive(Debug, Deref, From)]
+pub struct RequestRedirectWrapper<'a>(&'a RequestRedirect);
