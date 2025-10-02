@@ -1,13 +1,13 @@
 use super::Matcher;
-use crate::request::matchers::basic::{ExactMatcher, RegularExpressionMatcher};
-use crate::request::matchers::scoring::RequestMatcherScorer;
+use crate::routing::matchers::basic::{ExactMatcher, RegularExpressionMatcher};
+use crate::routing::matchers::scoring::RequestMatcherScorer;
 use http::request::Parts;
 use http::{HeaderName, HeaderValue};
 use regex::Regex;
 use thiserror::Error;
 use tracing::{debug, instrument};
 use typed_builder::TypedBuilder;
-use vg_http_config::request::matchers::{
+use vg_http_config::routing::matchers::{
     HeaderMatcher as HeaderMatcherConfig, HeaderValueMatcher as HeaderValueMatcherConfig,
     HeadersMatcher as HeadersMatcherConfig,
 };

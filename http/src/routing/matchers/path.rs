@@ -5,7 +5,7 @@ use http::request::Parts;
 use regex::Regex;
 use thiserror::Error;
 use tracing::{debug, instrument};
-use vg_http_config::request::matchers::PathMatcher as PathMatcherConfig;
+use vg_http_config::routing::matchers::PathMatcher as PathMatcherConfig;
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]

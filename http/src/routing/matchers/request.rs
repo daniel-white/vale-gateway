@@ -1,17 +1,15 @@
-use crate::request::matchers::Matcher;
-use crate::request::matchers::RequestMatchDetails;
-use crate::request::matchers::header::{HeadersMatcher, HeadersMatcherConversionError};
-use crate::request::matchers::method::{MethodMatcher, MethodMatcherConversionError};
-use crate::request::matchers::path::{PathMatcher, PathMatcherConversionError};
-use crate::request::matchers::query_param::{
-    QueryParamsMatcher, QueryParamsMatcherConversionError,
-};
-use crate::request::matchers::scoring::{RequestMatchScore, RequestMatcherScorer};
+use super::Matcher;
+use super::RequestMatchDetails;
+use super::header::{HeadersMatcher, HeadersMatcherConversionError};
+use super::method::{MethodMatcher, MethodMatcherConversionError};
+use super::path::{PathMatcher, PathMatcherConversionError};
+use super::query_param::{QueryParamsMatcher, QueryParamsMatcherConversionError};
+use super::scoring::{RequestMatchScore, RequestMatcherScorer};
 use http::request::Parts;
 use thiserror::Error;
 use tracing::{debug, instrument, trace};
 use typed_builder::TypedBuilder;
-use vg_http_config::request::matchers::RequestMatcher as RequestMatcherConfig;
+use vg_http_config::routing::matchers::RequestMatcher as RequestMatcherConfig;
 
 #[derive(Debug, TypedBuilder)]
 pub struct RequestMatcher {
@@ -46,7 +44,7 @@ impl RequestMatcher {
             }
         }
 
-        if let Some(headers) = &self.headers{
+        if let Some(headers) = &self.headers {
             trace!("Testing headers for match");
             if !headers.matches(&scorer, req) {
                 debug!("Headers did not match");
@@ -62,7 +60,7 @@ impl RequestMatcher {
             }
         }
 
-        debug!("All routing rule matches succeeded");
+        debug!("All route rule matches succeeded");
         let score = scorer.results();
         RequestMatcherResult::Matched(score)
     }
@@ -137,17 +135,15 @@ impl RequestMatchDetails for RequestMatcherResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::request::matchers::header::{HeaderMatcher, HeadersMatcher};
-    use crate::request::matchers::method::MethodMatcher;
-    use crate::request::matchers::path::PathMatcher;
-    use crate::request::matchers::query_param::{QueryParamMatcher, QueryParamsMatcher};
+    use crate::routing::matchers::header::HeaderMatcher;
+    use crate::routing::matchers::query_param::QueryParamMatcher;
     use assertables::*;
     use http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
     use http::{HeaderValue, Method, Request, Version};
     use regex::Regex;
     use rstest::*;
 
-    // Helper function to create routing parts
+    // Helper function to create route parts
     fn create_request_parts(method: Method, uri: &str) -> Parts {
         let request = Request::builder()
             .method(method)

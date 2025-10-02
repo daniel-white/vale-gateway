@@ -4,6 +4,7 @@ use thiserror::Error;
 use typed_builder::TypedBuilder;
 use vg_http_config::routing::TimeoutPolicy as TimeoutPolicyConfig;
 
+pub mod matchers;
 pub mod upstream;
 
 #[derive(Debug, TypedBuilder, CopyGetters)]

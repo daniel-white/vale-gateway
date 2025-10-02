@@ -1,5 +1,5 @@
-use crate::request::matchers::RequestMatchDetails;
 use crate::rewriting::uri::{UriRewriter, UriRewriterConversionError};
+use crate::routing::matchers::RequestMatchDetails;
 use http::header::LOCATION;
 use http::request::Parts;
 use http::{Response, StatusCode};
@@ -80,7 +80,7 @@ mod tests {
             .uri(uri_rewriter)
             .build();
 
-        // Create mock routing parts
+        // Create mock route parts
         let mut request_parts = create_empty_parts();
         request_parts.uri = Uri::from_str("/old-path").unwrap();
 

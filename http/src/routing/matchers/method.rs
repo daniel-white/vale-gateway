@@ -6,7 +6,7 @@ use http::request::Parts;
 use thiserror::Error;
 use tracing::{debug, instrument};
 use typed_builder::TypedBuilder;
-use vg_http_config::request::matchers::MethodMatcher as MethodMatcherConfig;
+use vg_http_config::routing::matchers::MethodMatcher as MethodMatcherConfig;
 
 #[derive(Debug, TypedBuilder)]
 #[cfg_attr(test, derive(PartialEq))]

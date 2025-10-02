@@ -7,7 +7,7 @@ use http::Method;
 use http::header::{InvalidHeaderName, InvalidHeaderValue};
 use regex::Regex;
 use thiserror::Error;
-use vg_http_config::request::matchers::{
+use vg_http_config::routing::matchers::{
     HeaderMatcher, HeaderValueMatcher, HeadersMatcher, MethodMatcher, PathMatcher,
     QueryParamMatcher, QueryParamValueMatcher, QueryParamsMatcher, RequestMatcher,
 };
@@ -57,7 +57,6 @@ pub enum RequestMatcherConversionError {
 #[derive(Debug, Deref)]
 struct HTTPMethodMatchWrapper<'a>(&'a HTTPMethodMatch);
 
-// TryFrom implementations for each newtype matcher
 impl TryFrom<HTTPMethodMatchWrapper<'_>> for MethodMatcher {
     type Error = MethodMatcherConversionError;
 

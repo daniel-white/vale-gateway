@@ -1,4 +1,4 @@
-use crate::request::matchers::RequestMatchDetails;
+use crate::routing::matchers::RequestMatchDetails;
 use hickory_proto::ProtoError;
 use hickory_proto::rr::Name;
 use http::Uri;

@@ -222,7 +222,7 @@ mod tests {
             let body_str = String::from_utf8_lossy(body);
             assert!(body_str.contains("<html>"));
             assert!(body_str.contains("<body>"));
-            assert!(body_str.contains("No matching routing found"));
+            assert!(body_str.contains("No matching route found"));
             assert!(body_str.contains("</body>"));
             assert!(body_str.contains("</html>"));
         }
@@ -332,7 +332,7 @@ mod tests {
             let no_route_str = String::from_utf8_lossy(no_route_body);
             let access_denied_str = String::from_utf8_lossy(access_denied_body);
 
-            assert!(no_route_str.contains("No matching routing found"));
+            assert!(no_route_str.contains("No matching route found"));
             assert!(access_denied_str.contains("Access denied"));
             assert_ne!(no_route_str, access_denied_str);
         }

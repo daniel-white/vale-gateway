@@ -1,8 +1,8 @@
-use crate::request::matchers::RequestMatchDetails;
-use crate::request::matchers::header::HeadersMatcher;
-use crate::request::matchers::method::MethodMatcher;
-use crate::request::matchers::path::PathMatcher;
-use crate::request::matchers::query_param::QueryParamsMatcher;
+use super::RequestMatchDetails;
+use super::header::HeadersMatcher;
+use super::method::MethodMatcher;
+use super::path::PathMatcher;
+use super::query_param::QueryParamsMatcher;
 use std::cell::Cell;
 use std::cmp::Ordering;
 use tracing::instrument;
@@ -144,13 +144,8 @@ impl RequestMatcherScorer {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    use crate::request::matchers::header::{HeaderMatcher, HeadersMatcher};
-    use crate::request::matchers::method::MethodMatcher;
-    use crate::request::matchers::path::PathMatcher;
-    use crate::request::matchers::query_param::{
-        QueryParamMatcher, QueryParamValueMatcher, QueryParamsMatcher,
-    };
+    use crate::routing::matchers::header::HeaderMatcher;
+    use crate::routing::matchers::query_param::{QueryParamMatcher, QueryParamValueMatcher};
     use assertables::*;
     use http::header::{ACCEPT, CONTENT_TYPE};
     use http::{HeaderValue, Method};

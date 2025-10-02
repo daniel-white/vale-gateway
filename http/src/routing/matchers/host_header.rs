@@ -6,7 +6,7 @@ use http::{HeaderMap, HeaderValue};
 use thiserror::Error;
 use tracing::{debug, instrument};
 use typed_builder::TypedBuilder;
-use vg_http_config::request::matchers::{
+use vg_http_config::routing::matchers::{
     HostHeaderMatcher as HostHeaderMatcherConfig,
     HostHeaderValueMatcher as HostHeaderValueMatcherConfig,
 };

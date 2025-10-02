@@ -5,6 +5,8 @@ use typed_builder::TypedBuilder;
 
 pub mod upstream;
 
+pub mod matchers;
+
 #[derive(
     Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CopyGetters, TypedBuilder,
 )]

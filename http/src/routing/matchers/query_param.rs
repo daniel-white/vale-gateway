@@ -7,7 +7,7 @@ use std::borrow::Cow;
 use thiserror::Error;
 use tracing::{debug, instrument};
 use typed_builder::TypedBuilder;
-use vg_http_config::request::matchers::{
+use vg_http_config::routing::matchers::{
     QueryParamMatcher as QueryParamMatcherConfig,
     QueryParamValueMatcher as QueryParamValueMatcherConfig,
     QueryParamsMatcher as QueryParamsMatcherConfig,

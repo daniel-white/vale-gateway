@@ -35,7 +35,7 @@ impl ErrorResponseCode {
 
     pub fn message(&self) -> Cow<'static, str> {
         match self {
-            Self::NoRoute => "No matching routing found".into(),
+            Self::NoRoute => "No matching route found".into(),
             Self::AccessDenied => "Access denied".into(),
             Self::MissingConfiguration => "Missing configuration".into(),
             Self::UpstreamUnavailable => "Upstream unavailable".into(),
@@ -86,7 +86,7 @@ mod tests {
     }
 
     #[rstest]
-    #[case(ErrorResponseCode::NoRoute, "No matching routing found")]
+    #[case(ErrorResponseCode::NoRoute, "No matching route found")]
     #[case(ErrorResponseCode::AccessDenied, "Access denied")]
     #[case(ErrorResponseCode::MissingConfiguration, "Missing configuration")]
     #[case(ErrorResponseCode::UpstreamUnavailable, "Upstream unavailable")]
