@@ -4,10 +4,10 @@ mod kinds;
 mod macros;
 mod namespace_scoped;
 
-use crate::api::v1::http::filters::access_control::AccessControlFilter;
-use crate::api::v1::http::filters::client_addr::ClientAddressFilter;
-use crate::api::v1::http::filters::error_response::ErrorResponseFilter;
-use crate::api::v1::http::filters::static_response::StaticResponseFilter;
+use crate::api::v1::http::filter::access_control::AccessControlFilter;
+use crate::api::v1::http::filter::client_addr::ClientAddressFilter;
+use crate::api::v1::http::filter::error_response::ErrorResponseFilter;
+use crate::api::v1::http::filter::static_response::StaticResponseFilter;
 use crate::api::v1::parameters::{GatewayClassParameters, GatewayParameters};
 use crate::{cluster_scope, namespace_scope};
 pub use cluster_scoped::*;

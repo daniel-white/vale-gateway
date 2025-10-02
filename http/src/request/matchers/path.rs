@@ -586,7 +586,7 @@ mod tests {
 
     #[rstest]
     #[case("?param1=value1&param2=value2&param3=value3")]
-    #[case("?search=test%20query&filters[category]=electronics&filters[price_min]=100")]
+    #[case("?search=test%20query&match[category]=electronics&match[price_min]=100")]
     #[case("?callback=jsonp_callback_123&api_key=secret123&timestamp=1234567890")]
     #[case("?redirect_uri=https%3A%2F%2Fexample.com%2Fcallback&state=random_state_123")]
     #[case("?empty=&null&boolean=true&number=42&array[]=item1&array[]=item2")]

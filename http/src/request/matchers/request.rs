@@ -62,7 +62,7 @@ impl RequestMatcher {
             }
         }
 
-        debug!("All route rule matches succeeded");
+        debug!("All routing rule matches succeeded");
         let score = scorer.results();
         RequestMatcherResult::Matched(score)
     }
@@ -147,7 +147,7 @@ mod tests {
     use regex::Regex;
     use rstest::*;
 
-    // Helper function to create request parts
+    // Helper function to create routing parts
     fn create_request_parts(method: Method, uri: &str) -> Parts {
         let request = Request::builder()
             .method(method)

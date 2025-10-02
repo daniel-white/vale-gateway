@@ -1,4 +1,4 @@
-pub mod filters;
+pub mod filter;
 pub mod header;
 pub mod request;
 pub mod rewriting;

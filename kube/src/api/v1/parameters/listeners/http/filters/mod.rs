@@ -1,6 +1,6 @@
 use crate::api::v1::common::Ref;
-use crate::api::v1::http::filters::header_modifier::HeaderModifier;
-use crate::api::v1::http::filters::request_redirect::RequestRedirect;
+use crate::api::v1::http::filter::header_modifier::HeaderModifier;
+use crate::api::v1::http::filter::request_redirect::RequestRedirect;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

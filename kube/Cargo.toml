@@ -28,6 +28,7 @@ kube-leader-election.workspace = true
 multi-map.workspace = true
 ouroboros.workspace = true
 paste.workspace = true
+regex.workspace = true
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true

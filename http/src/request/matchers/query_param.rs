@@ -211,7 +211,7 @@ mod tests {
     #[rstest]
     #[case("page")]
     #[case("limit")]
-    #[case("filter")]
+    #[case("match")]
     #[case("sort_by")]
     #[case("api_key")]
     fn test_query_param_name_matcher_exact_match(#[case] param_name: &str) {
@@ -229,7 +229,7 @@ mod tests {
     #[case("page", "limit", false)]
     #[case("api_key", "api_key", true)]
     #[case("sort", "sort_by", false)]
-    #[case("filter", "filters", false)]
+    #[case("match", "match", false)]
     fn test_query_param_name_matcher_different_names(
         #[case] matcher_name: &str,
         #[case] test_name: &str,
@@ -570,7 +570,7 @@ mod tests {
     #[rstest]
     #[case("param1=value1&param2=value2")]
     #[case("search=test%20query&category=electronics")]
-    #[case("filters[]=item1&filters[]=item2")]
+    #[case("match[]=item1&match[]=item2")]
     #[case("nested[key]=value&nested[other]=another")]
     fn test_query_params_matcher_complex_query_strings(#[case] query: &str) {
         // Arrange
