@@ -20,8 +20,8 @@ pub enum PathRewrite {
 impl From<PathRewriteConfig> for PathRewrite {
     fn from(value: PathRewriteConfig) -> Self {
         match value {
-            PathRewriteConfig::Full(value) => PathRewrite::Full(value),
-            PathRewriteConfig::PrefixMatch(value) => PathRewrite::PrefixMatch(value),
+            PathRewriteConfig::ReplaceWith(value) => PathRewrite::Full(value),
+            PathRewriteConfig::ReplacePrefixWith(value) => PathRewrite::PrefixMatch(value),
         }
     }
 }

@@ -12,6 +12,7 @@ ipnet.workspace = true
 mediatype.workspace = true
 regex.workspace = true
 serde.workspace = true
+serde_with.workspace = true
 typed-builder.workspace = true
 vg-core = { path = "../core" }
 

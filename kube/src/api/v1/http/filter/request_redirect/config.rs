@@ -65,10 +65,10 @@ impl TryFrom<RequestRedirectWrapper<'_>> for UriRewriter {
                     path.replace_prefix_match.clone(),
                 ) {
                     (RequestOperationType::ReplaceFullPath, Some(r), None) => {
-                        Ok(PathRewrite::Full(r))
+                        Ok(PathRewrite::ReplaceWith(r))
                     }
                     (RequestOperationType::ReplacePrefixMatch, None, Some(r)) => {
-                        Ok(PathRewrite::PrefixMatch(r))
+                        Ok(PathRewrite::ReplacePrefixWith(r))
                     }
                     _ => Err(RedirectResponseFilterConversionError::Path),
                 }

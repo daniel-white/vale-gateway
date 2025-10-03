@@ -49,8 +49,10 @@ impl UriRewriter {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", content = "value", rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]
 pub enum PathRewrite {
-    Full(String),
-    PrefixMatch(String),
+    #[serde(rename = "replaceWith")]
+    ReplaceWith(String),
+    #[serde(rename = "replacePrefixWith")]
+    ReplacePrefixWith(String),
 }

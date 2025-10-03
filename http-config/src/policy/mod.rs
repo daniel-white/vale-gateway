@@ -1,9 +1,11 @@
 use getset::{CopyGetters, Getters};
 use http::StatusCode;
 use serde::{Deserialize, Serialize};
+use serde_with::*;
 use std::time::Duration;
 use typed_builder::TypedBuilder;
 
+#[serde_as]
 #[derive(
     Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CopyGetters, TypedBuilder,
 )]
@@ -15,14 +17,19 @@ pub struct RetryPolicy {
     #[getset(get_copy = "pub")]
     max_attempts: usize,
     #[getset(get_copy = "pub")]
+    #[serde(rename = "backoffSecs")]
+    #[serde_as(as = "DurationSecondsWithFrac")]
     backoff: Duration,
 }
 
+#[serde_as]
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Getters, CopyGetters, TypedBuilder,
 )]
 #[serde(rename_all = "camelCase")]
 pub struct TimeoutPolicy {
     #[getset(get_copy = "pub")]
+    #[serde(rename = "durationSecs")]
+    #[serde_as(as = "DurationSecondsWithFrac")]
     duration: Duration,
 }

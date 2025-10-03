@@ -1,22 +1,77 @@
 {
-  "method": "PATCH",
-  "path": {
-    "regex": "^/api/v1/.*$"
+  "name": "api-v1-patch-route",
+  "matches": {
+    "method": {
+      "method": "PATCH"
+    },
+    "path": {
+      "regex": "^/api/v1/.*$"
+    },
+    "headers": [
+      {
+        "name": "content-type",
+        "value": "application/json"
+      },
+      {
+        "name": "accept",
+        "regex": "^text/.*"
+      }
+    ],
+    "queryParams": [
+      {
+        "name": "pageSize",
+        "regex": "^\\d$"
+      }
+    ]
   },
-  "headers": [
+  "filters": [
     {
-      "name": "content-type",
-      "value": "application/json"
+      "kind": "requestHeaderModifier",
+      "add": {
+        "x-api-version": "v1",
+        "x-request-id": "generated-id"
+      },
+      "set": {
+        "user-agent": "vale-gateway/1.0"
+      },
+      "remove": ["x-forwarded-for"]
     },
     {
-      "name": "accept",
-      "regex": "^text/.*"
+      "kind": "responseHeaderModifier",
+      "add": {
+        "x-response-time": "auto",
+        "cache-control": "no-cache"
+      },
+      "set": {
+        "server": "vale-gateway"
+      },
+      "remove": ["x-powered-by"]
+    },
+    {
+      "kind": "accessControl",
+      "ref": "api-access-policy"
+    },
+    {
+      "kind": "upstreamUriRewrite",
+      "scheme": "https",
+      "host": "backend-api.internal",
+      "port": 8080,
+      "path": {
+        "replacePrefixWith": "/internal/api/v1"
+      }
     }
   ],
-  "queryParams": [
-    {
-      "name": "pageSize",
-      "regex": "^\\d$"
+  "timeouts": {
+    "request": {
+      "durationSecs": 30.0
+    },
+    "upstreamRequest": {
+      "durationSecs": 25.0
     }
-  ]
+  },
+  "retry": {
+    "codes": [500, 502, 503, 504],
+    "maxAttempts": 3,
+    "backoffSecs": 1000
+  }
 }
