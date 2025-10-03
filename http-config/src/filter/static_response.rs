@@ -90,3 +90,25 @@ impl From<Uri> for BodyContent {
         Self::Remote(value)
     }
 }
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct StaticResponseRouteRuleFilter {
+    #[getset(get = "pub")]
+    #[serde(rename = "ref")]
+    #[builder(setter(into))]
+    ref_: StaticResponseFilterRef,
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct StaticResponseGatewayFilter {
+    #[getset(get = "pub")]
+    #[serde(rename = "ref")]
+    #[builder(setter(into))]
+    ref_: StaticResponseFilterRef,
+}

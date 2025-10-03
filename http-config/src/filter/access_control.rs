@@ -27,3 +27,25 @@ pub struct AccessControlFilter {
     #[getset(get = "pub")]
     clients: Vec<IpRef>,
 }
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct AccessControlRouteRuleFilter {
+    #[getset(get = "pub")]
+    #[serde(rename = "ref")]
+    #[builder(setter(into))]
+    ref_: AccessControlFilterRef,
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct AccessControlGatewayFilter {
+    #[getset(get = "pub")]
+    #[serde(rename = "ref")]
+    #[builder(setter(into))]
+    ref_: AccessControlFilterRef,
+}

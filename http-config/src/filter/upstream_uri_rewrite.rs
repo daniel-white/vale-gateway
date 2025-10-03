@@ -1,4 +1,5 @@
 use crate::rewriting::uri::UriRewriter;
+use derive_more::{Deref, From};
 use getset::Getters;
 use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
@@ -10,3 +11,7 @@ pub struct UpstreamUriRewriteFilter {
     #[serde(flatten)]
     uri: UriRewriter,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Deref, From)]
+#[serde(transparent)]
+pub struct UpstreamUriRewriteRouteRuleFilter(UpstreamUriRewriteFilter);

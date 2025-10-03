@@ -43,3 +43,25 @@ pub struct ErrorResponseFilter {
     #[serde(flatten)]
     generator: ErrorResponseGenerator,
 }
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct ErrorResponseRouteRuleFilter {
+    #[getset(get = "pub")]
+    #[serde(rename = "ref")]
+    #[builder(setter(into))]
+    ref_: ErrorResponseFilterRef,
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct ErrorResponseGatewayFilter {
+    #[getset(get = "pub")]
+    #[serde(rename = "ref")]
+    #[builder(setter(into))]
+    ref_: ErrorResponseFilterRef,
+}
