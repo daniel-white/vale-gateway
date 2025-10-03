@@ -192,7 +192,7 @@ mod tests {
             .authority(None)
             .build();
 
-        let response = generator.generate_response(ErrorResponseCode::UpstreamUnavailable);
+        let response = generator.generate_response(ErrorResponseCode::BackendUnavailable);
 
         assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
         assert_eq!(
@@ -202,8 +202,8 @@ mod tests {
 
         if let Some(body) = response.body() {
             let body_str = String::from_utf8_lossy(body);
-            assert!(body_str.contains("UPSTREAM_UNAVAILABLE"));
-            assert!(body_str.contains("Upstream unavailable"));
+            assert!(body_str.contains("BACKEND_UNAVAILABLE"));
+            assert!(body_str.contains("Backend unavailable"));
         }
     }
 

@@ -45,9 +45,9 @@ impl TryFrom<&ClientAddressFilterSpec> for ClientAddrFilter {
                 let backend_header: HeaderName = header
                     .parse()
                     .map_err(ClientAddrFilterConversionError::BackendHeaderName)?;
-                builder.upstream_header(Some(backend_header))
+                builder.backend_header(Some(backend_header))
             }
-            None => builder.upstream_header(None),
+            None => builder.backend_header(None),
         };
 
         let builder = match (

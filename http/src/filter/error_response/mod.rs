@@ -96,7 +96,7 @@ mod tests {
             .generator(generator)
             .build();
 
-        let response = handler.generate_response(ErrorResponseCode::UpstreamUnavailable);
+        let response = handler.generate_response(ErrorResponseCode::BackendUnavailable);
 
         assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
         assert_eq!(
@@ -262,7 +262,7 @@ mod tests {
             StatusCode::INTERNAL_SERVER_ERROR
         );
         assert_eq!(
-            StatusCode::from(ErrorResponseCode::UpstreamUnavailable),
+            StatusCode::from(ErrorResponseCode::BackendUnavailable),
             StatusCode::SERVICE_UNAVAILABLE
         );
         assert_eq!(
@@ -277,14 +277,14 @@ mod tests {
         let no_route_msg = ErrorResponseCode::NoRoute.message();
         let access_denied_msg = ErrorResponseCode::AccessDenied.message();
         let missing_config_msg = ErrorResponseCode::MissingConfiguration.message();
-        let upstream_unavailable_msg = ErrorResponseCode::UpstreamUnavailable.message();
+        let backend_unavailable_msg = ErrorResponseCode::BackendUnavailable.message();
         let invalid_config_msg = ErrorResponseCode::InvalidConfiguration.message();
         let im_a_teapot_msg = ErrorResponseCode::StatusCode(StatusCode::IM_A_TEAPOT).message();
 
         assert_eq!(no_route_msg, "No matching route found");
         assert_eq!(access_denied_msg, "Access denied");
         assert_eq!(missing_config_msg, "Missing configuration");
-        assert_eq!(upstream_unavailable_msg, "Upstream unavailable");
+        assert_eq!(backend_unavailable_msg, "Backend unavailable");
         assert_eq!(invalid_config_msg, "Invalid configuration");
         assert_eq!(im_a_teapot_msg, "I'm a teapot");
     }

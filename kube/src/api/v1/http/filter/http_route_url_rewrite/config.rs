@@ -1,19 +1,19 @@
 use derive_more::{Deref, From};
 use gateway_api::common::{HTTPRouteUrlRewrite, RequestOperationType};
 use thiserror::Error;
-use vg_http_config::filter::upstream_uri_rewrite::UpstreamUriRewriteFilter;
+use vg_http_config::filter::backend_uri_rewrite::BackendUriRewriteFilter;
 use vg_http_config::rewriting::uri::{PathRewrite, UriRewriter};
 
 #[derive(Debug, Error)]
-pub enum UpstreamUriRewriteConversionError {
+pub enum BackendUriRewriteConversionError {
     #[error("Invalid configuration")]
     InvalidConfiguration,
     #[error("Path rewrite is invalid")]
     Path,
 }
 
-impl TryFrom<HTTPRouteUrlRewriteWrapper<'_>> for UpstreamUriRewriteFilter {
-    type Error = UpstreamUriRewriteConversionError;
+impl TryFrom<HTTPRouteUrlRewriteWrapper<'_>> for BackendUriRewriteFilter {
+    type Error = BackendUriRewriteConversionError;
 
     fn try_from(value: HTTPRouteUrlRewriteWrapper) -> Result<Self, Self::Error> {
         let path = value
@@ -31,7 +31,7 @@ impl TryFrom<HTTPRouteUrlRewriteWrapper<'_>> for UpstreamUriRewriteFilter {
                     (RequestOperationType::ReplacePrefixMatch, None, Some(r)) => {
                         Ok(PathRewrite::ReplacePrefixWith(r))
                     }
-                    _ => Err(UpstreamUriRewriteConversionError::Path),
+                    _ => Err(BackendUriRewriteConversionError::Path),
                 }
             })
             .transpose()?;

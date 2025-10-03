@@ -9,7 +9,7 @@ pub enum ErrorResponseCode {
     NoRoute,
     AccessDenied,
     MissingConfiguration,
-    UpstreamUnavailable,
+    BackendUnavailable,
     InvalidConfiguration,
     StatusCode(StatusCode),
 }
@@ -38,7 +38,7 @@ impl ErrorResponseCode {
             Self::NoRoute => "No matching route found".into(),
             Self::AccessDenied => "Access denied".into(),
             Self::MissingConfiguration => "Missing configuration".into(),
-            Self::UpstreamUnavailable => "Upstream unavailable".into(),
+            Self::BackendUnavailable => "Backend unavailable".into(),
             Self::InvalidConfiguration => "Invalid configuration".into(),
             Self::StatusCode(status) => status.canonical_reason().unwrap_or("Unknown error").into(),
         }
@@ -51,7 +51,7 @@ impl From<ErrorResponseCode> for StatusCode {
             ErrorResponseCode::NoRoute => Self::NOT_FOUND,
             ErrorResponseCode::AccessDenied => Self::FORBIDDEN,
             ErrorResponseCode::MissingConfiguration => Self::INTERNAL_SERVER_ERROR,
-            ErrorResponseCode::UpstreamUnavailable => Self::SERVICE_UNAVAILABLE,
+            ErrorResponseCode::BackendUnavailable => Self::SERVICE_UNAVAILABLE,
             ErrorResponseCode::InvalidConfiguration => Self::INTERNAL_SERVER_ERROR,
             ErrorResponseCode::StatusCode(status) => status,
         }
@@ -70,10 +70,7 @@ mod tests {
         ErrorResponseCode::MissingConfiguration,
         StatusCode::INTERNAL_SERVER_ERROR
     )]
-    #[case(
-        ErrorResponseCode::UpstreamUnavailable,
-        StatusCode::SERVICE_UNAVAILABLE
-    )]
+    #[case(ErrorResponseCode::BackendUnavailable, StatusCode::SERVICE_UNAVAILABLE)]
     #[case(
         ErrorResponseCode::InvalidConfiguration,
         StatusCode::INTERNAL_SERVER_ERROR
@@ -89,7 +86,7 @@ mod tests {
     #[case(ErrorResponseCode::NoRoute, "No matching route found")]
     #[case(ErrorResponseCode::AccessDenied, "Access denied")]
     #[case(ErrorResponseCode::MissingConfiguration, "Missing configuration")]
-    #[case(ErrorResponseCode::UpstreamUnavailable, "Upstream unavailable")]
+    #[case(ErrorResponseCode::BackendUnavailable, "Backend unavailable")]
     #[case(ErrorResponseCode::InvalidConfiguration, "Invalid configuration")]
     fn test_error_code_descriptions(
         #[case] error_code: ErrorResponseCode,
@@ -134,7 +131,7 @@ mod tests {
     #[case(ErrorResponseCode::NoRoute, "NO_ROUTE")]
     #[case(ErrorResponseCode::AccessDenied, "ACCESS_DENIED")]
     #[case(ErrorResponseCode::MissingConfiguration, "MISSING_CONFIGURATION")]
-    #[case(ErrorResponseCode::UpstreamUnavailable, "UPSTREAM_UNAVAILABLE")]
+    #[case(ErrorResponseCode::BackendUnavailable, "BACKEND_UNAVAILABLE")]
     #[case(ErrorResponseCode::InvalidConfiguration, "INVALID_CONFIGURATION")]
     fn test_to_str_error_variants(
         #[case] error_code: ErrorResponseCode,
@@ -169,7 +166,7 @@ mod tests {
     #[case(ErrorResponseCode::NoRoute, "NO_ROUTE")]
     #[case(ErrorResponseCode::AccessDenied, "ACCESS_DENIED")]
     #[case(ErrorResponseCode::MissingConfiguration, "MISSING_CONFIGURATION")]
-    #[case(ErrorResponseCode::UpstreamUnavailable, "UPSTREAM_UNAVAILABLE")]
+    #[case(ErrorResponseCode::BackendUnavailable, "BACKEND_UNAVAILABLE")]
     #[case(ErrorResponseCode::InvalidConfiguration, "INVALID_CONFIGURATION")]
     fn test_into_static_str(#[case] error_code: ErrorResponseCode, #[case] expected_str: &str) {
         let result: &'static str = error_code.into();

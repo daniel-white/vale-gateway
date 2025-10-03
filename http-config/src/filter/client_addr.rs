@@ -121,7 +121,7 @@ pub struct ClientAddrFilter {
         with = "http_serde_ext::header_name::option",
         skip_serializing_if = "Option::is_none"
     )]
-    upstream_header: Option<HeaderName>,
+    backend_header: Option<HeaderName>,
 }
 
 #[cfg(test)]
@@ -135,13 +135,13 @@ mod tests {
     fn test_serialize_client_addr_filter_none() {
         let filter = ClientAddrFilter::builder()
             .extractor(ClientAddrExtractor::None)
-            .upstream_header(Some(HeaderName::from_static("x-client-ip")))
+            .backend_header(Some(HeaderName::from_static("x-client-ip")))
             .build();
 
         let json = serde_json::to_string(&filter).unwrap();
         assert_eq!(
             json,
-            r#"{"extractor":"none","upstreamHeader":"x-client-ip"}"#
+            r#"{"extractor":"none","backendHeader":"x-client-ip"}"#
         );
     }
 
@@ -149,13 +149,13 @@ mod tests {
     fn test_serialize_client_addr_filter_direct() {
         let filter = ClientAddrFilter::builder()
             .extractor(ClientAddrExtractor::Direct)
-            .upstream_header(Some(HeaderName::from_static("x-client-ip")))
+            .backend_header(Some(HeaderName::from_static("x-client-ip")))
             .build();
 
         let json = serde_json::to_string(&filter).unwrap();
         assert_eq!(
             json,
-            r#"{"extractor":"direct","upstreamHeader":"x-client-ip"}"#
+            r#"{"extractor":"direct","backendHeader":"x-client-ip"}"#
         );
     }
 
@@ -166,13 +166,13 @@ mod tests {
             .build();
         let filter = ClientAddrFilter::builder()
             .extractor(extractor)
-            .upstream_header(Some(HeaderName::from_static("x-client-ip")))
+            .backend_header(Some(HeaderName::from_static("x-client-ip")))
             .build();
 
         let json = serde_json::to_string(&filter).unwrap();
         assert_eq!(
             json,
-            r#"{"extractor":"trustedHeader","trustedHeader":"x-real-ip","upstreamHeader":"x-client-ip"}"#
+            r#"{"extractor":"trustedHeader","trustedHeader":"x-real-ip","backendHeader":"x-client-ip"}"#
         );
     }
 
@@ -190,12 +190,12 @@ mod tests {
             .build();
         let filter = ClientAddrFilter::builder()
             .extractor(extractor)
-            .upstream_header(Some(HeaderName::from_static("x-real-ip")))
+            .backend_header(Some(HeaderName::from_static("x-real-ip")))
             .build();
         let json = serde_json::to_string(&filter).unwrap();
         assert_eq!(
             json,
-            r#"{"extractor":"trustedProxies","trustedHeaders":["x-forwarded-for","forwarded"],"proxies":["192.168.1.1","192.168.1.1/24"],"upstreamHeader":"x-real-ip"}"#
+            r#"{"extractor":"trustedProxies","trustedHeaders":["x-forwarded-for","forwarded"],"proxies":["192.168.1.1","192.168.1.1/24"],"backendHeader":"x-real-ip"}"#
         );
     }
 }

@@ -12,11 +12,11 @@ pub struct TimeoutPolicies {
     request: Option<TimeoutPolicy>,
 
     #[getset(get_copy = "pub")]
-    upstream_request: Option<TimeoutPolicy>,
+    backend_request: Option<TimeoutPolicy>,
 }
 
 impl TimeoutPolicies {
     pub fn is_none(&self) -> bool {
-        self.request.is_none() && self.upstream_request.is_none()
+        self.request.is_none() && self.backend_request.is_none()
     }
 }

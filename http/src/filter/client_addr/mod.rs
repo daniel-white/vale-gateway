@@ -13,18 +13,18 @@ use vg_http_config::filter::client_addr::ClientAddrFilter;
 pub struct ClientAddrFilterHandler {
     #[builder(setter(into))]
     extractor: ClientAddrExtractor,
-    upstream_header: Option<HeaderName>,
+    backend_header: Option<HeaderName>,
 }
 
 impl ClientAddrFilterHandler {
     pub fn filter(&self, addr: SocketAddr, req: &mut request::Parts) -> Option<IpAddr> {
-        if let Some(header) = &self.upstream_header {
+        if let Some(header) = &self.backend_header {
             req.headers.remove(header);
         }
 
         let ip_addr = self.extractor.extract(addr, req);
 
-        if let Some(header) = &self.upstream_header
+        if let Some(header) = &self.backend_header
             && let Some(ip_addr) = ip_addr
         {
             let header_value = HeaderValue::from_str(&ip_addr.to_string())
@@ -50,7 +50,7 @@ impl TryFrom<&ClientAddrFilter> for ClientAddrFilterHandler {
 
         let handler = ClientAddrFilterHandler::builder()
             .extractor(extractor)
-            .upstream_header(value.upstream_header())
+            .backend_header(value.backend_header())
             .build();
 
         Ok(handler)
@@ -83,7 +83,7 @@ mod tests {
 
         let handler = ClientAddrFilterHandler::builder()
             .extractor(extractor)
-            .upstream_header(None)
+            .backend_header(None)
             .build();
 
         let socket_addr = SocketAddr::from_str("192.168.1.100:12345").unwrap();
@@ -106,7 +106,7 @@ mod tests {
 
         let handler = ClientAddrFilterHandler::builder()
             .extractor(extractor)
-            .upstream_header(None)
+            .backend_header(None)
             .build();
 
         let socket_addr = SocketAddr::from_str("192.168.1.1:80").unwrap();
@@ -133,7 +133,7 @@ mod tests {
 
         let handler = ClientAddrFilterHandler::builder()
             .extractor(extractor)
-            .upstream_header(None)
+            .backend_header(None)
             .build();
 
         let socket_addr = SocketAddr::from_str("192.168.1.1:80").unwrap();
@@ -174,7 +174,7 @@ mod tests {
 
         let handler = ClientAddrFilterHandler::builder()
             .extractor(extractor)
-            .upstream_header(None)
+            .backend_header(None)
             .build();
 
         // Request from trusted proxy
@@ -211,7 +211,7 @@ mod tests {
 
         let handler = ClientAddrFilterHandler::builder()
             .extractor(extractor)
-            .upstream_header(None)
+            .backend_header(None)
             .build();
 
         let socket_addr = SocketAddr::from_str("192.168.1.1:80").unwrap();
@@ -238,7 +238,7 @@ mod tests {
 
         let handler = ClientAddrFilterHandler::builder()
             .extractor(extractor)
-            .upstream_header(None)
+            .backend_header(None)
             .build();
 
         let socket_addr = SocketAddr::from_str("192.168.1.1:80").unwrap();
@@ -267,7 +267,7 @@ mod tests {
 
         let handler = ClientAddrFilterHandler::builder()
             .extractor(extractor)
-            .upstream_header(None)
+            .backend_header(None)
             .build();
 
         let socket_addr = SocketAddr::from_str("[::1]:80").unwrap();
@@ -290,7 +290,7 @@ mod tests {
 
         let handler = ClientAddrFilterHandler::builder()
             .extractor(extractor)
-            .upstream_header(None)
+            .backend_header(None)
             .build();
 
         let socket_addr = SocketAddr::from_str("192.168.1.1:80").unwrap();
@@ -316,7 +316,7 @@ mod tests {
 
         let handler = ClientAddrFilterHandler::builder()
             .extractor(extractor)
-            .upstream_header(None)
+            .backend_header(None)
             .build();
 
         let socket_addr = SocketAddr::from_str("104.16.0.1:80").unwrap(); // Cloudflare IP
@@ -332,8 +332,8 @@ mod tests {
     }
 
     #[test]
-    fn test_client_addr_upstream_header_injection() {
-        // Test that upstream header is properly set when configured
+    fn test_client_addr_backend_header_injection() {
+        // Test that backend header is properly set when configured
         use std::net::SocketAddr;
 
         let extractor = TrustedHeaderClientAddrExtractor::builder()
@@ -342,7 +342,7 @@ mod tests {
 
         let handler = ClientAddrFilterHandler::builder()
             .extractor(extractor)
-            .upstream_header(Some(HeaderName::from_static("x-client-ip")))
+            .backend_header(Some(HeaderName::from_static("x-client-ip")))
             .build();
 
         let socket_addr = SocketAddr::from_str("192.168.1.1:80").unwrap();
@@ -355,7 +355,7 @@ mod tests {
 
         assert!(result.is_some());
         assert_eq!(result.unwrap(), IpAddr::from_str("203.0.113.1").unwrap());
-        // Should also set the upstream header
+        // Should also set the backend header
         assert!(request_parts.headers.get("x-client-ip").is_some());
         assert_eq!(
             request_parts.headers.get("x-client-ip").unwrap(),
@@ -364,15 +364,15 @@ mod tests {
     }
 
     #[test]
-    fn test_client_addr_upstream_header_removal() {
-        // Test that upstream header is removed when present
+    fn test_client_addr_backend_header_removal() {
+        // Test that backend header is removed when present
         use std::net::SocketAddr;
 
         let extractor = ClientAddrExtractor::None;
 
         let handler = ClientAddrFilterHandler::builder()
             .extractor(extractor)
-            .upstream_header(Some(HeaderName::from_static("x-client-ip")))
+            .backend_header(Some(HeaderName::from_static("x-client-ip")))
             .build();
 
         let socket_addr = SocketAddr::from_str("192.168.1.1:80").unwrap();

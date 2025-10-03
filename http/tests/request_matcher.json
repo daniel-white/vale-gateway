@@ -52,7 +52,7 @@
       "ref": "api-access-policy"
     },
     {
-      "kind": "upstreamUriRewrite",
+      "kind": "backendUriRewrite",
       "scheme": "https",
       "host": "backend-api.internal",
       "port": 8080,
@@ -65,7 +65,7 @@
     "request": {
       "durationSecs": 30.0
     },
-    "upstreamRequest": {
+    "backendRequest": {
       "durationSecs": 25.0
     }
   },
