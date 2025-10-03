@@ -1,5 +1,4 @@
 use crate::rewriting::uri::UriRewriter;
-use derive_more::{Deref, From};
 use getset::{CopyGetters, Getters};
 use http::StatusCode;
 use serde::{Deserialize, Serialize};
@@ -18,7 +17,3 @@ pub struct RedirectResponseFilter {
     #[serde(flatten)]
     uri: UriRewriter,
 }
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Deref, From)]
-#[serde(transparent)]
-pub struct RedirectResponseRouteRuleFilter(RedirectResponseFilter);

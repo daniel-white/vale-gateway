@@ -7,7 +7,7 @@ use http::Method;
 use http::header::{InvalidHeaderName, InvalidHeaderValue};
 use regex::Regex;
 use thiserror::Error;
-use vg_http_config::routing::matchers::{
+use vg_http_config::routing::rule::matcher::{
     HeaderMatcher, HeaderValueMatcher, HeadersMatcher, MethodMatcher, PathMatcher,
     QueryParamMatcher, QueryParamValueMatcher, QueryParamsMatcher, RequestMatcher,
 };

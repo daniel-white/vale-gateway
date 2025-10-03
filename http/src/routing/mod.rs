@@ -1,2 +1,2 @@
-pub mod matchers;
+pub mod rule;
 pub mod upstream;

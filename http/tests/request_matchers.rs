@@ -1,6 +1,6 @@
 #[test]
 pub fn loads_request_matcher_from_file() {
-    use vg_http_config::routing::RouteRule as RouteRuleConfig;
+    use vg_http_config::routing::rule::Rule as RuleConfig;
 
     // let header_matcher = HeaderMatcher::builder()
     //     .name(CONTENT_TYPE)
@@ -35,8 +35,7 @@ pub fn loads_request_matcher_from_file() {
     // println!("{}", config);
 
     let config = include_str!("request_matcher.json");
-    let config =
-        serde_json::from_str::<RouteRuleConfig>(config).expect("Failed to parse JSON config");
+    let config = serde_json::from_str::<RuleConfig>(config).expect("Failed to parse JSON config");
 
     // let config = RequestMatcher::try_from(&config).expect("Failed to convert config");
 

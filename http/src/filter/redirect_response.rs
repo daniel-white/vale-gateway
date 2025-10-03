@@ -1,5 +1,5 @@
 use crate::rewriting::uri::{UriRewriter, UriRewriterConversionError};
-use crate::routing::matchers::RequestMatchDetails;
+use crate::routing::rule::matcher::RequestMatchDetails;
 use http::header::LOCATION;
 use http::request::Parts;
 use http::{Response, StatusCode};

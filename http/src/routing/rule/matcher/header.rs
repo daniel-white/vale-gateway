@@ -1,6 +1,6 @@
 use super::Matcher;
-use crate::routing::matchers::basic::{ExactMatcher, RegularExpressionMatcher};
-use crate::routing::matchers::scoring::RequestMatcherScorer;
+use crate::routing::rule::matcher::basic::{ExactMatcher, RegularExpressionMatcher};
+use crate::routing::rule::matcher::scoring::RequestMatcherScorer;
 use derive_more::{Deref, From};
 use http::request::Parts;
 use http::{HeaderName, HeaderValue};
@@ -8,7 +8,7 @@ use regex::Regex;
 use thiserror::Error;
 use tracing::{debug, instrument};
 use typed_builder::TypedBuilder;
-use vg_http_config::routing::matchers::{
+use vg_http_config::routing::rule::matcher::{
     HeaderMatcher as HeaderMatcherConfig, HeaderValueMatcher as HeaderValueMatcherConfig,
     HeadersMatcher as HeadersMatcherConfig,
 };

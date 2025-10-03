@@ -1,5 +1,5 @@
 use crate::rewriting::uri::{UriRewriter, UriRewriterConversionError};
-use crate::routing::matchers::RequestMatchDetails;
+use crate::routing::rule::matcher::RequestMatchDetails;
 use http::Uri;
 use http::request::Parts;
 use thiserror::Error;
@@ -39,6 +39,7 @@ impl TryFrom<&UpstreamUriRewriteFilter> for UpstreamUriRewriteFilterHandler {
 mod tests {
     use super::*;
     use crate::rewriting::uri::UriRewriter;
+    use crate::routing::rule::matcher::RequestMatchDetails;
     use http::{HeaderValue, Uri};
     use rstest::*;
     use std::str::FromStr;

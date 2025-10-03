@@ -9,7 +9,7 @@ use http::request::Parts;
 use thiserror::Error;
 use tracing::{debug, instrument, trace};
 use typed_builder::TypedBuilder;
-use vg_http_config::routing::matchers::RequestMatcher as RequestMatcherConfig;
+use vg_http_config::routing::rule::matcher::RequestMatcher as RequestMatcherConfig;
 
 #[derive(Debug, TypedBuilder)]
 pub struct RequestMatcher {
@@ -135,8 +135,8 @@ impl RequestMatchDetails for RequestMatcherResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::routing::matchers::header::HeaderMatcher;
-    use crate::routing::matchers::query_param::QueryParamMatcher;
+    use crate::routing::rule::matcher::header::HeaderMatcher;
+    use crate::routing::rule::matcher::query_param::QueryParamMatcher;
     use assertables::*;
     use http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
     use http::{HeaderValue, Method, Request, Version};
@@ -218,7 +218,7 @@ mod tests {
             .build()
     }
 
-    // Tests for matching behavior with no matchers (should always match)
+    // Tests for matching behavior with no matcher (should always match)
     #[rstest]
     fn test_no_matchers_always_matches() {
         let matcher = RequestMatcher::builder()
@@ -507,7 +507,7 @@ mod tests {
         assert_eq!(result, RequestMatcherResult::NotMatched);
     }
 
-    // Tests for combined matchers (all must match)
+    // Tests for combined matcher (all must match)
     #[rstest]
     fn test_all_matchers_success() {
         let matcher = RequestMatcher::builder()

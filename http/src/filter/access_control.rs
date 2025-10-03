@@ -64,7 +64,7 @@ impl AccessControlFilterHandler {
         } else if is_allowed {
             AccessControlEvaluationResult::Allowed // If there's an allow matcher and no deny matches, allow access
         } else {
-            AccessControlEvaluationResult::Denied // If no matchers apply, default to denied
+            AccessControlEvaluationResult::Denied // If no matcher apply, default to denied
         }
     }
 }
@@ -325,7 +325,7 @@ mod tests {
         #[case] test_ip: &str,
         #[case] expected: AccessControlEvaluationResult,
     ) {
-        // Test case for allowing all requests - no matchers means allow all
+        // Test case for allowing all requests - no matcher means allow all
         let handler = AccessControlFilterHandler::builder().build();
 
         // Should allow any IP when no rules are defined

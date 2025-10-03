@@ -34,15 +34,7 @@ pub struct HeaderModifierFilter {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Deref, From)]
 #[serde(transparent)]
-pub struct RequestHeaderModifierRouteRuleFilter(HeaderModifierFilter);
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Deref, From)]
-#[serde(transparent)]
 pub struct RequestHeaderModifierGatewayFilter(HeaderModifierFilter);
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Deref, From)]
-#[serde(transparent)]
-pub struct ResponseHeaderModifierRouteRuleFilter(HeaderModifierFilter);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Deref, From)]
 #[serde(transparent)]

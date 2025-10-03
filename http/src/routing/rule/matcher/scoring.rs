@@ -144,8 +144,8 @@ impl RequestMatcherScorer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::routing::matchers::header::HeaderMatcher;
-    use crate::routing::matchers::query_param::{QueryParamMatcher, QueryParamValueMatcher};
+    use crate::routing::rule::matcher::header::HeaderMatcher;
+    use crate::routing::rule::matcher::query_param::{QueryParamMatcher, QueryParamValueMatcher};
     use assertables::*;
     use http::header::{ACCEPT, CONTENT_TYPE};
     use http::{HeaderValue, Method};
@@ -588,7 +588,7 @@ mod tests {
             .query_params_weight(Some(2))
             .build();
 
-        // Exact path should win despite fewer matchers
+        // Exact path should win despite fewer matcher
         assert_lt!(exact_with_method, prefix_with_method_headers);
     }
 
