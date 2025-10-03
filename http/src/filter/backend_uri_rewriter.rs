@@ -4,29 +4,29 @@ use http::Uri;
 use http::request::Parts;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use vg_http_config::filter::backend_uri_rewrite::BackendUriRewriteFilter;
+use vg_http_config::filter::backend_uri_rewriter::BackendUriRewriterFilter;
 
 #[derive(Debug, TypedBuilder)]
-pub struct BackendUriRewriteFilterHandler {
+pub struct BackendUriRewriterFilterHandler {
     uri: UriRewriter,
 }
 
-impl BackendUriRewriteFilterHandler {
+impl BackendUriRewriterFilterHandler {
     pub fn handle(&self, req: &Parts, match_context: &impl RequestMatchDetails) -> Uri {
         self.uri.rewrite(&req.uri, match_context)
     }
 }
 
 #[derive(Debug, Error)]
-pub enum BackendUriRewriteFilterHandlerConversionError {
+pub enum BackendUriRewriterFilterHandlerConversionError {
     #[error("URI rewriter is invalid")]
     UriRewriter(#[from] UriRewriterConversionError),
 }
 
-impl TryFrom<&BackendUriRewriteFilter> for BackendUriRewriteFilterHandler {
-    type Error = BackendUriRewriteFilterHandlerConversionError;
+impl TryFrom<&BackendUriRewriterFilter> for BackendUriRewriterFilterHandler {
+    type Error = BackendUriRewriterFilterHandlerConversionError;
 
-    fn try_from(value: &BackendUriRewriteFilter) -> Result<Self, Self::Error> {
+    fn try_from(value: &BackendUriRewriterFilter) -> Result<Self, Self::Error> {
         let uri = value.uri().try_into()?;
 
         let handler = Self::builder().uri(uri).build();
@@ -79,7 +79,7 @@ mod tests {
     fn test_uri_rewrite_scenarios(#[case] input_uri: &str, #[case] scenario_name: &str) {
         // Test URI rewriting for various scenarios
         let uri_rewriter = UriRewriter::builder().build();
-        let handler = BackendUriRewriteFilterHandler::builder()
+        let handler = BackendUriRewriterFilterHandler::builder()
             .uri(uri_rewriter)
             .build();
 
@@ -101,7 +101,7 @@ mod tests {
     fn test_uri_rewrite_conditional_based_on_headers() {
         // Test conditional URI rewriting (would need header-aware rewriter)
         let uri_rewriter = UriRewriter::builder().build();
-        let handler = BackendUriRewriteFilterHandler::builder()
+        let handler = BackendUriRewriterFilterHandler::builder()
             .uri(uri_rewriter)
             .build();
 
@@ -122,7 +122,7 @@ mod tests {
     fn test_uri_rewrite_load_balancing_backend_selection() {
         // Test rewriting URI for load balancing
         let uri_rewriter = UriRewriter::builder().build();
-        let handler = BackendUriRewriteFilterHandler::builder()
+        let handler = BackendUriRewriterFilterHandler::builder()
             .uri(uri_rewriter)
             .build();
 

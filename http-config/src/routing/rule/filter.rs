@@ -1,5 +1,5 @@
 use crate::filter::access_control::AccessControlFilterRef;
-use crate::filter::backend_uri_rewrite::BackendUriRewriteFilter;
+use crate::filter::backend_uri_rewriter::BackendUriRewriterFilter;
 use crate::filter::error_response::ErrorResponseFilterRef;
 use crate::filter::header_modifier::HeaderModifierFilter;
 use crate::filter::redirect_response::RedirectResponseFilter;
@@ -18,7 +18,7 @@ pub enum RuleFilter {
     ResponseHeaderModifier(ResponseHeaderModifierRuleFilter),
     RedirectResponse(RedirectResponseRuleFilter),
     StaticResponse(StaticResponseRuleFilter),
-    BackendUriRewrite(BackendUriRewriteRuleFilter),
+    BackendUriRewriter(BackendUriRewriterRuleFilter),
 }
 
 #[derive(
@@ -68,4 +68,4 @@ pub struct StaticResponseRuleFilter {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Deref, From)]
 #[serde(transparent)]
-pub struct BackendUriRewriteRuleFilter(BackendUriRewriteFilter);
+pub struct BackendUriRewriterRuleFilter(BackendUriRewriterFilter);

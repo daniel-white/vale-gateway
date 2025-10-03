@@ -2,7 +2,7 @@ use crate::api::v1::http::filter::header_modifier::config::{
     HeaderModifierFilterConversionError, HeaderModifierWrapper,
 };
 use crate::api::v1::http::filter::http_route_url_rewrite::config::{
-    BackendUriRewriteConversionError, HTTPRouteUrlRewriteWrapper,
+    BackendUriRewriterConversionError, HTTPRouteUrlRewriteWrapper,
 };
 use crate::api::v1::http::filter::request_redirect::config::{
     RedirectResponseFilterConversionError, RequestRedirectWrapper,
@@ -12,11 +12,11 @@ use gateway_api::common::{GatewayInfrastructureParametersReference, HTTPFilterTy
 use gateway_api::httproutes::HTTPRouteFilter;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use vg_http_config::filter::backend_uri_rewrite::BackendUriRewriteFilter;
+use vg_http_config::filter::backend_uri_rewriter::BackendUriRewriterFilter;
 use vg_http_config::filter::header_modifier::HeaderModifierFilter;
 use vg_http_config::filter::redirect_response::RedirectResponseFilter;
 use vg_http_config::routing::rule::filter::{
-    AccessControlRuleFilter, BackendUriRewriteRuleFilter, ErrorResponseRuleFilter,
+    AccessControlRuleFilter, BackendUriRewriterRuleFilter, ErrorResponseRuleFilter,
     RedirectResponseRuleFilter, RequestHeaderModifierRuleFilter, RuleFilter,
     StaticResponseRuleFilter,
 };
@@ -44,7 +44,7 @@ pub enum RuleFilterConversionError {
     #[error("Invalid redirect configuration")]
     RequestRedirect(#[from] RedirectResponseFilterConversionError),
     #[error("Invalid URL rewrite configuration")]
-    UrlRewrite(#[from] BackendUriRewriteConversionError),
+    UrlRewrite(#[from] BackendUriRewriterConversionError),
 }
 
 impl TryFrom<HTTPRouteFilterWrapper<'_>> for RuleFilter {
@@ -106,8 +106,8 @@ impl TryFrom<HTTPRouteFilterWrapper<'_>> for RuleFilter {
             }
             (HTTPFilterType::UrlRewrite, None, None, None, None, Some(url_rewrite)) => {
                 let url_rewrite: HTTPRouteUrlRewriteWrapper = url_rewrite.into();
-                let filter = BackendUriRewriteFilter::try_from(url_rewrite)?;
-                let filter: BackendUriRewriteRuleFilter = filter.into();
+                let filter = BackendUriRewriterFilter::try_from(url_rewrite)?;
+                let filter: BackendUriRewriterRuleFilter = filter.into();
                 Ok(filter.into())
             }
             (HTTPFilterType::RequestMirror, None, None, None, None, None) => Err(

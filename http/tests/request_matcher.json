@@ -52,7 +52,7 @@
       "ref": "api-access-policy"
     },
     {
-      "kind": "backendUriRewrite",
+      "kind": "backendUriRewriter",
       "scheme": "https",
       "host": "backend-api.internal",
       "port": 8080,

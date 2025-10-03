@@ -8,7 +8,7 @@ use derive_more::From;
 use serde::{Deserialize, Serialize};
 
 pub mod access_control;
-pub mod backend_uri_rewrite;
+pub mod backend_uri_rewriter;
 pub mod client_addr;
 pub mod error_response;
 pub mod header_modifier;

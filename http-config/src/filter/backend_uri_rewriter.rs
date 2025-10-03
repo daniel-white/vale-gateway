@@ -5,7 +5,7 @@ use typed_builder::TypedBuilder;
 
 #[derive(TypedBuilder, Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Getters)]
 #[serde(rename_all = "camelCase")]
-pub struct BackendUriRewriteFilter {
+pub struct BackendUriRewriterFilter {
     #[getset(get = "pub")]
     #[serde(flatten)]
     uri: UriRewriter,
