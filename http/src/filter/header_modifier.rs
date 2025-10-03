@@ -237,7 +237,7 @@ mod tests {
         handler.apply(&mut modifier);
 
         // With append, both values should be present
-        let values: Vec<_> = test_headers.get_all("x-route-id").iter().collect();
+        let values: Vec<_> = test_headers.get_all("x-request-id").iter().collect();
         assert_eq!(values.len(), 2);
         assert!(values.contains(&&HeaderValue::from_static("existing-456")));
         assert!(values.contains(&&HeaderValue::from_static("auto-generated-123")));

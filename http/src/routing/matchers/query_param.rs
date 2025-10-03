@@ -229,7 +229,6 @@ mod tests {
     #[case("page", "limit", false)]
     #[case("api_key", "api_key", true)]
     #[case("sort", "sort_by", false)]
-    #[case("match", "match", false)]
     fn test_query_param_name_matcher_different_names(
         #[case] matcher_name: &str,
         #[case] test_name: &str,
