@@ -1,8 +1,8 @@
-use vg_http::request::matchers::request::RequestMatcher;
+use vg_http::routing::matchers::request::RequestMatcher;
 
 #[test]
 pub fn loads_request_matcher_from_file() {
-    use vg_http_config::request::matchers::RequestMatcher as RequestMatcherConfig;
+    use vg_http_config::routing::matchers::RequestMatcher as RequestMatcherConfig;
 
     // let header_matcher = HeaderMatcher::builder()
     //     .name(CONTENT_TYPE)

@@ -1,6 +1,7 @@
 use super::Matcher;
 use crate::routing::matchers::basic::{ExactMatcher, RegularExpressionMatcher};
 use crate::routing::matchers::scoring::RequestMatcherScorer;
+use derive_more::{Deref, From};
 use http::request::Parts;
 use http::{HeaderName, HeaderValue};
 use regex::Regex;
@@ -12,23 +13,14 @@ use vg_http_config::routing::matchers::{
     HeadersMatcher as HeadersMatcherConfig,
 };
 
-#[derive(Debug, TypedBuilder)]
+#[derive(Debug, Deref, From)]
 #[cfg_attr(test, derive(PartialEq))]
-pub struct HeaderNameMatcher {
-    #[builder(setter(into))]
-    matcher: ExactMatcher<HeaderName>,
-}
-
-impl HeaderNameMatcher {
-    fn matches(&self, name: &HeaderName) -> bool {
-        self.matcher.matches(name)
-    }
-}
+pub struct HeaderNameMatcher(ExactMatcher<HeaderName>);
 
 impl From<HeaderName> for HeaderNameMatcher {
     fn from(name: HeaderName) -> Self {
         let matcher: ExactMatcher<HeaderName> = name.into();
-        Self::builder().matcher(matcher).build()
+        matcher.into()
     }
 }
 

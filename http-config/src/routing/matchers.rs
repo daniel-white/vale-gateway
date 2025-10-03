@@ -4,11 +4,11 @@ use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", content = "value")]
 #[serde(rename_all = "camelCase")]
 pub enum HeaderValueMatcher {
-    #[serde(with = "http_serde_ext::header_value")]
+    #[serde(rename = "value", with = "http_serde_ext::header_value")]
     Exact(HeaderValue),
+    #[serde(rename = "regex")]
     RegularExpression(String),
 }
 
@@ -58,19 +58,22 @@ pub struct MethodMatcher {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", content = "value")]
 #[serde(rename_all = "camelCase")]
 pub enum PathMatcher {
+    #[serde(rename = "full")]
     Exact(String),
+    #[serde(rename = "startsWith")]
     Prefix(String),
+    #[serde(rename = "regex")]
     RegularExpression(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", content = "value")]
 #[serde(rename_all = "camelCase")]
 pub enum QueryParamValueMatcher {
+    #[serde(rename = "value")]
     Exact(String),
+    #[serde(rename = "regex")]
     RegularExpression(String),
 }
 

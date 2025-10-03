@@ -2995,6 +2995,7 @@ dependencies = [
  "assertables",
  "async-trait",
  "bytes",
+ "derive_more",
  "getset",
  "heck 0.5.0",
  "hickory-proto",

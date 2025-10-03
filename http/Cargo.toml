@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 assertables.workspace = true
 async-trait.workspace = true
+derive_more.workspace = true
 bytes.workspace = true
 getset.workspace = true
 heck.workspace = true
