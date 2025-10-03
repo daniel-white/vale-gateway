@@ -1,7 +1,31 @@
-use crate::policy::TimeoutPolicy;
-use getset::{CopyGetters, Getters};
+use crate::policy::{RetryPolicy, TimeoutPolicy};
+use getset::{CloneGetters, CopyGetters, Getters};
 use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
+
+#[derive(
+    Default,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    Getters,
+    CopyGetters,
+    CloneGetters,
+    TypedBuilder,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct RulePolicies {
+    #[getset(get_clone = "pub")]
+    #[serde(default, skip_serializing_if = "TimeoutPolicies::is_none")]
+    timeouts: TimeoutPolicies,
+
+    #[getset(get_clone = "pub")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    retries: Option<RetryPolicy>,
+}
 
 #[derive(
     Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CopyGetters, TypedBuilder,

@@ -1,7 +1,6 @@
 use self::filter::RuleFilter;
 use self::matcher::RequestMatcher;
-use self::policy::TimeoutPolicies;
-use crate::policy::RetryPolicy;
+use crate::routing::rule::policy::RulePolicies;
 use getset::{CloneGetters, CopyGetters, Getters};
 use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
@@ -24,21 +23,17 @@ pub mod policy;
 )]
 #[serde(rename_all = "camelCase")]
 pub struct Rule {
-    #[getset(get = "pub")]
+    #[getset(get_clone = "pub")]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     name: Option<String>,
 
     #[getset(get = "pub")]
-    matches: RequestMatcher,
+    matcher: RequestMatcher,
 
     #[getset(get = "pub")]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     filters: Vec<RuleFilter>,
 
-    #[getset(get_clone = "pub")]
-    #[serde(default, skip_serializing_if = "TimeoutPolicies::is_none")]
-    timeouts: TimeoutPolicies,
-
-    #[getset(get_clone = "pub")]
-    retry: RetryPolicy,
+    #[getset(get = "pub")]
+    policies: RulePolicies,
 }

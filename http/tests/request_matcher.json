@@ -1,6 +1,6 @@
 {
   "name": "api-v1-patch-route",
-  "matches": {
+  "matcher": {
     "method": {
       "method": "PATCH"
     },
@@ -61,17 +61,24 @@
       }
     }
   ],
-  "timeouts": {
-    "request": {
-      "durationSecs": 30.0
+  "policies": {
+    "timeouts": {
+      "request": {
+        "durationSecs": 30.0
+      },
+      "backendRequest": {
+        "durationSecs": 25.0
+      }
     },
-    "backendRequest": {
-      "durationSecs": 25.0
+    "retries": {
+      "codes": [
+        500,
+        502,
+        503,
+        504
+      ],
+      "maxAttempts": 3,
+      "backoffSecs": 1000
     }
-  },
-  "retry": {
-    "codes": [500, 502, 503, 504],
-    "maxAttempts": 3,
-    "backoffSecs": 1000
   }
 }

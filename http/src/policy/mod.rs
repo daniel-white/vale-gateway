@@ -7,7 +7,7 @@ use typed_builder::TypedBuilder;
 use vg_http_config::policy::RetryPolicy as RetryPolicyConfig;
 use vg_http_config::policy::TimeoutPolicy as TimeoutPolicyConfig;
 
-#[derive(Debug, TypedBuilder, CopyGetters, Getters)]
+#[derive(Debug, Clone, TypedBuilder, CopyGetters, Getters)]
 pub struct RetryPolicy {
     #[getset(get = "pub")]
     codes: HashSet<StatusCode>,
@@ -33,10 +33,10 @@ pub enum RetryPolicyConversionError {
     BackoffDuration,
 }
 
-impl TryFrom<&RetryPolicyConfig> for RetryPolicy {
+impl TryFrom<RetryPolicyConfig> for RetryPolicy {
     type Error = RetryPolicyConversionError;
 
-    fn try_from(value: &RetryPolicyConfig) -> Result<Self, Self::Error> {
+    fn try_from(value: RetryPolicyConfig) -> Result<Self, Self::Error> {
         let codes = value
             .codes()
             .iter()
@@ -69,7 +69,7 @@ impl TryFrom<&RetryPolicyConfig> for RetryPolicy {
     }
 }
 
-#[derive(Debug, TypedBuilder, CopyGetters)]
+#[derive(Debug, Clone, TypedBuilder, CopyGetters)]
 pub struct TimeoutPolicy {
     #[getset(get_copy = "pub")]
     duration: Duration,
@@ -81,10 +81,10 @@ pub enum TimeoutPolicyConversionError {
     Duration,
 }
 
-impl TryFrom<&TimeoutPolicyConfig> for TimeoutPolicy {
+impl TryFrom<TimeoutPolicyConfig> for TimeoutPolicy {
     type Error = TimeoutPolicyConversionError;
 
-    fn try_from(value: &TimeoutPolicyConfig) -> Result<Self, Self::Error> {
+    fn try_from(value: TimeoutPolicyConfig) -> Result<Self, Self::Error> {
         if value.duration() <= Duration::ZERO {
             return Err(TimeoutPolicyConversionError::Duration);
         }
