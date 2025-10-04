@@ -24,6 +24,7 @@ http.workspace = true
 ipnet.workspace = true
 k8s-openapi.workspace = true
 kube = { workspace = true, features = ["kube-derive", "derive"] }
+kube-core.workspace = true
 kube-leader-election.workspace = true
 multi-map.workspace = true
 ouroboros.workspace = true

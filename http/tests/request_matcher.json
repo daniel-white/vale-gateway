@@ -1,29 +1,31 @@
 {
   "name": "api-v1-patch-route",
-  "matcher": {
-    "method": {
-      "method": "PATCH"
-    },
-    "path": {
-      "regex": "^/api/v1/.*$"
-    },
-    "headers": [
-      {
-        "name": "content-type",
-        "value": "application/json"
+  "matchers": [
+    {
+      "method": {
+        "method": "PATCH"
       },
-      {
-        "name": "accept",
-        "regex": "^text/.*"
-      }
-    ],
-    "queryParams": [
-      {
-        "name": "pageSize",
-        "regex": "^\\d$"
-      }
-    ]
-  },
+      "path": {
+        "regex": "^/api/v1/.*$"
+      },
+      "headers": [
+        {
+          "name": "content-type",
+          "value": "application/json"
+        },
+        {
+          "name": "accept",
+          "regex": "^text/.*"
+        }
+      ],
+      "queryParams": [
+        {
+          "name": "pageSize",
+          "regex": "^\\d$"
+        }
+      ]
+    }
+  ],
   "filters": [
     {
       "kind": "requestHeaderModifier",

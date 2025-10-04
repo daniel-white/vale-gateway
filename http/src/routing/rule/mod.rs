@@ -1,9 +1,12 @@
+use self::filter::RuleFilter;
+use crate::routing::rule::filter::RuleFilterConversionError;
 use crate::routing::rule::matcher::request::{RequestMatcher, RequestMatcherConversionError};
 use crate::routing::rule::policy::{RulePolicies, RulePoliciesConversionError};
 use getset::Getters;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
 
+pub mod filter;
 pub mod matcher;
 pub mod policy;
 
@@ -13,10 +16,10 @@ pub struct Rule {
     name: Option<String>,
 
     #[getset(get = "pub")]
-    matcher: RequestMatcher,
+    matchers: Vec<RequestMatcher>,
 
     #[getset(get = "pub")]
-    filters: Vec<u32>,
+    filters: Vec<RuleFilter>,
 
     #[getset(get = "pub")]
     policies: RulePolicies,
@@ -24,11 +27,11 @@ pub struct Rule {
 
 #[derive(Debug, Error)]
 pub enum RuleConversionError {
-    #[error("request matcher is invalid: {0}")]
-    Matcher(#[from] RequestMatcherConversionError),
+    #[error("request matcher at index {0} is invalid: {1}")]
+    Matcher(usize, RequestMatcherConversionError),
 
     #[error("filter at index {0} is invalid: {1}")]
-    Filter(usize, u32),
+    Filter(usize, RuleFilterConversionError),
 
     #[error("policies are invalid: {0}")]
     Policies(#[from] RulePoliciesConversionError),
@@ -38,20 +41,31 @@ impl TryFrom<&vg_http_config::routing::rule::Rule> for Rule {
     type Error = RuleConversionError;
 
     fn try_from(value: &vg_http_config::routing::rule::Rule) -> Result<Self, Self::Error> {
-        let matcher = value.matcher().try_into()?;
+        let matchers = value
+            .matchers()
+            .iter()
+            .enumerate()
+            .map(|(idx, matcher)| {
+                RequestMatcher::try_from(matcher)
+                    .map_err(|err| RuleConversionError::Matcher(idx, err))
+            })
+            .collect::<Result<_, _>>()?;
 
-        // let filters = value.filters().iter().enumerate().map(|(idx, filter)| {
-        //     // Here we would normally validate the filter.
-        //     // For this example, we assume all u32 filters are valid.
-        //     Ok(*filter)
-        // }).collect::<Result<Vec<_>, _>>().map_err(|err| RuleConversionError::Filter(e.0, e.1))?;
+        let filters = value
+            .filters()
+            .iter()
+            .enumerate()
+            .map(|(idx, filter)| {
+                RuleFilter::try_from(filter).map_err(|err| RuleConversionError::Filter(idx, err))
+            })
+            .collect::<Result<_, _>>()?;
 
         let policies = value.policies().try_into()?;
 
         let rule = Self::builder()
             .name(value.name())
-            .matcher(matcher)
-            .filters(vec![])
+            .matchers(matchers)
+            .filters(filters)
             .policies(policies)
             .build();
 

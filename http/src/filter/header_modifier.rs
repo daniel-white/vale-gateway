@@ -32,11 +32,11 @@ impl HeaderModifierFilterHandler {
 }
 
 #[derive(Debug, Error)]
-pub enum HeaderModifierFilterConversionError {}
+pub enum HeaderModifierFilterHandlerConversionError {}
 
 #[allow(clippy::infallible_try_from)]
 impl TryFrom<&HeaderModifierFilter> for HeaderModifierFilterHandler {
-    type Error = HeaderModifierFilterConversionError;
+    type Error = HeaderModifierFilterHandlerConversionError;
 
     fn try_from(value: &HeaderModifierFilter) -> Result<Self, Self::Error> {
         let handler = Self::builder()

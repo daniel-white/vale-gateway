@@ -26,7 +26,7 @@ pub enum RuleFilter {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct AccessControlRuleFilter {
-    #[getset(get = "pub")]
+    #[getset(get_clone = "pub")]
     #[serde(rename = "ref")]
     #[builder(setter(into))]
     ref_: AccessControlFilterRef,
@@ -37,7 +37,7 @@ pub struct AccessControlRuleFilter {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct ErrorResponseRuleFilter {
-    #[getset(get = "pub")]
+    #[getset(get_clone = "pub")]
     #[serde(rename = "ref")]
     #[builder(setter(into))]
     ref_: ErrorResponseFilterRef,
@@ -60,7 +60,7 @@ pub struct RedirectResponseRuleFilter(RedirectResponseFilter);
 )]
 #[serde(rename_all = "camelCase")]
 pub struct StaticResponseRuleFilter {
-    #[getset(get = "pub")]
+    #[getset(get_clone = "pub")]
     #[serde(rename = "ref")]
     #[builder(setter(into))]
     ref_: StaticResponseFilterRef,

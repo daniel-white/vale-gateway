@@ -28,7 +28,7 @@ pub struct Rule {
     name: Option<String>,
 
     #[getset(get = "pub")]
-    matcher: RequestMatcher,
+    matchers: Vec<RequestMatcher>,
 
     #[getset(get = "pub")]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

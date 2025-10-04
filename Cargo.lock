@@ -3193,6 +3193,7 @@ dependencies = [
  "ipnet",
  "k8s-openapi",
  "kube",
+ "kube-core",
  "kube-leader-election",
  "multi-map",
  "ouroboros",
