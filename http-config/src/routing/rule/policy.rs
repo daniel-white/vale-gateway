@@ -27,6 +27,12 @@ pub struct RulePolicies {
     retries: Option<RetryPolicy>,
 }
 
+impl RulePolicies {
+    pub fn is_none(&self) -> bool {
+        self.timeouts.is_none() && self.retries.is_none()
+    }
+}
+
 #[derive(
     Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CopyGetters, TypedBuilder,
 )]

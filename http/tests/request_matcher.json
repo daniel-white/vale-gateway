@@ -82,5 +82,13 @@
       "maxAttempts": 3,
       "backoffSecs": 1000
     }
-  }
+  },
+  "backends": [ {
+    "name": "primary-backend",
+    "ref": "primary-backend-service",
+    "port": 443
+  }, {
+    "name": "secondary-backend",
+    "ref": "secondary-backend-service"
+  } ]
 }

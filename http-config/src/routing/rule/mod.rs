@@ -1,10 +1,12 @@
 use self::filter::RuleFilter;
 use self::matcher::RequestMatcher;
+use crate::routing::rule::backend::RuleBackend;
 use crate::routing::rule::policy::RulePolicies;
 use getset::{CloneGetters, CopyGetters, Getters};
 use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
 
+pub mod backend;
 pub mod filter;
 pub mod matcher;
 pub mod policy;
@@ -35,5 +37,9 @@ pub struct Rule {
     filters: Vec<RuleFilter>,
 
     #[getset(get = "pub")]
+    #[serde(default, skip_serializing_if = "RulePolicies::is_none")]
     policies: RulePolicies,
+
+    #[getset(get = "pub")]
+    backends: Vec<RuleBackend>,
 }

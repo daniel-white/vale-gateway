@@ -9,7 +9,7 @@ use crate::api::v1::http::filter::request_redirect::config::{
 };
 use crate::resources::{AccessControlFilterRef, ErrorResponseFilterRef, StaticResponseFilterRef};
 use gateway_api::common::{GatewayInfrastructureParametersReference, HTTPFilterType};
-use gateway_api::httproutes::HTTPRouteFilter;
+use gateway_api::httproutes::{HTTPRouteBackendFilter, HTTPRouteFilter};
 use thiserror::Error;
 use typed_builder::TypedBuilder;
 use vg_http_config::filter::backend_uri_rewriter::BackendUriRewriterFilter;
@@ -29,12 +29,18 @@ pub struct HTTPRouteFilterWrapper<'a> {
     filter: &'a HTTPRouteFilter,
 }
 
+#[derive(Debug, TypedBuilder)]
+pub struct HTTPRouteBackendFilterWrapper<'a> {
+    namespace: &'a str,
+    filter: &'a HTTPRouteBackendFilter,
+}
+
 #[derive(Debug, Error)]
 pub enum RuleFilterConversionError {
     #[error("Invalid configuration")]
     InvalidConfiguration,
     #[error("Unsupported filter type: {0:?}")]
-    Unsupported(HTTPFilterType),
+    UnsupportedType(HTTPFilterType),
     #[error("Invalid extension: {0}")]
     Extension(#[from] ExtensionRuleFilterConversionError),
     #[error("Invalid request header modifier")]
@@ -44,7 +50,21 @@ pub enum RuleFilterConversionError {
     #[error("Invalid redirect configuration")]
     RequestRedirect(#[from] RedirectResponseFilterConversionError),
     #[error("Invalid URL rewrite configuration")]
-    UrlRewrite(#[from] BackendUriRewriterConversionError),
+    UriRewrite(#[from] BackendUriRewriterConversionError),
+}
+
+#[derive(Debug, Error)]
+pub enum RuleBackendFilterConversionError {
+    #[error("Invalid configuration")]
+    InvalidConfiguration,
+    #[error("Unsupported filter type: {0:?}")]
+    UnsupportedType(HTTPFilterType),
+    #[error("Invalid request header modifier")]
+    RequestHeaderModifier(HeaderModifierFilterConversionError),
+    #[error("Invalid response header modifier")]
+    ResponseHeaderModifier(HeaderModifierFilterConversionError),
+    #[error("Invalid URL rewrite configuration")]
+    UriRewrite(#[from] BackendUriRewriterConversionError),
 }
 
 impl TryFrom<HTTPRouteFilterWrapper<'_>> for RuleFilter {
@@ -110,10 +130,57 @@ impl TryFrom<HTTPRouteFilterWrapper<'_>> for RuleFilter {
                 let filter: BackendUriRewriterRuleFilter = filter.into();
                 Ok(filter.into())
             }
-            (HTTPFilterType::RequestMirror, None, None, None, None, None) => Err(
-                RuleFilterConversionError::Unsupported(HTTPFilterType::RequestMirror),
-            ),
+            (type_, None, None, None, None, None) => {
+                Err(RuleFilterConversionError::UnsupportedType(type_.clone()))
+            }
             _ => Err(RuleFilterConversionError::InvalidConfiguration),
+        }
+    }
+}
+
+impl TryFrom<HTTPRouteBackendFilterWrapper<'_>> for RuleFilter {
+    type Error = RuleBackendFilterConversionError;
+
+    fn try_from(value: HTTPRouteBackendFilterWrapper<'_>) -> Result<Self, Self::Error> {
+        let namespace = value.namespace;
+        let filter = value.filter;
+
+        match (
+            &filter.r#type,
+            &filter.request_header_modifier,
+            &filter.response_header_modifier,
+            &filter.url_rewrite,
+        ) {
+            (HTTPFilterType::RequestHeaderModifier, Some(request_header_modifier), None, None) => {
+                let request_header_modifier: HeaderModifierWrapper = request_header_modifier.into();
+                let filter = HeaderModifierFilter::try_from(request_header_modifier)
+                    .map_err(RuleBackendFilterConversionError::RequestHeaderModifier)?;
+                let filter: RequestHeaderModifierRuleFilter = filter.into();
+                Ok(filter.into())
+            }
+            (
+                HTTPFilterType::ResponseHeaderModifier,
+                None,
+                Some(response_header_modifier),
+                None,
+            ) => {
+                let response_header_modifier: HeaderModifierWrapper =
+                    response_header_modifier.into();
+                let filter = HeaderModifierFilter::try_from(response_header_modifier)
+                    .map_err(RuleBackendFilterConversionError::ResponseHeaderModifier)?;
+                let filter: RequestHeaderModifierRuleFilter = filter.into();
+                Ok(filter.into())
+            }
+            (HTTPFilterType::UrlRewrite, None, None, Some(url_rewrite)) => {
+                let url_rewrite: HTTPRouteUrlRewriteWrapper = url_rewrite.into();
+                let filter = BackendUriRewriterFilter::try_from(url_rewrite)?;
+                let filter: BackendUriRewriterRuleFilter = filter.into();
+                Ok(filter.into())
+            }
+            (type_, None, None, None) => Err(RuleBackendFilterConversionError::UnsupportedType(
+                type_.clone(),
+            )),
+            _ => Err(RuleBackendFilterConversionError::InvalidConfiguration),
         }
     }
 }

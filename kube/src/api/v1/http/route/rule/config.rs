@@ -4,14 +4,12 @@ use crate::api::v1::http::route::filter::config::{
 use crate::api::v1::http::route::r#match::config::{
     RequestMatcherConversionError, RouteMatchWrapper,
 };
-use derive_more::{Deref, From};
-use gateway_api::httproutes::{HTTPRouteRule, HTTPRouteTimeout};
-use kube_core::Duration;
-use kube_core::duration::ParseError;
-use std::str::FromStr;
+use crate::api::v1::http::route::timeout::config::{
+    HTTPRouteTimeoutWrapper, TimeoutPoliciesConversionError,
+};
+use gateway_api::httproutes::HTTPRouteRule;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use vg_http_config::policy::TimeoutPolicy;
 use vg_http_config::routing::rule::Rule;
 use vg_http_config::routing::rule::filter::RuleFilter;
 use vg_http_config::routing::rule::matcher::RequestMatcher;
@@ -31,8 +29,10 @@ pub enum RuleConversionError {
     TimeoutPolicies(#[from] TimeoutPoliciesConversionError),
     #[error("Matcher conversion error at index {0}: {1}")]
     Matcher(usize, RequestMatcherConversionError),
-    #[error("Filter conversion error: {0}")]
+    #[error("Filter conversion error at index {0}: {1}")]
     Filter(usize, RuleFilterConversionError),
+    #[error("Backend conversion error: {0}")]
+    Backend(usize, u32),
 }
 
 impl TryFrom<HTTPRouteRuleWrapper<'_>> for Rule {
@@ -68,7 +68,7 @@ impl TryFrom<HTTPRouteRuleWrapper<'_>> for Rule {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let timeouts = rule.timeouts.as_ref().map(HTTPRouteTimeoutWrapper);
+        let timeouts = rule.timeouts.as_ref().map(HTTPRouteTimeoutWrapper::from);
         let timeouts = timeouts
             .map(TimeoutPolicies::try_from)
             .transpose()?
@@ -83,51 +83,9 @@ impl TryFrom<HTTPRouteRuleWrapper<'_>> for Rule {
             .matchers(matchers)
             .filters(filters) // TODO: Implement name conversion if needed
             .policies(policies)
+            .backends(vec![])
             .build();
 
         Ok(rule)
-    }
-}
-
-#[derive(Debug, Deref, From)]
-pub struct HTTPRouteTimeoutWrapper<'a>(&'a HTTPRouteTimeout);
-
-#[derive(Debug, Error)]
-pub enum TimeoutPoliciesConversionError {
-    #[error("Invalid configuration")]
-    InvalidConfiguration,
-    #[error("Invalid request timeout: {0}")]
-    RequestTimeout(ParseError),
-    #[error("Invalid backend request timeout: {0}")]
-    BackendRequestTimeout(ParseError),
-}
-
-impl TryFrom<HTTPRouteTimeoutWrapper<'_>> for TimeoutPolicies {
-    type Error = TimeoutPoliciesConversionError;
-
-    fn try_from(value: HTTPRouteTimeoutWrapper) -> Result<Self, Self::Error> {
-        fn convert(s: Option<&str>) -> Result<Option<TimeoutPolicy>, ParseError> {
-            let duration = s.map(Duration::from_str).transpose()?;
-            Ok(duration.map(std::time::Duration::from).and_then(|to| {
-                if to.is_zero() {
-                    None
-                } else {
-                    let policy = TimeoutPolicy::builder().duration(to).build();
-                    Some(policy)
-                }
-            }))
-        }
-
-        let request = convert(value.request.as_deref())
-            .map_err(TimeoutPoliciesConversionError::RequestTimeout)?;
-        let backend_request = convert(value.backend_request.as_deref())
-            .map_err(TimeoutPoliciesConversionError::BackendRequestTimeout)?;
-
-        let policies = Self::builder()
-            .request(request)
-            .backend_request(backend_request)
-            .build();
-
-        Ok(policies)
     }
 }

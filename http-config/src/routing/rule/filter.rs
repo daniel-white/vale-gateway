@@ -21,6 +21,14 @@ pub enum RuleFilter {
     BackendUriRewriter(BackendUriRewriterRuleFilter),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, From)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum RuleBackendFilter {
+    RequestHeaderModifier(RequestHeaderModifierRuleFilter),
+    ResponseHeaderModifier(ResponseHeaderModifierRuleFilter),
+    BackendUriRewriter(BackendUriRewriterRuleFilter),
+}
+
 #[derive(
     Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
 )]
