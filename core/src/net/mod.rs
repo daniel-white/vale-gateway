@@ -32,6 +32,15 @@ impl Display for Port {
     }
 }
 
+impl TryFrom<i32> for Port {
+    type Error = ();
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        let port = u16::try_from(value).map_err(|_| ())?;
+        Port::new(port).ok_or(())
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum IpRef {

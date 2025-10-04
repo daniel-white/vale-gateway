@@ -1,3 +1,6 @@
+use crate::api::v1::http::route::backend::config::{
+    HTTPBackendReferenceWrapper, RuleBackendConversionError,
+};
 use crate::api::v1::http::route::filter::config::{
     HTTPRouteFilterWrapper, RuleFilterConversionError,
 };
@@ -11,6 +14,7 @@ use gateway_api::httproutes::HTTPRouteRule;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
 use vg_http_config::routing::rule::Rule;
+use vg_http_config::routing::rule::backend::RuleBackend;
 use vg_http_config::routing::rule::filter::RuleFilter;
 use vg_http_config::routing::rule::matcher::RequestMatcher;
 use vg_http_config::routing::rule::policy::{RulePolicies, TimeoutPolicies};
@@ -32,7 +36,7 @@ pub enum RuleConversionError {
     #[error("Filter conversion error at index {0}: {1}")]
     Filter(usize, RuleFilterConversionError),
     #[error("Backend conversion error: {0}")]
-    Backend(usize, u32),
+    Backend(usize, RuleBackendConversionError),
 }
 
 impl TryFrom<HTTPRouteRuleWrapper<'_>> for Rule {
@@ -78,12 +82,26 @@ impl TryFrom<HTTPRouteRuleWrapper<'_>> for Rule {
             .retries(None) // TODO: Implement retries conversion
             .build();
 
+        let backends = rule
+            .backend_refs
+            .iter()
+            .flatten()
+            .enumerate()
+            .map(|(idx, be)| {
+                let be = HTTPBackendReferenceWrapper::builder()
+                    .namespace(namespace)
+                    .backend_ref(be)
+                    .build();
+                RuleBackend::try_from(be).map_err(|err| RuleConversionError::Backend(idx, err))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
         let rule = Self::builder()
-            .name(None)
+            .name(None) // TODO: add name
             .matchers(matchers)
-            .filters(filters) // TODO: Implement name conversion if needed
+            .filters(filters)
             .policies(policies)
-            .backends(vec![])
+            .backends(backends)
             .build();
 
         Ok(rule)

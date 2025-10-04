@@ -17,7 +17,7 @@ use vg_http_config::filter::header_modifier::HeaderModifierFilter;
 use vg_http_config::filter::redirect_response::RedirectResponseFilter;
 use vg_http_config::routing::rule::filter::{
     AccessControlRuleFilter, BackendUriRewriterRuleFilter, ErrorResponseRuleFilter,
-    RedirectResponseRuleFilter, RequestHeaderModifierRuleFilter, RuleFilter,
+    RedirectResponseRuleFilter, RequestHeaderModifierRuleFilter, RuleBackendFilter, RuleFilter,
     StaticResponseRuleFilter,
 };
 
@@ -31,6 +31,7 @@ pub struct HTTPRouteFilterWrapper<'a> {
 
 #[derive(Debug, TypedBuilder)]
 pub struct HTTPRouteBackendFilterWrapper<'a> {
+    #[allow(dead_code)]
     namespace: &'a str,
     filter: &'a HTTPRouteBackendFilter,
 }
@@ -138,11 +139,10 @@ impl TryFrom<HTTPRouteFilterWrapper<'_>> for RuleFilter {
     }
 }
 
-impl TryFrom<HTTPRouteBackendFilterWrapper<'_>> for RuleFilter {
+impl TryFrom<HTTPRouteBackendFilterWrapper<'_>> for RuleBackendFilter {
     type Error = RuleBackendFilterConversionError;
 
-    fn try_from(value: HTTPRouteBackendFilterWrapper<'_>) -> Result<Self, Self::Error> {
-        let namespace = value.namespace;
+    fn try_from(value: HTTPRouteBackendFilterWrapper) -> Result<Self, Self::Error> {
         let filter = value.filter;
 
         match (

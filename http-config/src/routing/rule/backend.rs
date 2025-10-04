@@ -19,9 +19,6 @@ use vg_core::net::Port;
 )]
 #[serde(rename_all = "camelCase")]
 pub struct RuleBackend {
-    #[getset(get = "pub")]
-    name: String,
-
     #[getset(get_clone = "pub")]
     #[serde(rename = "ref")]
     ref_: BackendRef,
