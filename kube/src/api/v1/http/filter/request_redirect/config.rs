@@ -3,7 +3,7 @@ use gateway_api::common::{RequestOperationType, RequestRedirect, RequestRedirect
 use http::StatusCode;
 use http::uri::Scheme;
 use thiserror::Error;
-use vg_core::net::Port;
+use vg_core::net::{Port, PortConversionError};
 use vg_http_config::filter::redirect_response::RedirectResponseFilter;
 use vg_http_config::rewriting::uri::{PathRewrite, UriRewriter};
 
@@ -16,7 +16,7 @@ pub enum RedirectResponseFilterConversionError {
     #[error("Path rewrite is invalid")]
     Path,
     #[error("Port rewrite is invalid")]
-    Port,
+    Port(#[from] PortConversionError),
 }
 
 impl TryFrom<RequestRedirectWrapper<'_>> for RedirectResponseFilter {
@@ -75,16 +75,7 @@ impl TryFrom<RequestRedirectWrapper<'_>> for UriRewriter {
             })
             .transpose()?;
 
-        let port = value
-            .port
-            .map(|port| {
-                port.try_into()
-                    .map_err(|_| RedirectResponseFilterConversionError::Port)
-                    .and_then(|port| {
-                        Port::new(port).ok_or(RedirectResponseFilterConversionError::Port)
-                    })
-            })
-            .transpose()?;
+        let port = value.port.map(Port::try_from).transpose()?;
 
         let uri = Self::builder()
             .scheme(scheme)

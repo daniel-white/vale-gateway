@@ -14,30 +14,53 @@ use thiserror::Error;
 #[serde(transparent)]
 pub struct Port(NonZeroU16);
 
-impl Port {
-    // Create a new Port from a u16, returning None if the value is zero (invalid NonZeroU16)
-    pub fn new(port: u16) -> Option<Self> {
-        NonZeroU16::new(port).map(Self)
-    }
-
-    // Access underlying numeric value
-    pub fn get(self) -> u16 {
-        self.0.get()
-    }
-}
-
 impl Display for Port {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
+#[derive(Debug, Error)]
+#[error("Invalid port")]
+pub struct PortConversionError(pub(self) ());
+
+impl TryFrom<u16> for Port {
+    type Error = PortConversionError;
+
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
+        let value = NonZeroU16::new(value).ok_or(PortConversionError(()))?;
+        Ok(value.into())
+    }
+}
+
 impl TryFrom<i32> for Port {
-    type Error = ();
+    type Error = PortConversionError;
 
     fn try_from(value: i32) -> Result<Self, Self::Error> {
-        let port = u16::try_from(value).map_err(|_| ())?;
-        Port::new(port).ok_or(())
+        let value = u16::try_from(value).map_err(|_| PortConversionError(()))?;
+        value.try_into()
+    }
+}
+
+impl FromStr for Port {
+    type Err = PortConversionError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let value = s.parse::<u16>().map_err(|_| PortConversionError(()))?;
+        value.try_into()
+    }
+}
+
+impl From<Port> for u16 {
+    fn from(value: Port) -> Self {
+        value.0.into()
+    }
+}
+
+impl From<Port> for i32 {
+    fn from(value: Port) -> Self {
+        let value: u16 = value.0.into();
+        value.into()
     }
 }
 

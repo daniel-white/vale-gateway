@@ -236,7 +236,7 @@ mod tests {
     #[test]
     fn port_only_adds_port() {
         let r = UriRewriter::builder()
-            .port(Port::new(8443).unwrap())
+            .port(Port::try_from(8443).unwrap())
             .build();
         let u = Uri::from_str("http://svc/path").unwrap();
         let out = r.rewrite(&u, &MockMatchContext { prefix: None });
@@ -247,7 +247,7 @@ mod tests {
     fn host_and_port() {
         let r = UriRewriter::builder()
             .host(name("api."))
-            .port(Port::new(9000).unwrap())
+            .port(Port::try_from(9000).unwrap())
             .build();
         let u = Uri::from_str("http://old:80/v1").unwrap();
         let out = r.rewrite(&u, &MockMatchContext { prefix: None });
@@ -284,7 +284,7 @@ mod tests {
         let r = UriRewriter {
             scheme,
             host: host.map(name),
-            port: port.map(|p| Port::new(p).unwrap()),
+            port: port.map(Port::try_from).transpose().unwrap(),
             path: None,
         };
         let out = r.rewrite(
