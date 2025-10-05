@@ -1,8 +1,8 @@
-use derive_more::{Deref, From};
 use gateway_api::common::{RequestOperationType, RequestRedirect, RequestRedirectScheme};
 use http::StatusCode;
 use http::uri::Scheme;
 use thiserror::Error;
+use vg_core::internal_wrapper;
 use vg_core::net::{Port, PortConversionError};
 use vg_http_config::filter::redirect_response::RedirectResponseFilter;
 use vg_http_config::rewriting::uri::{PathRewrite, UriRewriter};
@@ -88,5 +88,4 @@ impl TryFrom<RequestRedirectWrapper<'_>> for UriRewriter {
     }
 }
 
-#[derive(Debug, Deref, From)]
-pub struct RequestRedirectWrapper<'a>(&'a RequestRedirect);
+internal_wrapper!(RequestRedirect);

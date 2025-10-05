@@ -1,14 +1,13 @@
-use derive_more::{Deref, From};
 use gateway_api::httproutes::HTTPRouteTimeout;
 use kube_core::Duration;
 use kube_core::duration::ParseError;
 use std::str::FromStr;
 use thiserror::Error;
+use vg_core::internal_wrapper;
 use vg_http_config::policy::TimeoutPolicy;
 use vg_http_config::routing::rule::policy::TimeoutPolicies;
 
-#[derive(Debug, Deref, From)]
-pub struct HTTPRouteTimeoutWrapper<'a>(&'a HTTPRouteTimeout);
+internal_wrapper!(HTTPRouteTimeout);
 
 #[derive(Debug, Error)]
 pub enum TimeoutPoliciesConversionError {

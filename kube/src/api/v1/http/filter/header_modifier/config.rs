@@ -1,8 +1,8 @@
-use derive_more::{Deref, From};
 use gateway_api::common::HeaderModifier;
 use http::header::{InvalidHeaderName, InvalidHeaderValue};
 use http::{HeaderMap, HeaderName, HeaderValue};
 use thiserror::Error;
+use vg_core::internal_wrapper;
 use vg_http_config::filter::header_modifier::HeaderModifierFilter;
 
 #[derive(Debug, Error)]
@@ -74,5 +74,4 @@ impl TryFrom<HeaderModifierWrapper<'_>> for HeaderModifierFilter {
     }
 }
 
-#[derive(Debug, Deref, From)]
-pub struct HeaderModifierWrapper<'a>(&'a HeaderModifier);
+internal_wrapper!(HeaderModifier);

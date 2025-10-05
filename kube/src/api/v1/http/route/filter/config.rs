@@ -273,6 +273,7 @@ impl TryFrom<&ExtensionRefWrapper<'_>> for StaticResponseFilterRef {
                 value.namespace,
                 value.extension_ref.name.as_str(),
             );
+
             Ok(ref_)
         } else {
             Err(())

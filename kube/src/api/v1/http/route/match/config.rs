@@ -1,4 +1,3 @@
-use derive_more::{Deref, From};
 use gateway_api::common::{HeaderMatch, HeaderMatchType};
 use gateway_api::httproutes::{
     HTTPMethodMatch, HTTPRouteRulesMatchesPathType, PathMatch, RouteMatch,
@@ -7,6 +6,7 @@ use http::Method;
 use http::header::{InvalidHeaderName, InvalidHeaderValue};
 use regex::Regex;
 use thiserror::Error;
+use vg_core::internal_wrapper;
 use vg_http_config::routing::rule::matcher::{
     HeaderMatcher, HeaderValueMatcher, HeadersMatcher, MethodMatcher, PathMatcher,
     QueryParamMatcher, QueryParamValueMatcher, QueryParamsMatcher, RequestMatcher,
@@ -54,8 +54,7 @@ pub enum RequestMatcherConversionError {
     QueryParam(usize, QueryParamMatcherConversionError),
 }
 
-#[derive(Debug, Deref)]
-struct HTTPMethodMatchWrapper<'a>(&'a HTTPMethodMatch);
+internal_wrapper!(HTTPMethodMatch);
 
 impl TryFrom<HTTPMethodMatchWrapper<'_>> for MethodMatcher {
     type Error = MethodMatcherConversionError;
@@ -79,8 +78,7 @@ impl TryFrom<HTTPMethodMatchWrapper<'_>> for MethodMatcher {
     }
 }
 
-#[derive(Debug, Deref)]
-struct PathMatchWrapper<'a>(&'a PathMatch);
+internal_wrapper!(PathMatch);
 
 impl TryFrom<PathMatchWrapper<'_>> for PathMatcher {
     type Error = PathMatcherConversionError;
@@ -99,8 +97,7 @@ impl TryFrom<PathMatchWrapper<'_>> for PathMatcher {
     }
 }
 
-#[derive(Debug, Deref)]
-struct HeaderMatchWrapper<'a>(&'a HeaderMatch);
+internal_wrapper!(HeaderMatch);
 
 impl TryFrom<HeaderMatchWrapper<'_>> for HeaderMatcher {
     type Error = HeaderMatcherConversionError;
@@ -125,8 +122,8 @@ impl TryFrom<HeaderMatchWrapper<'_>> for HeaderMatcher {
     }
 }
 
-#[derive(Debug, Deref)]
-struct QueryParamMatchWrapper<'a>(&'a HeaderMatch);
+type QueryParamMatch = HeaderMatch;
+internal_wrapper!(QueryParamMatch);
 
 impl TryFrom<QueryParamMatchWrapper<'_>> for QueryParamMatcher {
     type Error = QueryParamMatcherConversionError;
@@ -149,8 +146,8 @@ impl TryFrom<QueryParamMatchWrapper<'_>> for QueryParamMatcher {
     }
 }
 
-#[derive(Debug, Deref)]
-struct HeaderMatchesWrapper<'a>(&'a Vec<HeaderMatch>);
+type HeaderMatches = Vec<HeaderMatch>;
+internal_wrapper!(HeaderMatches);
 
 impl TryFrom<HeaderMatchesWrapper<'_>> for HeadersMatcher {
     type Error = RequestMatcherConversionError;
@@ -172,8 +169,8 @@ impl TryFrom<HeaderMatchesWrapper<'_>> for HeadersMatcher {
     }
 }
 
-#[derive(Debug, Deref)]
-struct QueryParamMatchesWrapper<'a>(&'a Vec<HeaderMatch>);
+type QueryParamMatches = Vec<HeaderMatch>;
+internal_wrapper!(QueryParamMatches);
 
 impl TryFrom<QueryParamMatchesWrapper<'_>> for QueryParamsMatcher {
     type Error = RequestMatcherConversionError;
@@ -195,8 +192,7 @@ impl TryFrom<QueryParamMatchesWrapper<'_>> for QueryParamsMatcher {
     }
 }
 
-#[derive(Debug, Deref, From)]
-pub struct RouteMatchWrapper<'a>(&'a RouteMatch);
+internal_wrapper!(RouteMatch);
 
 impl TryFrom<RouteMatchWrapper<'_>> for RequestMatcher {
     type Error = RequestMatcherConversionError;

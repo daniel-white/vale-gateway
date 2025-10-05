@@ -20,11 +20,6 @@ use k8s_openapi::api::core::v1::{ConfigMap, Service};
 use k8s_openapi::api::discovery::v1::EndpointSlice;
 pub use kinds::*;
 pub use namespace_scoped::*;
-use paste::paste;
-
-impl ClusterScopedResource for GatewayClass {}
-
-impl NamespaceScopedResource for Service {}
 
 cluster_scope!(GatewayClass);
 cluster_scope!(GatewayClassParameters);

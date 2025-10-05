@@ -1,6 +1,6 @@
-use derive_more::{Deref, From};
 use gateway_api::common::{HTTPRouteUrlRewrite, RequestOperationType};
 use thiserror::Error;
+use vg_core::internal_wrapper;
 use vg_http_config::filter::backend_uri_rewriter::BackendUriRewriterFilter;
 use vg_http_config::rewriting::uri::{PathRewrite, UriRewriter};
 
@@ -49,5 +49,4 @@ impl TryFrom<HTTPRouteUrlRewriteWrapper<'_>> for BackendUriRewriterFilter {
     }
 }
 
-#[derive(Debug, Deref, From)]
-pub struct HTTPRouteUrlRewriteWrapper<'a>(&'a HTTPRouteUrlRewrite);
+internal_wrapper!(HTTPRouteUrlRewrite);
