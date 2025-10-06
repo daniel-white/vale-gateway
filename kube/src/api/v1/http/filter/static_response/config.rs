@@ -21,9 +21,17 @@ pub enum StaticResponseFilterConversionError {
     #[error("Invalid configuration")]
     InvalidConfiguration,
     #[error("`status_code` is invalid")]
-    StatusCode(#[from] InvalidStatusCode),
+    StatusCode(
+        #[from]
+        #[source]
+        InvalidStatusCode,
+    ),
     #[error("Body configuration error: {0}")]
-    Body(#[from] BodyConversionError),
+    Body(
+        #[from]
+        #[source]
+        BodyConversionError,
+    ),
 }
 
 impl TryFrom<&StaticResponseFilterSpec> for StaticResponseFilter {

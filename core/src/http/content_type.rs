@@ -81,7 +81,7 @@ impl TryFrom<&ContentTypeBuf> for HeaderValue {
 pub enum ContentTypeConversionError {
     #[error("Invalid header value")]
     HeaderValue,
-    #[error("{0}")]
+    #[error(transparent)]
     MediaType(#[from] MediaTypeError),
 }
 

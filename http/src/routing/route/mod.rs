@@ -1,9 +1,8 @@
-use std::sync::Arc;
+use crate::routing::route::host::{HostMatcher, HostMatcherConversionError};
+use crate::routing::rule::{Rule, RuleConversionError};
 use getset::Getters;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use crate::routing::route::host::{HostMatcher, HostMatcherConversionError};
-use crate::routing::rule::{Rule, RuleConversionError};
 use vg_http_config::routing::route::Route as RouteConfig;
 
 pub mod host;
@@ -20,11 +19,11 @@ pub struct Route {
 
 #[derive(Debug, Error)]
 pub enum RouteConversionError {
-    #[error("Host matcher at index {0} is invalid: {0}")]
-    HostMatcher(usize, HostMatcherConversionError),
-    
+    #[error("Host matcher at index {0} is invalid: {1}")]
+    HostMatcher(usize, #[source] HostMatcherConversionError),
+
     #[error("Rule at index {0} is invalid: {1}")]
-    Rule(usize, RuleConversionError),
+    Rule(usize, #[source] RuleConversionError),
 }
 
 impl TryFrom<&RouteConfig> for Route {
@@ -59,4 +58,3 @@ impl TryFrom<&RouteConfig> for Route {
         Ok(route)
     }
 }
-

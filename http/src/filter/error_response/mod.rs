@@ -26,7 +26,11 @@ impl ErrorResponseFilterHandler {
 #[derive(Debug, Error)]
 pub enum ErrorResponseFilterConversionError {
     #[error("Invalid error response generator: {0}")]
-    InvalidGenerator(#[from] ErrorResponseGeneratorConversionError),
+    InvalidGenerator(
+        #[from]
+        #[source]
+        ErrorResponseGeneratorConversionError,
+    ),
 }
 
 #[allow(clippy::infallible_try_from)]

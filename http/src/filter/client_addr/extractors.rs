@@ -37,9 +37,17 @@ impl ClientAddrExtractor {
 #[derive(Debug, Error)]
 pub enum ClientAddrExtractorConversionError {
     #[error("Unable to convert trusted header extractor: {0}")]
-    TrustedHeader(#[from] TrustedHeaderClientAddrExtractorConversionError),
+    TrustedHeader(
+        #[from]
+        #[source]
+        TrustedHeaderClientAddrExtractorConversionError,
+    ),
     #[error("Unable to convert trusted header extractor: {0}")]
-    TrustedProxies(#[from] TrustedProxiesClientAddrExtractorConversionError),
+    TrustedProxies(
+        #[from]
+        #[source]
+        TrustedProxiesClientAddrExtractorConversionError,
+    ),
 }
 
 impl TryFrom<&ClientAddrExtractorConfig> for ClientAddrExtractor {

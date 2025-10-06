@@ -43,15 +43,27 @@ pub enum RuleFilterConversionError {
     #[error("Unsupported filter type: {0:?}")]
     UnsupportedType(HTTPFilterType),
     #[error("Invalid extension: {0}")]
-    Extension(#[from] ExtensionRuleFilterConversionError),
+    Extension(
+        #[from]
+        #[source]
+        ExtensionRuleFilterConversionError,
+    ),
     #[error("Invalid request header modifier")]
-    RequestHeaderModifier(HeaderModifierFilterConversionError),
+    RequestHeaderModifier(#[source] HeaderModifierFilterConversionError),
     #[error("Invalid response header modifier")]
-    ResponseHeaderModifier(HeaderModifierFilterConversionError),
+    ResponseHeaderModifier(#[source] HeaderModifierFilterConversionError),
     #[error("Invalid redirect configuration")]
-    RequestRedirect(#[from] RedirectResponseFilterConversionError),
+    RequestRedirect(
+        #[from]
+        #[source]
+        RedirectResponseFilterConversionError,
+    ),
     #[error("Invalid URL rewrite configuration")]
-    UriRewrite(#[from] BackendUriRewriterConversionError),
+    UriRewrite(
+        #[from]
+        #[source]
+        BackendUriRewriterConversionError,
+    ),
 }
 
 #[derive(Debug, Error)]
@@ -61,11 +73,15 @@ pub enum RuleBackendFilterConversionError {
     #[error("Unsupported filter type: {0:?}")]
     UnsupportedType(HTTPFilterType),
     #[error("Invalid request header modifier")]
-    RequestHeaderModifier(HeaderModifierFilterConversionError),
+    RequestHeaderModifier(#[source] HeaderModifierFilterConversionError),
     #[error("Invalid response header modifier")]
-    ResponseHeaderModifier(HeaderModifierFilterConversionError),
+    ResponseHeaderModifier(#[source] HeaderModifierFilterConversionError),
     #[error("Invalid URL rewrite configuration")]
-    UriRewrite(#[from] BackendUriRewriterConversionError),
+    UriRewrite(
+        #[from]
+        #[source]
+        BackendUriRewriterConversionError,
+    ),
 }
 
 impl TryFrom<HTTPRouteFilterWrapper<'_>> for RuleFilter {

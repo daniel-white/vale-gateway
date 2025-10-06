@@ -30,13 +30,17 @@ pub enum RuleConversionError {
     #[error("Invalid configuration")]
     InvalidConfiguration,
     #[error("Timeout policies conversion error: {0}")]
-    TimeoutPolicies(#[from] TimeoutPoliciesConversionError),
+    TimeoutPolicies(
+        #[from]
+        #[source]
+        TimeoutPoliciesConversionError,
+    ),
     #[error("Matcher conversion error at index {0}: {1}")]
-    Matcher(usize, RequestMatcherConversionError),
+    Matcher(usize, #[source] RequestMatcherConversionError),
     #[error("Filter conversion error at index {0}: {1}")]
-    Filter(usize, RuleFilterConversionError),
+    Filter(usize, #[source] RuleFilterConversionError),
     #[error("Backend conversion error: {0}")]
-    Backend(usize, RuleBackendConversionError),
+    Backend(usize, #[source] RuleBackendConversionError),
 }
 
 impl TryFrom<HTTPRouteRuleWrapper<'_>> for Rule {

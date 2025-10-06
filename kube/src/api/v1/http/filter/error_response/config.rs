@@ -52,13 +52,21 @@ pub enum ErrorResponseFilterConversionError {
     #[error("`problem_detail` is required for 'ProblemDetail' kind")]
     MissingProblemDetail,
     #[error("Problem detail configuration error: {0}")]
-    ProblemDetail(#[from] ProblemDetailErrorResponseGeneratorConversionError),
+    ProblemDetail(
+        #[from]
+        #[source]
+        ProblemDetailErrorResponseGeneratorConversionError,
+    ),
 }
 
 #[derive(Debug, Error)]
 pub enum ProblemDetailErrorResponseGeneratorConversionError {
     #[error("Invalid problem detail authority URI: {0}")]
-    Authority(#[from] InvalidUri),
+    Authority(
+        #[from]
+        #[source]
+        InvalidUri,
+    ),
 }
 
 impl TryFrom<&ProblemDetailErrorResponse> for ProblemDetailErrorResponseGenerator {

@@ -14,9 +14,9 @@ pub enum TimeoutPoliciesConversionError {
     #[error("Invalid configuration")]
     InvalidConfiguration,
     #[error("Invalid request timeout: {0}")]
-    RequestTimeout(ParseError),
+    RequestTimeout(#[source] ParseError),
     #[error("Invalid backend request timeout: {0}")]
-    BackendRequestTimeout(ParseError),
+    BackendRequestTimeout(#[source] ParseError),
 }
 
 impl TryFrom<HTTPRouteTimeoutWrapper<'_>> for TimeoutPolicies {

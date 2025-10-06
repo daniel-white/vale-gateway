@@ -39,7 +39,11 @@ impl ClientAddrFilterHandler {
 #[derive(Debug, Error)]
 pub enum ClientAddrFilterHandlerConversionError {
     #[error("Invalid client addr extractor: {0}")]
-    InvalidExtractor(#[from] ClientAddrExtractorConversionError),
+    InvalidExtractor(
+        #[from]
+        #[source]
+        ClientAddrExtractorConversionError,
+    ),
 }
 
 impl TryFrom<&ClientAddrFilter> for ClientAddrFilterHandler {

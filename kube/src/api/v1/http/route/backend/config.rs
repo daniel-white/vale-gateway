@@ -23,7 +23,7 @@ pub enum RuleBackendConversionError {
     #[error("Invalid port")]
     Port,
     #[error("Invalid filter at index {0}: {1}")]
-    Filter(usize, RuleBackendFilterConversionError),
+    Filter(usize, #[source] RuleBackendFilterConversionError),
     #[error("Invalid backend reference")]
     BackendRef,
     #[error("Unsupported backend")]

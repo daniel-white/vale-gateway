@@ -33,7 +33,11 @@ pub struct StaticResponseFilterHandler {
 #[derive(Debug, Error)]
 pub enum StaticResponseFilterHandlerConversionError {
     #[error("Body ref error: {0}")]
-    BodyRef(#[from] BodyRefConversionError),
+    BodyRef(
+        #[from]
+        #[source]
+        BodyRefConversionError,
+    ),
 }
 
 #[allow(clippy::infallible_try_from)]

@@ -20,7 +20,11 @@ impl BackendUriRewriterFilterHandler {
 #[derive(Debug, Error)]
 pub enum BackendUriRewriterFilterHandlerConversionError {
     #[error("URI rewriter is invalid")]
-    UriRewriter(#[from] UriRewriterConversionError),
+    UriRewriter(
+        #[from]
+        #[source]
+        UriRewriterConversionError,
+    ),
 }
 
 impl TryFrom<&BackendUriRewriterFilter> for BackendUriRewriterFilterHandler {

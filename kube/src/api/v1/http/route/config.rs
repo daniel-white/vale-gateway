@@ -15,9 +15,9 @@ pub enum RouteConversionError {
     #[error("Invalid configuration")]
     InvalidConfiguration,
     #[error("Host matcher conversion error at index {0}: {1}")]
-    Hostname(usize, HostMatcherConversionError),
+    Hostname(usize, #[source] HostMatcherConversionError),
     #[error("Rule conversion error at index {0}: {1}")]
-    Rule(usize, RuleConversionError),
+    Rule(usize, #[source] RuleConversionError),
 }
 
 impl TryFrom<HTTPRouteWrapper<'_>> for Route {

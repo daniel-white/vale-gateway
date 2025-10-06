@@ -16,7 +16,11 @@ pub enum RedirectResponseFilterConversionError {
     #[error("Path rewrite is invalid")]
     Path,
     #[error("Port rewrite is invalid")]
-    Port(#[from] PortConversionError),
+    Port(
+        #[from]
+        #[source]
+        PortConversionError,
+    ),
 }
 
 impl TryFrom<RequestRedirectWrapper<'_>> for RedirectResponseFilter {

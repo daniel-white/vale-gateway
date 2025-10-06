@@ -46,7 +46,11 @@ pub enum UriRewriterConversionError {
     #[error("No fields set in UriRewriter")]
     Unset,
     #[error("Invalid host: {0}")]
-    InvalidHost(#[from] ProtoError),
+    InvalidHost(
+        #[from]
+        #[source]
+        ProtoError,
+    ),
 }
 
 impl TryFrom<&UriRewriterConfig> for UriRewriter {

@@ -30,7 +30,11 @@ pub enum RedirectResponseFilterHandlerConversionError {
     #[error("Invalid status code for redirect")]
     StatusCode,
     #[error("URI rewriter is invalid")]
-    UriRewriter(#[from] UriRewriterConversionError),
+    UriRewriter(
+        #[from]
+        #[source]
+        UriRewriterConversionError,
+    ),
 }
 
 impl TryFrom<&RedirectResponseFilter> for RedirectResponseFilterHandler {

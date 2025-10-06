@@ -36,7 +36,11 @@ impl ErrorResponseGenerator {
 #[derive(Debug, Error)]
 pub enum ErrorResponseGeneratorConversionError {
     #[error("Failed to convert problem detail generator: {0}")]
-    ProblemDetail(#[from] ProblemDetailErrorResponseGeneratorConversionError),
+    ProblemDetail(
+        #[from]
+        #[source]
+        ProblemDetailErrorResponseGeneratorConversionError,
+    ),
 }
 
 #[allow(clippy::infallible_try_from)]

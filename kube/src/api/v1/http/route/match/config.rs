@@ -23,7 +23,11 @@ pub enum PathMatcherConversionError {
     #[error("Invalid path configuration")]
     InvalidConfiguration,
     #[error("Invalid path match regular expression: {0}")]
-    RegularExpression(#[from] regex::Error),
+    RegularExpression(
+        #[from]
+        #[source]
+        regex::Error,
+    ),
 }
 
 #[derive(Debug, Error)]
@@ -33,25 +37,41 @@ pub enum HeaderMatcherConversionError {
     #[error("Invalid exact header value: {0}")]
     ExactValue(#[from] InvalidHeaderValue),
     #[error("Invalid header value match regular expression: {0}")]
-    RegularExpression(#[from] regex::Error),
+    RegularExpression(
+        #[from]
+        #[source]
+        regex::Error,
+    ),
 }
 
 #[derive(Debug, Error)]
 pub enum QueryParamMatcherConversionError {
     #[error("Invalid query parameter value match regular expression: {0}")]
-    RegularExpression(#[from] regex::Error),
+    RegularExpression(
+        #[from]
+        #[source]
+        regex::Error,
+    ),
 }
 
 #[derive(Debug, Error)]
 pub enum RequestMatcherConversionError {
     #[error("Method matcher conversion error: {0}")]
-    Method(#[from] MethodMatcherConversionError),
+    Method(
+        #[from]
+        #[source]
+        MethodMatcherConversionError,
+    ),
     #[error("Path matcher conversion error: {0}")]
-    Path(#[from] PathMatcherConversionError),
+    Path(
+        #[from]
+        #[source]
+        PathMatcherConversionError,
+    ),
     #[error("Header matcher conversion error at index {0}: {1}")]
-    Header(usize, HeaderMatcherConversionError),
+    Header(usize, #[source] HeaderMatcherConversionError),
     #[error("Query parameter matcher conversion error at index {0}: {1}")]
-    QueryParam(usize, QueryParamMatcherConversionError),
+    QueryParam(usize, #[source] QueryParamMatcherConversionError),
 }
 
 internal_wrapper!(HTTPMethodMatch);

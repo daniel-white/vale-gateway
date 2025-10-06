@@ -10,15 +10,15 @@ pub enum HeaderModifierFilterConversionError {
     #[error("Invalid configuration")]
     InvalidConfiguration,
     #[error("Invalid add header name at index {0}: {1}")]
-    AddHeaderName(usize, InvalidHeaderName),
+    AddHeaderName(usize, #[source] InvalidHeaderName),
     #[error("Invalid add header value at index {0}: {1}")]
-    AddHeaderValue(usize, InvalidHeaderValue),
+    AddHeaderValue(usize, #[source] InvalidHeaderValue),
     #[error("Invalid set header name at index {0}: {1}")]
-    SetHeaderName(usize, InvalidHeaderName),
+    SetHeaderName(usize, #[source] InvalidHeaderName),
     #[error("Invalid set header value at index {0}: {1}")]
-    SetHeaderValue(usize, InvalidHeaderValue),
+    SetHeaderValue(usize, #[source] InvalidHeaderValue),
     #[error("Invalid remove header name at index {0}: {1}")]
-    RemoveHeaderName(usize, InvalidHeaderName),
+    RemoveHeaderName(usize, #[source] InvalidHeaderName),
 }
 
 impl TryFrom<HeaderModifierWrapper<'_>> for HeaderModifierFilter {

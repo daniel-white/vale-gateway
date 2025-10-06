@@ -23,15 +23,19 @@ pub enum ClientAddrFilterConversionError {
     #[error("Invalid configuration")]
     InvalidConfiguration,
     #[error("Invalid backend header name: {0}")]
-    BackendHeaderName(InvalidHeaderName),
+    BackendHeaderName(#[source] InvalidHeaderName),
     #[error("`header` is required for 'Header' source")]
     MissingHeader,
     #[error("Invalid source header name: {0}")]
-    Header(InvalidHeaderName),
+    Header(#[source] InvalidHeaderName),
     #[error("`proxies` is required for 'Proxies' source")]
     MissingProxies,
     #[error("Invalid source proxies configuration: {0}")]
-    Proxies(#[from] TrustedProxiesClientAddrExtractorConversionError),
+    Proxies(
+        #[from]
+        #[source]
+        TrustedProxiesClientAddrExtractorConversionError,
+    ),
 }
 
 impl TryFrom<&ClientAddressFilterSpec> for ClientAddrFilter {

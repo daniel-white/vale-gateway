@@ -29,13 +29,21 @@ pub enum RuleFilter {
 #[derive(Debug, Error)]
 pub enum RuleFilterConversionError {
     #[error("Request header modifier error: {0}")]
-    RequestHeaderModifier(HeaderModifierFilterHandlerConversionError),
+    RequestHeaderModifier(#[source] HeaderModifierFilterHandlerConversionError),
     #[error("Response header modifier error: {0}")]
-    ResponseHeaderModifier(HeaderModifierFilterHandlerConversionError),
+    ResponseHeaderModifier(#[source] HeaderModifierFilterHandlerConversionError),
     #[error("Redirect response error: {0}")]
-    RedirectResponse(#[from] RedirectResponseFilterHandlerConversionError),
+    RedirectResponse(
+        #[from]
+        #[source]
+        RedirectResponseFilterHandlerConversionError,
+    ),
     #[error("Backend URI rewriter error: {0}")]
-    BackendUriRewriter(#[from] BackendUriRewriterFilterHandlerConversionError),
+    BackendUriRewriter(
+        #[from]
+        #[source]
+        BackendUriRewriterFilterHandlerConversionError,
+    ),
 }
 
 impl TryFrom<&RuleFilterConfig> for RuleFilter {

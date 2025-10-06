@@ -28,13 +28,17 @@ pub struct Rule {
 #[derive(Debug, Error)]
 pub enum RuleConversionError {
     #[error("request matcher at index {0} is invalid: {1}")]
-    Matcher(usize, RequestMatcherConversionError),
+    Matcher(usize, #[source] RequestMatcherConversionError),
 
     #[error("filter at index {0} is invalid: {1}")]
-    Filter(usize, RuleFilterConversionError),
+    Filter(usize, #[source] RuleFilterConversionError),
 
     #[error("policies are invalid: {0}")]
-    Policies(#[from] RulePoliciesConversionError),
+    Policies(
+        #[from]
+        #[source]
+        RulePoliciesConversionError,
+    ),
 }
 
 impl TryFrom<&vg_http_config::routing::rule::Rule> for Rule {
