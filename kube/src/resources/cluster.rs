@@ -1,4 +1,6 @@
-use crate::resources::kinds::ResourceKind;
+use crate::resources::ResourceRef;
+use crate::resources::common::ResourceCollection;
+use crate::resources::kind::ResourceKind;
 use getset::Getters;
 use kube::Resource;
 use multi_map::MultiMap;
@@ -9,13 +11,32 @@ use std::sync::Arc;
 
 pub trait ClusterScopedResource: Resource {}
 
-#[derive(Debug, Getters)]
+#[derive(Getters)]
 pub struct ClusterScopedRef<R: ClusterScopedResource>
 where
     R::DynamicType: 'static + Default,
 {
     kind: ResourceKind<R>,
     name: Arc<String>,
+}
+
+impl<R: ClusterScopedResource> ResourceRef<R> for ClusterScopedRef<R>
+where
+    R: Resource,
+    R::DynamicType: 'static + Default,
+{
+}
+
+impl<R: ClusterScopedResource> Debug for ClusterScopedRef<R>
+where
+    R::DynamicType: 'static + Default,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ClusterScopedRef")
+            .field("kind", &self.kind)
+            .field("name", &self.name)
+            .finish()
+    }
 }
 
 impl<R: ClusterScopedResource> Clone for ClusterScopedRef<R>
@@ -109,7 +130,7 @@ where
 #[derive(Debug)]
 pub struct ClusterScopedResourceCollection<K, R>
 where
-    K: Clone + Hash + PartialEq + Eq + Debug,
+    K: ResourceRef<R>,
     R: ClusterScopedResource,
     R::DynamicType: 'static + Default,
 {
@@ -118,28 +139,24 @@ where
 
 impl<K, R> Default for ClusterScopedResourceCollection<K, R>
 where
-    K: Clone + Hash + PartialEq + Eq + Debug + From<ClusterScopedRef<R>>,
+    K: ResourceRef<R>,
     R: ClusterScopedResource,
     R::DynamicType: 'static + Default,
 {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<K, R> ClusterScopedResourceCollection<K, R>
-where
-    K: Clone + Hash + PartialEq + Eq + Debug + From<ClusterScopedRef<R>>,
-    R: ClusterScopedResource,
-    R::DynamicType: 'static + Default,
-{
-    pub fn new() -> Self {
         Self {
             map: RefCell::default(),
         }
     }
+}
 
-    pub fn insert(&self, resource: R) {
+impl<K, R> ResourceCollection<K, R> for ClusterScopedResourceCollection<K, R>
+where
+    K: ResourceRef<R> + From<ClusterScopedRef<R>>,
+    R: ClusterScopedResource,
+    R::DynamicType: 'static + Default,
+{
+    fn insert(&self, resource: R) {
         let ref_: ClusterScopedRef<R> = (&resource).into();
         let ref_: K = ref_.into();
         let uid = resource
@@ -153,17 +170,17 @@ where
         map.insert(ref_, uid, arc);
     }
 
-    pub fn remove_by_uid(&self, uid: &str) -> Option<Arc<R>> {
+    fn remove_by_uid(&self, uid: &str) -> Option<Arc<R>> {
         let mut map = self.map.borrow_mut();
         map.remove_alt(uid)
     }
 
-    pub fn remove_by_ref(&self, ref_: &K) -> Option<Arc<R>> {
+    fn remove_by_ref(&self, ref_: &K) -> Option<Arc<R>> {
         let mut map = self.map.borrow_mut();
         map.remove(ref_)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (K, String, Arc<R>)> {
+    fn iter(&self) -> impl Iterator<Item = (K, String, Arc<R>)> {
         let map = self.map.borrow();
         let items: Vec<_> = map
             .iter()

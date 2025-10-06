@@ -1,3 +1,15 @@
+use kube_core::Resource;
+use vg_kube::resources::{ResourceCollection, ResourceRef};
+
+pub struct ResourcesWatcher<K: ResourceRef<R>, R: Resource, C: ResourceCollection<K, R>>
+where
+    R::DynamicType: 'static + Default,
+{
+    resources: C,
+    k_marker: std::marker::PhantomData<K>,
+    r_marker: std::marker::PhantomData<R>,
+}
+
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
 }

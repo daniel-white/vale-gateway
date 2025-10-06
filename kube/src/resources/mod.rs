@@ -1,7 +1,8 @@
-mod cluster_scoped;
-mod kinds;
+pub mod cluster;
+pub mod common;
+pub mod kind;
 mod macros;
-mod namespace_scoped;
+pub mod namespace;
 
 use crate::api::v1::http::filter::access_control::AccessControlFilter;
 use crate::api::v1::http::filter::client_addr::ClientAddressFilter;
@@ -9,15 +10,16 @@ use crate::api::v1::http::filter::error_response::ErrorResponseFilter;
 use crate::api::v1::http::filter::static_response::StaticResponseFilter;
 use crate::api::v1::parameters::{GatewayClassParameters, GatewayParameters};
 use crate::{cluster_scope, namespace_scope};
-pub use cluster_scoped::*;
+pub use cluster::*;
+pub use common::*;
 use gateway_api::gatewayclasses::GatewayClass;
 use gateway_api::gateways::Gateway;
 use gateway_api::httproutes::HTTPRoute;
 use k8s_openapi::api::apps::v1::Deployment;
 use k8s_openapi::api::core::v1::{ConfigMap, Service};
 use k8s_openapi::api::discovery::v1::EndpointSlice;
-pub use kinds::*;
-pub use namespace_scoped::*;
+pub use kind::*;
+pub use namespace::*;
 
 cluster_scope!(GatewayClass);
 cluster_scope!(GatewayClassParameters);

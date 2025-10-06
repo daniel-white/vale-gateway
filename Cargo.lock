@@ -3224,6 +3224,7 @@ dependencies = [
  "kube-core",
  "kube-leader-election",
  "thiserror 2.0.17",
+ "typed-builder",
  "vg-core",
  "vg-kube",
 ]

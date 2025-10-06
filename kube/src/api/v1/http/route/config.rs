@@ -6,7 +6,6 @@ use vg_http_config::routing::route::Route;
 use vg_http_config::routing::route::host::{HostMatcher, HostMatcherConversionError};
 use vg_http_config::routing::rule::Rule;
 
-
 #[derive(Debug, Error)]
 pub enum RouteConversionError {
     #[error("Invalid configuration")]

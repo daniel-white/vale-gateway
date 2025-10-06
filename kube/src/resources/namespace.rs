@@ -1,4 +1,5 @@
-use crate::resources::kinds::ResourceKind;
+use crate::resources::ResourceRef;
+use crate::resources::kind::ResourceKind;
 use getset::Getters;
 use kube::Resource;
 use multi_map::MultiMap;
@@ -9,7 +10,7 @@ use std::sync::Arc;
 
 pub trait NamespaceScopedResource: Resource {}
 
-#[derive(Debug, Getters)]
+#[derive(Getters)]
 pub struct NamespaceScopedRef<R: Resource>
 where
     R::DynamicType: 'static + Default,
@@ -17,6 +18,26 @@ where
     kind: ResourceKind<R>,
     namespace: Arc<String>,
     name: Arc<String>,
+}
+
+impl<R: NamespaceScopedResource> ResourceRef<R> for NamespaceScopedRef<R>
+where
+    R: Resource,
+    R::DynamicType: 'static + Default,
+{
+}
+
+impl<R: Resource> Debug for NamespaceScopedRef<R>
+where
+    R::DynamicType: 'static + Default,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NamespaceScopedRef")
+            .field("kind", &self.kind)
+            .field("namespace", &self.namespace)
+            .field("name", &self.name)
+            .finish()
+    }
 }
 
 impl<R: Resource> NamespaceScopedRef<R>
@@ -123,7 +144,7 @@ where
 #[derive(Debug)]
 pub struct NamespaceScopedResourceCollection<K, R>
 where
-    K: Clone + Hash + PartialEq + Eq + Debug,
+    K: ResourceRef<R>,
     R: NamespaceScopedResource,
     R::DynamicType: 'static + Default,
 {
@@ -132,18 +153,20 @@ where
 
 impl<K, R> Default for NamespaceScopedResourceCollection<K, R>
 where
-    K: Clone + Hash + PartialEq + Eq + Debug + From<NamespaceScopedRef<R>>,
+    K: ResourceRef<R>,
     R: NamespaceScopedResource,
     R::DynamicType: 'static + Default,
 {
     fn default() -> Self {
-        Self::new()
+        Self {
+            map: RefCell::default(),
+        }
     }
 }
 
 impl<K, R> NamespaceScopedResourceCollection<K, R>
 where
-    K: Clone + Hash + PartialEq + Eq + Debug + From<NamespaceScopedRef<R>>,
+    K: ResourceRef<R> + From<NamespaceScopedRef<R>>,
     R: NamespaceScopedResource,
     R::DynamicType: 'static + Default,
 {

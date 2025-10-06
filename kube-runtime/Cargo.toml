@@ -10,5 +10,6 @@ kube = { workspace = true, features = ["kube-derive", "derive"] }
 kube-core.workspace = true
 kube-leader-election.workspace = true
 thiserror.workspace = true
+typed-builder.workspace = true
 vg-core = { path = "../core" }
 vg-kube = { path = "../kube", features = ["config"] }

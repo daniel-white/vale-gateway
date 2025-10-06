@@ -75,4 +75,3 @@ impl TryFrom<HeaderModifierWrapper<'_>> for HeaderModifierFilter {
         Ok(filter)
     }
 }
-
