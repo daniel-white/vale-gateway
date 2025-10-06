@@ -1,4 +1,4 @@
-use super::basic::{ExactMatcher, InZoneDnsNameMatcher};
+use crate::routing::rule::matcher::basic::{ExactMatcher, InZoneDnsNameMatcher};
 use hickory_proto::rr::Name;
 use http::header::HOST;
 use http::uri::Authority;
@@ -6,48 +6,45 @@ use http::{HeaderMap, HeaderValue};
 use thiserror::Error;
 use tracing::{debug, instrument};
 use typed_builder::TypedBuilder;
-use vg_http_config::routing::rule::matcher::{
-    HostHeaderMatcher as HostHeaderMatcherConfig,
-    HostHeaderValueMatcher as HostHeaderValueMatcherConfig,
-};
+use vg_http_config::routing::route::host::HostMatcher as HostMatcherConfig;
 
 #[derive(Debug)]
-pub enum HostHeaderValueMatcher {
+pub enum HostMatcher {
     Exact(ExactMatcher<Name>),
     InZone(InZoneDnsNameMatcher),
 }
 
 #[derive(Debug, Error)]
-pub enum HostHeaderValueMatcherConversionError {
+pub enum HostMatcherConversionError {
     #[error("Invalid DNS name")]
     InvalidDnsName,
     #[error("Not fully qualified DNS name")]
     NotFullyQualifiedDnsName,
 }
 
-impl TryFrom<&HostHeaderValueMatcherConfig> for HostHeaderValueMatcher {
-    type Error = HostHeaderValueMatcherConversionError;
+impl TryFrom<&HostMatcherConfig> for HostMatcher {
+    type Error = HostMatcherConversionError;
 
-    fn try_from(config: &HostHeaderValueMatcherConfig) -> Result<Self, Self::Error> {
+    fn try_from(config: &HostMatcherConfig) -> Result<Self, Self::Error> {
         match config {
-            HostHeaderValueMatcherConfig::Exact(name) => {
+            HostMatcherConfig::Exact(name) => {
                 let name = Name::from_utf8(name)
-                    .map_err(|_| HostHeaderValueMatcherConversionError::InvalidDnsName)?;
+                    .map_err(|_| HostMatcherConversionError::InvalidDnsName)?;
                 if !name.is_fqdn() {
-                    return Err(HostHeaderValueMatcherConversionError::NotFullyQualifiedDnsName);
+                    return Err(HostMatcherConversionError::NotFullyQualifiedDnsName);
                 }
                 Ok(Self::Exact(name.into()))
             }
-            HostHeaderValueMatcherConfig::InZone(zone) => {
+            HostMatcherConfig::InZone(zone) => {
                 let zone = Name::from_utf8(zone)
-                    .map_err(|_| HostHeaderValueMatcherConversionError::InvalidDnsName)?;
+                    .map_err(|_| HostMatcherConversionError::InvalidDnsName)?;
                 Ok(Self::InZone(zone.into()))
             }
         }
     }
 }
 
-impl HostHeaderValueMatcher {
+impl HostMatcher {
     #[instrument(
         skip(self, value),
         name = "HostHeaderValueMatcher::matches"
@@ -77,11 +74,11 @@ impl HostHeaderValueMatcher {
 }
 
 #[derive(Debug, TypedBuilder)]
-pub struct HostHeaderMatcher {
-    matchers: Vec<HostHeaderValueMatcher>,
+pub struct HostMatchers {
+    matchers: Vec<HostMatcher>,
 }
 
-impl HostHeaderMatcher {
+impl HostMatchers {
     #[instrument(skip(self, headers), name = "HostHeaderMatcher::matches")]
     pub fn matches(&self, headers: &HeaderMap) -> bool {
         if self.matchers.is_empty() {
@@ -99,31 +96,5 @@ impl HostHeaderMatcher {
         }
 
         is_match
-    }
-}
-
-#[derive(Debug, Error)]
-pub enum HostHeaderMatcherConversionError {
-    #[error("Invalid host header value matcher at index {0}: {1}")]
-    InvalidMatcher(usize, HostHeaderValueMatcherConversionError),
-}
-
-impl TryFrom<&HostHeaderMatcherConfig> for HostHeaderMatcher {
-    type Error = HostHeaderMatcherConversionError;
-
-    fn try_from(value: &HostHeaderMatcherConfig) -> Result<Self, Self::Error> {
-        let matchers = value
-            .matchers()
-            .iter()
-            .enumerate()
-            .map(|(idx, config)| {
-                HostHeaderValueMatcher::try_from(config)
-                    .map_err(|e| HostHeaderMatcherConversionError::InvalidMatcher(idx, e))
-            })
-            .collect::<Result<_, _>>()?;
-
-        let matcher = Self::builder().matchers(matchers).build();
-
-        Ok(matcher)
     }
 }

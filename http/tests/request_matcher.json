@@ -1,5 +1,8 @@
 {
-  "name": "api-v1-patch-route",
+"name": "my-route",
+  "host_matchers": [{"exact": "api.example.com."}],
+"rules": [{
+  "name": "api-v1-patch-route-rule",
   "matchers": [
     {
       "method": {
@@ -36,7 +39,9 @@
       "set": {
         "user-agent": "vale-gateway/1.0"
       },
-      "remove": ["x-forwarded-for"]
+      "remove": [
+        "x-forwarded-for"
+      ]
     },
     {
       "kind": "responseHeaderModifier",
@@ -47,7 +52,9 @@
       "set": {
         "server": "vale-gateway"
       },
-      "remove": ["x-powered-by"]
+      "remove": [
+        "x-powered-by"
+      ]
     },
     {
       "kind": "accessControl",
@@ -83,12 +90,16 @@
       "backoffSecs": 1000
     }
   },
-  "backends": [ {
-    "name": "primary-backend",
-    "ref": "primary-backend-service",
-    "port": 443
-  }, {
-    "name": "secondary-backend",
-    "ref": "secondary-backend-service"
-  } ]
+  "backends": [
+    {
+      "name": "primary-backend",
+      "ref": "primary-backend-service",
+      "port": 443
+    },
+    {
+      "name": "secondary-backend",
+      "ref": "secondary-backend-service"
+    }
+  ]
+}]
 }

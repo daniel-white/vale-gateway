@@ -34,22 +34,6 @@ pub struct HeadersMatcher {
     headers: Vec<HeaderMatcher>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", content = "value")]
-#[serde(rename_all = "camelCase")]
-pub enum HostHeaderValueMatcher {
-    Exact(String),
-    InZone(String),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, TypedBuilder)]
-#[serde(rename_all = "camelCase")]
-pub struct HostHeaderMatcher {
-    #[serde(flatten)]
-    #[getset(get = "pub")]
-    matchers: Vec<HostHeaderValueMatcher>,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, CloneGetters, TypedBuilder)]
 pub struct MethodMatcher {
     #[getset(get_clone = "pub")]

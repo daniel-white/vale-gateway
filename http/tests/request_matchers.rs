@@ -1,3 +1,6 @@
+use vg_http::routing::route::Route;
+use vg_http_config::routing::route::Route as RouteConfig;
+
 #[test]
 pub fn loads_request_matcher_from_file() {
     use vg_http_config::routing::rule::Rule as RuleConfig;
@@ -35,9 +38,10 @@ pub fn loads_request_matcher_from_file() {
     // println!("{}", config);
 
     let config = include_str!("request_matcher.json");
-    let config = serde_json::from_str::<RuleConfig>(config).expect("Failed to parse JSON config");
+    let config = serde_json::from_str::<RouteConfig>(config).expect("Failed to parse JSON config");
+    let route: Route = Route::try_from(&config).unwrap();
 
     // let config = RequestMatcher::try_from(&config).expect("Failed to convert config");
 
-    println!("{:#?}", config);
+    println!("{:#?}", route);
 }

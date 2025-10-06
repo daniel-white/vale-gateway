@@ -1,29 +1,13 @@
-use crate::resources::collection::{AnyResourceRef, AnyResourceRefResolver};
 use crate::resources::kinds::ResourceKind;
 use getset::Getters;
 use kube::Resource;
-use std::fmt::{Display, Formatter, Write};
+use multi_map::MultiMap;
+use std::cell::RefCell;
+use std::fmt::{Debug, Display, Formatter, Write};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-pub trait NamespaceScopedResource: Resource {
-    fn resource_ref<R: NamespaceScopedResource>(&self) -> NamespaceScopedRef<R>
-    where
-        R::DynamicType: 'static + Default,
-    {
-        let meta = self.meta();
-        let namespace = meta
-            .namespace
-            .clone()
-            .expect("NamespaceScopedResource must have a namespace");
-        let name = meta
-            .name
-            .clone()
-            .expect("NamespaceScopedResource must have a name");
-
-        NamespaceScopedRef::new_named(&namespace, &name)
-    }
-}
+pub trait NamespaceScopedResource: Resource {}
 
 #[derive(Debug, Getters)]
 pub struct NamespaceScopedRef<R: Resource>
@@ -39,21 +23,7 @@ impl<R: Resource> NamespaceScopedRef<R>
 where
     R::DynamicType: 'static + Default,
 {
-    pub fn new(resource: &R) -> Self {
-        let meta = resource.meta();
-        let namespace = meta
-            .namespace
-            .as_ref()
-            .expect("NamespaceScopedResource must have a namespace");
-        let name = meta
-            .name
-            .as_ref()
-            .expect("NamespaceScopedResource must have a name");
-
-        Self::new_named(namespace, name)
-    }
-
-    pub fn new_named(namespace: &str, name: &str) -> Self {
+    pub fn new(namespace: &str, name: &str) -> Self {
         Self {
             kind: Default::default(),
             namespace: Arc::new(namespace.to_string()),
@@ -75,6 +45,25 @@ where
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+}
+
+impl<R: Resource> From<&R> for NamespaceScopedRef<R>
+where
+    R::DynamicType: 'static + Default,
+{
+    fn from(value: &R) -> Self {
+        let meta = value.meta();
+        let namespace = meta
+            .namespace
+            .as_ref()
+            .expect("NamespaceScopedResource must have a namespace");
+        let name = meta
+            .name
+            .as_ref()
+            .expect("NamespaceScopedResource must have a name");
+
+        Self::new(namespace, name)
     }
 }
 
@@ -131,11 +120,69 @@ where
     }
 }
 
-impl<R: NamespaceScopedResource> AnyResourceRefResolver<R> for NamespaceScopedRef<R>
+#[derive(Debug)]
+pub struct NamespaceScopedResourceCollection<K, R>
 where
+    K: Clone + Hash + PartialEq + Eq + Debug,
+    R: NamespaceScopedResource,
     R::DynamicType: 'static + Default,
 {
-    fn resource_ref(resource: &R) -> AnyResourceRef<R> {
-        AnyResourceRef::NamespaceScoped(resource.resource_ref::<R>())
+    map: RefCell<MultiMap<K, String, Arc<R>>>,
+}
+
+impl<K, R> Default for NamespaceScopedResourceCollection<K, R>
+where
+    K: Clone + Hash + PartialEq + Eq + Debug + From<NamespaceScopedRef<R>>,
+    R: NamespaceScopedResource,
+    R::DynamicType: 'static + Default,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<K, R> NamespaceScopedResourceCollection<K, R>
+where
+    K: Clone + Hash + PartialEq + Eq + Debug + From<NamespaceScopedRef<R>>,
+    R: NamespaceScopedResource,
+    R::DynamicType: 'static + Default,
+{
+    pub fn new() -> Self {
+        Self {
+            map: RefCell::default(),
+        }
+    }
+
+    pub fn insert(&self, resource: R) {
+        let ref_: NamespaceScopedRef<R> = (&resource).into();
+        let ref_: K = ref_.into();
+        let uid = resource
+            .meta()
+            .uid
+            .as_ref()
+            .expect("Resource must have a UID")
+            .clone();
+        let arc = Arc::new(resource);
+        let mut map = self.map.borrow_mut();
+        map.insert(ref_, uid, arc);
+    }
+
+    pub fn remove_by_uid(&self, uid: &str) -> Option<Arc<R>> {
+        let mut map = self.map.borrow_mut();
+        map.remove_alt(uid)
+    }
+
+    pub fn remove_by_ref(&self, ref_: &K) -> Option<Arc<R>> {
+        let mut map = self.map.borrow_mut();
+        map.remove(ref_)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (K, String, Arc<R>)> {
+        let map = self.map.borrow();
+        let items: Vec<_> = map
+            .iter()
+            .map(|(ref_, (uid, resource))| (ref_.clone(), uid.clone(), resource.clone()))
+            .collect();
+        items.into_iter()
     }
 }

@@ -233,10 +233,8 @@ impl TryFrom<&ExtensionRefWrapper<'_>> for AccessControlFilterRef {
         if value.extension_ref.group == "vale-gateway.whitefamily.io"
             && value.extension_ref.name == "AccessControlFilter"
         {
-            let ref_ = AccessControlFilterRef::new_named(
-                value.namespace,
-                value.extension_ref.name.as_str(),
-            );
+            let ref_ =
+                AccessControlFilterRef::new(value.namespace, value.extension_ref.name.as_str());
             Ok(ref_)
         } else {
             Err(())
@@ -251,10 +249,8 @@ impl TryFrom<&ExtensionRefWrapper<'_>> for ErrorResponseFilterRef {
         if value.extension_ref.group == "vale-gateway.whitefamily.io"
             && value.extension_ref.name == "ErrorResponseFilter"
         {
-            let ref_ = ErrorResponseFilterRef::new_named(
-                value.namespace,
-                value.extension_ref.name.as_str(),
-            );
+            let ref_ =
+                ErrorResponseFilterRef::new(value.namespace, value.extension_ref.name.as_str());
             Ok(ref_)
         } else {
             Err(())
@@ -269,10 +265,8 @@ impl TryFrom<&ExtensionRefWrapper<'_>> for StaticResponseFilterRef {
         if value.extension_ref.group == "vale-gateway.whitefamily.io"
             && value.extension_ref.name == "StaticResponseFilter"
         {
-            let ref_ = StaticResponseFilterRef::new_named(
-                value.namespace,
-                value.extension_ref.name.as_str(),
-            );
+            let ref_ =
+                StaticResponseFilterRef::new(value.namespace, value.extension_ref.name.as_str());
 
             Ok(ref_)
         } else {

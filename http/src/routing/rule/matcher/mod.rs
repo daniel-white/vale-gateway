@@ -1,6 +1,5 @@
 pub mod basic;
 pub mod header;
-pub mod host_header;
 pub mod method;
 pub mod path;
 pub mod query_param;

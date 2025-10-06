@@ -1,5 +1,4 @@
 mod cluster_scoped;
-mod collection;
 mod kinds;
 mod macros;
 mod namespace_scoped;
@@ -11,7 +10,6 @@ use crate::api::v1::http::filter::static_response::StaticResponseFilter;
 use crate::api::v1::parameters::{GatewayClassParameters, GatewayParameters};
 use crate::{cluster_scope, namespace_scope};
 pub use cluster_scoped::*;
-pub use collection::*;
 use gateway_api::gatewayclasses::GatewayClass;
 use gateway_api::gateways::Gateway;
 use gateway_api::httproutes::HTTPRoute;

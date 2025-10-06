@@ -41,7 +41,7 @@ impl TryFrom<HTTPBackendReferenceWrapper<'_>> for RuleBackend {
             None | Some("core") => match backend_ref.kind.as_deref() {
                 None | Some("Service") => {
                     let namespace = backend_ref.namespace.as_deref().unwrap_or(namespace);
-                    let ref_ = ServiceRef::new_named(namespace, &backend_ref.name);
+                    let ref_ = ServiceRef::new(namespace, &backend_ref.name);
                     BackendRef::from(ref_.to_string())
                 }
                 _ => return Err(RuleBackendConversionError::UnsupportedBackend),
