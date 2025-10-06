@@ -3201,7 +3201,6 @@ dependencies = [
  "k8s-openapi",
  "kube",
  "kube-core",
- "kube-leader-election",
  "multi-map",
  "ouroboros",
  "paste",
@@ -3209,12 +3208,24 @@ dependencies = [
  "schemars 1.0.4",
  "serde",
  "serde_json",
- "serde_yaml 0.9.34+deprecated",
- "strum 0.27.2",
  "thiserror 2.0.17",
  "typed-builder",
  "vg-core",
  "vg-http-config",
+]
+
+[[package]]
+name = "vg-kube-runtime"
+version = "0.0.0"
+dependencies = [
+ "gateway-api",
+ "k8s-openapi",
+ "kube",
+ "kube-core",
+ "kube-leader-election",
+ "thiserror 2.0.17",
+ "vg-core",
+ "vg-kube",
 ]
 
 [[package]]

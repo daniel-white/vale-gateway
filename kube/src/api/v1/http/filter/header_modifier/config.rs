@@ -21,6 +21,8 @@ pub enum HeaderModifierFilterConversionError {
     RemoveHeaderName(usize, #[source] InvalidHeaderName),
 }
 
+internal_wrapper!(HeaderModifier);
+
 impl TryFrom<HeaderModifierWrapper<'_>> for HeaderModifierFilter {
     type Error = HeaderModifierFilterConversionError;
 
@@ -74,4 +76,3 @@ impl TryFrom<HeaderModifierWrapper<'_>> for HeaderModifierFilter {
     }
 }
 
-internal_wrapper!(HeaderModifier);

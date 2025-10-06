@@ -5,8 +5,8 @@ macro_rules! cluster_scope {
             impl ClusterScopedResource for $t {}
 
             #[derive(Debug, derive_more::Deref, derive_more::From)]
-            #[allow(dead_code)]
-            pub(crate) struct [<$t Wrapper>]<'a>(&'a $t);
+            #[cfg(feature = "config")]
+            pub struct [<$t Wrapper>]<'a>(&'a $t);
 
             #[derive(Debug, derive_more::Deref, derive_more::DerefMut, derive_more::From)]
             pub struct [<$t Collection>](ClusterScopedResourceCollection<[<$t Ref>], $t>);
@@ -69,8 +69,8 @@ macro_rules! namespace_scope {
             impl NamespaceScopedResource for $t {}
 
             #[derive(Debug, derive_more::Deref, derive_more::From)]
-            #[allow(dead_code)]
-            pub(crate) struct [<$t Wrapper>]<'a>(&'a $t);
+            #[cfg(feature = "config")]
+            pub struct [<$t Wrapper>]<'a>(&'a $t);
 
             #[derive(Debug, derive_more::Deref, derive_more::DerefMut)]
             pub struct [<$t Collection>](NamespaceScopedResourceCollection<[<$t Ref>], $t>);

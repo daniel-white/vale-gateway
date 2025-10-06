@@ -1,14 +1,11 @@
 use crate::api::v1::http::route::rule::config::{HTTPRouteRuleWrapper, RuleConversionError};
-use crate::resources::HTTPRouteRef;
-use gateway_api::httproutes::HTTPRoute;
+use crate::resources::{HTTPRouteRef, HTTPRouteWrapper};
 use std::ops::Deref;
 use thiserror::Error;
-use vg_core::internal_wrapper;
 use vg_http_config::routing::route::Route;
 use vg_http_config::routing::route::host::{HostMatcher, HostMatcherConversionError};
 use vg_http_config::routing::rule::Rule;
 
-internal_wrapper!(HTTPRoute);
 
 #[derive(Debug, Error)]
 pub enum RouteConversionError {

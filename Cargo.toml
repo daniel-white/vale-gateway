@@ -6,6 +6,7 @@ members = [
     "kube",
     "http",
     "http-config",
+    "kube-runtime",
 ]
 
 [workspace.dependencies]

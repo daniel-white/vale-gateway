@@ -1,0 +1,14 @@
+[package]
+name = "vg-kube-runtime"
+version = "0.0.0"
+edition = "2024"
+
+[dependencies]
+gateway-api.workspace = true
+k8s-openapi.workspace = true
+kube = { workspace = true, features = ["kube-derive", "derive"] }
+kube-core.workspace = true
+kube-leader-election.workspace = true
+thiserror.workspace = true
+vg-core = { path = "../core" }
+vg-kube = { path = "../kube", features = ["config"] }

@@ -12,6 +12,8 @@ pub enum BackendUriRewriterConversionError {
     Path,
 }
 
+internal_wrapper!(HTTPRouteUrlRewrite);
+
 impl TryFrom<HTTPRouteUrlRewriteWrapper<'_>> for BackendUriRewriterFilter {
     type Error = BackendUriRewriterConversionError;
 
@@ -48,5 +50,3 @@ impl TryFrom<HTTPRouteUrlRewriteWrapper<'_>> for BackendUriRewriterFilter {
         Ok(filter)
     }
 }
-
-internal_wrapper!(HTTPRouteUrlRewrite);

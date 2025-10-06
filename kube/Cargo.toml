@@ -25,7 +25,6 @@ ipnet.workspace = true
 k8s-openapi.workspace = true
 kube = { workspace = true, features = ["kube-derive", "derive"] }
 kube-core.workspace = true
-kube-leader-election.workspace = true
 multi-map.workspace = true
 ouroboros.workspace = true
 paste.workspace = true
@@ -33,11 +32,7 @@ regex.workspace = true
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-strum.workspace = true
 thiserror.workspace = true
 typed-builder.workspace = true
 vg-core = { path = "../core" }
 vg-http-config = { path = "../http-config", optional = true }
-
-[build-dependencies]
-serde_yaml.workspace = true
