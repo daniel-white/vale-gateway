@@ -12,6 +12,7 @@ members = [
 [workspace.dependencies]
 assertables = "9"
 async-trait = "0.1"
+atomic_refcell = "0.1"
 base64ct = { version = "1", features = ["alloc"] }
 bytes = "1"
 derive_more = { version = "2", features = ["full"] }
@@ -45,6 +46,7 @@ strum = { version = "0.27", features = ["derive"] }
 thiserror = "2"
 tokio = "1"
 tokio-shutdown = "0.1"
+tokio-test = "0.4"
 tracing = "0.1"
 tracing-opentelemetry = "0.31"
 trusted-proxies = "0.3"
