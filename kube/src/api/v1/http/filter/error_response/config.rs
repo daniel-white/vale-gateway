@@ -3,7 +3,7 @@ use crate::resources::ErrorResponseFilterRef;
 use http::Uri;
 use http::uri::InvalidUri;
 use thiserror::Error;
-use vg_http_config::filter::error_response::{
+use vg_config::http::filter::error_response::{
     ErrorResponseFilter, ErrorResponseFilterRef as ErrorResponseFilterRefConfig,
     ErrorResponseGenerator, ProblemDetailErrorResponseGenerator,
 };

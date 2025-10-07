@@ -4,11 +4,11 @@ use base64ct::{Base64Unpadded, Encoding};
 use http::StatusCode;
 use http::status::InvalidStatusCode;
 use thiserror::Error;
-use vg_core::http::content_type::{ContentTypeBuf, ContentTypeConversionError};
-use vg_http_config::filter::static_response::{
+use vg_config::http::filter::static_response::{
     Body, BodyContent, StaticResponseFilter,
     StaticResponseFilterRef as StaticResponseFilterRefConfig,
 };
+use vg_core::http::content_type::{ContentTypeBuf, ContentTypeConversionError};
 
 impl From<StaticResponseFilterRef> for StaticResponseFilterRefConfig {
     fn from(value: StaticResponseFilterRef) -> Self {

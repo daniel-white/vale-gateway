@@ -12,10 +12,10 @@ use gateway_api::common::{GatewayInfrastructureParametersReference, HTTPFilterTy
 use gateway_api::httproutes::{HTTPRouteBackendFilter, HTTPRouteFilter};
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use vg_http_config::filter::backend_uri_rewriter::BackendUriRewriterFilter;
-use vg_http_config::filter::header_modifier::HeaderModifierFilter;
-use vg_http_config::filter::redirect_response::RedirectResponseFilter;
-use vg_http_config::routing::rule::filter::{
+use vg_config::http::filter::backend_uri_rewriter::BackendUriRewriterFilter;
+use vg_config::http::filter::header_modifier::HeaderModifierFilter;
+use vg_config::http::filter::redirect_response::RedirectResponseFilter;
+use vg_config::http::route::rule::filter::{
     AccessControlRuleFilter, BackendUriRewriterRuleFilter, ErrorResponseRuleFilter,
     RedirectResponseRuleFilter, RequestHeaderModifierRuleFilter, RuleBackendFilter, RuleFilter,
     StaticResponseRuleFilter,

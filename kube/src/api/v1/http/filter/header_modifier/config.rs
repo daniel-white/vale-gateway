@@ -2,8 +2,8 @@ use gateway_api::common::HeaderModifier;
 use http::header::{InvalidHeaderName, InvalidHeaderValue};
 use http::{HeaderMap, HeaderName, HeaderValue};
 use thiserror::Error;
+use vg_config::http::filter::header_modifier::HeaderModifierFilter;
 use vg_core::internal_wrapper;
-use vg_http_config::filter::header_modifier::HeaderModifierFilter;
 
 #[derive(Debug, Error)]
 pub enum HeaderModifierFilterConversionError {

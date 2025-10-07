@@ -3,9 +3,9 @@ use kube_core::Duration;
 use kube_core::duration::ParseError;
 use std::str::FromStr;
 use thiserror::Error;
+use vg_config::http::policy::TimeoutPolicy;
+use vg_config::http::route::rule::policy::TimeoutPolicies;
 use vg_core::internal_wrapper;
-use vg_http_config::policy::TimeoutPolicy;
-use vg_http_config::routing::rule::policy::TimeoutPolicies;
 
 internal_wrapper!(HTTPRouteTimeout);
 

@@ -4,8 +4,8 @@ use std::collections::HashSet;
 use std::time::Duration;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use vg_http_config::policy::RetryPolicy as RetryPolicyConfig;
-use vg_http_config::policy::TimeoutPolicy as TimeoutPolicyConfig;
+use vg_config::http::policy::RetryPolicy as RetryPolicyConfig;
+use vg_config::http::policy::TimeoutPolicy as TimeoutPolicyConfig;
 
 #[derive(Debug, Clone, TypedBuilder, CopyGetters, Getters)]
 pub struct RetryPolicy {

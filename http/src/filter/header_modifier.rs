@@ -3,7 +3,7 @@ use http::{HeaderMap, HeaderName};
 use std::collections::HashSet;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use vg_http_config::filter::header_modifier::HeaderModifierFilter;
+use vg_config::http::filter::header_modifier::HeaderModifierFilter;
 
 #[derive(Debug, TypedBuilder)]
 pub struct HeaderModifierFilterHandler {

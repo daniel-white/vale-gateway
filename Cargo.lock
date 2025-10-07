@@ -3124,6 +3124,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "vg-config"
+version = "0.0.0"
+dependencies = [
+ "assertables",
+ "derive_more",
+ "getset",
+ "hickory-proto",
+ "http",
+ "http-serde-ext",
+ "ipnet",
+ "mediatype",
+ "regex",
+ "rstest",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "thiserror 2.0.17",
+ "typed-builder",
+ "vg-core",
+]
+
+[[package]]
 name = "vg-core"
 version = "0.0.0"
 dependencies = [
@@ -3170,29 +3192,7 @@ dependencies = [
  "trusted-proxies",
  "typed-builder",
  "url",
- "vg-core",
- "vg-http-config",
-]
-
-[[package]]
-name = "vg-http-config"
-version = "0.0.0"
-dependencies = [
- "assertables",
- "derive_more",
- "getset",
- "hickory-proto",
- "http",
- "http-serde-ext",
- "ipnet",
- "mediatype",
- "regex",
- "rstest",
- "serde",
- "serde_json",
- "serde_with",
- "thiserror 2.0.17",
- "typed-builder",
+ "vg-config",
  "vg-core",
 ]
 
@@ -3219,8 +3219,8 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.17",
  "typed-builder",
+ "vg-config",
  "vg-core",
- "vg-http-config",
 ]
 
 [[package]]

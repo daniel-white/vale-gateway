@@ -7,7 +7,7 @@ use http::{HeaderName, HeaderValue, request};
 use std::net::{IpAddr, SocketAddr};
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use vg_http_config::filter::client_addr::ClientAddrFilter;
+use vg_config::http::filter::client_addr::ClientAddrFilter;
 
 #[derive(Debug, TypedBuilder)]
 pub struct ClientAddrFilterHandler {

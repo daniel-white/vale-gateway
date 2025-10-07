@@ -5,7 +5,7 @@ members = [
     "core",
     "kube",
     "http",
-    "http-config",
+    "config",
     "kube-runtime",
 ]
 

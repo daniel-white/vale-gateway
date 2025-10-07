@@ -1,4 +1,4 @@
-use crate::routing::rule::matcher::RequestMatchDetails;
+use crate::route::rule::matcher::RequestMatchDetails;
 use hickory_proto::ProtoError;
 use hickory_proto::rr::Name;
 use http::Uri;
@@ -6,10 +6,10 @@ use http::uri::{Authority, Scheme};
 use std::str::FromStr;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use vg_core::net::Port;
-use vg_http_config::rewriting::uri::{
+use vg_config::http::rewriting::uri::{
     PathRewrite as PathRewriteConfig, UriRewriter as UriRewriterConfig,
 };
+use vg_core::net::Port;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum PathRewrite {

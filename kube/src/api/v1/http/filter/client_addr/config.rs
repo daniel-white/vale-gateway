@@ -6,11 +6,11 @@ use crate::resources::ClientAddressFilterRef;
 use http::HeaderName;
 use http::header::InvalidHeaderName;
 use thiserror::Error;
-use vg_core::net::IpRef;
-use vg_http_config::filter::client_addr::{
+use vg_config::http::filter::client_addr::{
     ClientAddrExtractor, ClientAddrFilter, ClientAddrFilterRef as ClientAddrFilterRefConfig,
     TrustedHeaderClientAddrExtractor, TrustedProxiesClientAddrExtractor, TrustedProxyHeaderName,
 };
+use vg_core::net::IpRef;
 
 impl From<ClientAddressFilterRef> for ClientAddrFilterRefConfig {
     fn from(value: ClientAddressFilterRef) -> Self {

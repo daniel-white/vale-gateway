@@ -4,12 +4,12 @@ use std::collections::HashSet;
 use std::net::{IpAddr, SocketAddr};
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use vg_core::net::IpRef;
-use vg_http_config::filter::client_addr::{
+use vg_config::http::filter::client_addr::{
     ClientAddrExtractor as ClientAddrExtractorConfig,
     TrustedHeaderClientAddrExtractor as TrustedHeaderClientAddrExtractorConfig,
     TrustedProxiesClientAddrExtractor as TrustedProxiesClientAddrExtractorConfig,
 };
+use vg_core::net::IpRef;
 
 trait Extractor: Into<ClientAddrExtractor> {
     fn extract(&self, client_addr: SocketAddr, req: &Parts) -> Option<IpAddr>;

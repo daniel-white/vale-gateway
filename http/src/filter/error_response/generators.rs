@@ -10,11 +10,11 @@ use thiserror::Error;
 use tracing::Span;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use typed_builder::TypedBuilder;
-use vg_core::http::content_type::{ContentType, HTML, PROBLEM_DETAIL};
-use vg_http_config::filter::error_response::{
+use vg_config::http::filter::error_response::{
     ErrorResponseGenerator as ErrorResponseGeneratorConfig,
     ProblemDetailErrorResponseGenerator as ProblemDetailErrorResponseGeneratorConfig,
 };
+use vg_core::http::content_type::{ContentType, HTML, PROBLEM_DETAIL};
 
 #[derive(Debug)]
 pub enum ErrorResponseGenerator {

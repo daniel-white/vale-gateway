@@ -1,10 +1,10 @@
 mod instrumentation;
 
-use std::ops::Deref;
 use crate::sync::signal::instrumentation::{record_set_applied, record_set_skipped};
 use atomic_refcell::AtomicRefCell;
-use std::sync::Arc;
 use derive_more::From;
+use std::ops::Deref;
+use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::broadcast::{Receiver as BroadcastReceiver, Sender as BroadcastSender, channel};
 use tokio::sync::{RwLock, RwLockReadGuard};
@@ -90,11 +90,11 @@ impl<T: PartialEq> Sender<T> {
 #[derive(From)]
 pub struct SignalReadGuard<'a, T>(RwLockReadGuard<'a, Option<T>>);
 
-impl <T> Deref for SignalReadGuard<'_, T> {
+impl<T> Deref for SignalReadGuard<'_, T> {
     type Target = Option<T>;
 
     fn deref(&self) -> &Self::Target {
-        &*self.0
+        &self.0
     }
 }
 
@@ -160,16 +160,16 @@ mod tests {
         assert_none!(*rx.get().await);
 
         tx.set(43).await;
-        assert_some_eq_x!(*rx.get().await, 43 );
+        assert_some_eq_x!(*rx.get().await, 43);
 
         tx.clear().await;
         assert_none!(*rx.get().await);
 
         tx.set(44).await;
-        assert_some_eq_x!(*rx.get().await, 44 );
+        assert_some_eq_x!(*rx.get().await, 44);
 
         tx.set(44).await; // No change, should not update
-        assert_some_eq_x!(*rx.get().await, 44 );
+        assert_some_eq_x!(*rx.get().await, 44);
     }
 
     #[tokio::test]

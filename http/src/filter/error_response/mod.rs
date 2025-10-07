@@ -9,7 +9,7 @@ use bytes::Bytes;
 use http::Response;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use vg_http_config::filter::error_response::ErrorResponseFilter;
+use vg_config::http::filter::error_response::ErrorResponseFilter;
 
 #[derive(Debug, TypedBuilder)]
 pub struct ErrorResponseFilterHandler {

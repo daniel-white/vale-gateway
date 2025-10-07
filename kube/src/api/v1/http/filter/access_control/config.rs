@@ -2,11 +2,11 @@ use super::{AccessControlFilterEffect, AccessControlFilterSpec};
 use crate::resources::AccessControlFilterRef;
 use std::collections::HashSet;
 use thiserror::Error;
-use vg_core::net::IpRef;
-use vg_http_config::filter::access_control::{
+use vg_config::http::filter::access_control::{
     AccessControlEffect, AccessControlFilter,
     AccessControlFilterRef as AccessControlFilterRefConfig,
 };
+use vg_core::net::IpRef;
 
 impl From<AccessControlFilterRef> for AccessControlFilterRefConfig {
     fn from(value: AccessControlFilterRef) -> Self {

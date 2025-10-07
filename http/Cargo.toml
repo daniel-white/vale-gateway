@@ -27,7 +27,7 @@ typed-builder.workspace = true
 tokio.workspace = true
 url.workspace = true
 vg-core = { path = "../core" }
-vg-http-config = { path = "../http-config" }
+vg-config = { path = "../config" }
 
 [dev-dependencies]
 mockall.workspace = true

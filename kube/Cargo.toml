@@ -11,7 +11,7 @@ path = "src/lib.rs"
 default = ["config"]
 config = [
     "base64ct",
-    "vg-http-config"
+    "vg-config"
 ]
 
 [dependencies]
@@ -35,4 +35,4 @@ serde_json.workspace = true
 thiserror.workspace = true
 typed-builder.workspace = true
 vg-core = { path = "../core" }
-vg-http-config = { path = "../http-config", optional = true }
+vg-config = { path = "../config", optional = true }

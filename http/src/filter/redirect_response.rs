@@ -1,11 +1,11 @@
 use crate::rewriting::uri::{UriRewriter, UriRewriterConversionError};
-use crate::routing::rule::matcher::RequestMatchDetails;
+use crate::route::rule::matcher::RequestMatchDetails;
 use http::header::LOCATION;
 use http::request::Parts;
 use http::{Response, StatusCode};
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use vg_http_config::filter::redirect_response::RedirectResponseFilter;
+use vg_config::http::filter::redirect_response::RedirectResponseFilter;
 
 #[derive(Debug, TypedBuilder)]
 pub struct RedirectResponseFilterHandler {

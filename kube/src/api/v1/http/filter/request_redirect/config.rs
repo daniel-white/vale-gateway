@@ -2,10 +2,10 @@ use gateway_api::common::{RequestOperationType, RequestRedirect, RequestRedirect
 use http::StatusCode;
 use http::uri::Scheme;
 use thiserror::Error;
+use vg_config::http::filter::redirect_response::RedirectResponseFilter;
+use vg_config::http::rewriting::uri::{PathRewrite, UriRewriter};
 use vg_core::internal_wrapper;
 use vg_core::net::{Port, PortConversionError};
-use vg_http_config::filter::redirect_response::RedirectResponseFilter;
-use vg_http_config::rewriting::uri::{PathRewrite, UriRewriter};
 
 #[derive(Debug, Error)]
 pub enum RedirectResponseFilterConversionError {

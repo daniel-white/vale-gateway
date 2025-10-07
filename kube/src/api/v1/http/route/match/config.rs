@@ -6,11 +6,11 @@ use http::Method;
 use http::header::{InvalidHeaderName, InvalidHeaderValue};
 use regex::Regex;
 use thiserror::Error;
-use vg_core::internal_wrapper;
-use vg_http_config::routing::rule::matcher::{
+use vg_config::http::route::rule::matcher::{
     HeaderMatcher, HeaderValueMatcher, HeadersMatcher, MethodMatcher, PathMatcher,
     QueryParamMatcher, QueryParamValueMatcher, QueryParamsMatcher, RequestMatcher,
 };
+use vg_core::internal_wrapper;
 
 #[derive(Debug, Error)]
 pub enum MethodMatcherConversionError {

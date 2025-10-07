@@ -1,8 +1,8 @@
 use gateway_api::common::{HTTPRouteUrlRewrite, RequestOperationType};
 use thiserror::Error;
+use vg_config::http::filter::backend_uri_rewriter::BackendUriRewriterFilter;
+use vg_config::http::rewriting::uri::{PathRewrite, UriRewriter};
 use vg_core::internal_wrapper;
-use vg_http_config::filter::backend_uri_rewriter::BackendUriRewriterFilter;
-use vg_http_config::rewriting::uri::{PathRewrite, UriRewriter};
 
 #[derive(Debug, Error)]
 pub enum BackendUriRewriterConversionError {

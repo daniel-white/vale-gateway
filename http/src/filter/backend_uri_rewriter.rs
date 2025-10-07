@@ -1,10 +1,10 @@
 use crate::rewriting::uri::{UriRewriter, UriRewriterConversionError};
-use crate::routing::rule::matcher::RequestMatchDetails;
+use crate::route::rule::matcher::RequestMatchDetails;
 use http::Uri;
 use http::request::Parts;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use vg_http_config::filter::backend_uri_rewriter::BackendUriRewriterFilter;
+use vg_config::http::filter::backend_uri_rewriter::BackendUriRewriterFilter;
 
 #[derive(Debug, TypedBuilder)]
 pub struct BackendUriRewriterFilterHandler {
@@ -43,7 +43,7 @@ impl TryFrom<&BackendUriRewriterFilter> for BackendUriRewriterFilterHandler {
 mod tests {
     use super::*;
     use crate::rewriting::uri::UriRewriter;
-    use crate::routing::rule::matcher::RequestMatchDetails;
+    use crate::route::rule::matcher::RequestMatchDetails;
     use http::{HeaderValue, Uri};
     use rstest::*;
     use std::str::FromStr;

@@ -6,10 +6,10 @@ use std::fmt::Debug;
 use std::sync::Arc;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use vg_core::http::content_type::ContentTypeBuf;
-use vg_http_config::filter::static_response::{
+use vg_config::http::filter::static_response::{
     Body as BodyConfig, BodyContent as BodyContentConfig, StaticResponseFilter,
 };
+use vg_core::http::content_type::ContentTypeBuf;
 
 #[derive(Debug, Error)]
 pub enum BodyResolverError {

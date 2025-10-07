@@ -1,5 +1,5 @@
-use vg_http::routing::route::Route;
-use vg_http_config::routing::route::Route as RouteConfig;
+use vg_config::http::route::Route as RouteConfig;
+use vg_http::route::Route;
 
 #[test]
 pub fn loads_request_matcher_from_file() {

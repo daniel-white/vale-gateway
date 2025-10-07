@@ -5,10 +5,10 @@ use crate::resources::ServiceRef;
 use gateway_api::httproutes::HTTPBackendReference;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
+use vg_config::http::backend::BackendRef;
+use vg_config::http::route::rule::backend::RuleBackend;
+use vg_config::http::route::rule::filter::RuleBackendFilter;
 use vg_core::net::Port;
-use vg_http_config::routing::backend::BackendRef;
-use vg_http_config::routing::rule::backend::RuleBackend;
-use vg_http_config::routing::rule::filter::RuleBackendFilter;
 
 #[derive(Debug, TypedBuilder)]
 pub struct HTTPBackendReferenceWrapper<'a> {

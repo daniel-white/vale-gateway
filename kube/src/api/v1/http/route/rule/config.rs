@@ -13,11 +13,11 @@ use crate::api::v1::http::route::timeout::config::{
 use gateway_api::httproutes::HTTPRouteRule;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use vg_http_config::routing::rule::Rule;
-use vg_http_config::routing::rule::backend::RuleBackend;
-use vg_http_config::routing::rule::filter::RuleFilter;
-use vg_http_config::routing::rule::matcher::RequestMatcher;
-use vg_http_config::routing::rule::policy::{RulePolicies, TimeoutPolicies};
+use vg_config::http::route::rule::Rule;
+use vg_config::http::route::rule::backend::RuleBackend;
+use vg_config::http::route::rule::filter::RuleFilter;
+use vg_config::http::route::rule::matcher::RequestMatcher;
+use vg_config::http::route::rule::policy::{RulePolicies, TimeoutPolicies};
 
 #[derive(Debug, TypedBuilder)]
 pub struct HTTPRouteRuleWrapper<'a> {
