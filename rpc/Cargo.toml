@@ -9,11 +9,9 @@ client = ["jsonrpsee/client"]
 server = ["jsonrpsee/server"]
 
 [dependencies]
-assertables.workspace = true
 async-trait.workspace = true
 jsonrpsee = { workspace = true, features = ["tracing", "macros"] }
 serde.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
-vg-core = { path = "../core" }
 vg-config = { path = "../config" }

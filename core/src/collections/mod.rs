@@ -1,11 +1,12 @@
-use std::hash::Hash;
 use dashmap::DashMap;
-use tokio::sync::broadcast::{channel, Sender};
+use std::hash::Hash;
+use tokio::sync::broadcast::{Sender, channel};
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum CollectionEvent<K, V>
-    where K: PartialEq,
-          V: PartialEq
+where
+    K: PartialEq,
+    V: PartialEq,
 {
     Inserted { key: K, value: V },
     Updated { key: K, old_value: V, new_value: V },
@@ -18,19 +19,21 @@ pub struct RecvError(tokio::sync::broadcast::error::RecvError);
 
 #[derive(Debug)]
 pub struct Receiver<K, V, E>
-where K: Hash + Eq + Clone,
-      V: PartialEq + Clone,
-      E: From<CollectionEvent<K, V>> + Clone
+where
+    K: Hash + Eq + Clone,
+    V: PartialEq + Clone,
+    E: From<CollectionEvent<K, V>> + Clone,
 {
     inner: tokio::sync::broadcast::Receiver<E>,
     k_data: std::marker::PhantomData<K>,
     v_data: std::marker::PhantomData<V>,
 }
 
-impl <K, V, E> From<tokio::sync::broadcast::Receiver<E>> for Receiver<K, V, E>
-    where K: Hash + Eq + Clone,
-          V: PartialEq + Clone,
-          E: From<CollectionEvent<K, V>> + Clone
+impl<K, V, E> From<tokio::sync::broadcast::Receiver<E>> for Receiver<K, V, E>
+where
+    K: Hash + Eq + Clone,
+    V: PartialEq + Clone,
+    E: From<CollectionEvent<K, V>> + Clone,
 {
     fn from(inner: tokio::sync::broadcast::Receiver<E>) -> Self {
         Self {
@@ -41,52 +44,64 @@ impl <K, V, E> From<tokio::sync::broadcast::Receiver<E>> for Receiver<K, V, E>
     }
 }
 
-impl <K, V, E> Receiver<K, V, E>
-    where K: Hash + Eq + Clone,
-          V: PartialEq + Clone,
-          E: From<CollectionEvent<K, V>> + Clone
+impl<K, V, E> Receiver<K, V, E>
+where
+    K: Hash + Eq + Clone,
+    V: PartialEq + Clone,
+    E: From<CollectionEvent<K, V>> + Clone,
 {
     pub async fn recv(&mut self) -> Result<E, RecvError> {
-       match self.inner.recv().await {
-           Ok(event) => Ok(event),
-           Err(e) => Err(RecvError(e))
-       }
+        match self.inner.recv().await {
+            Ok(event) => Ok(event),
+            Err(e) => Err(RecvError(e)),
+        }
     }
 }
 
 #[derive(Debug)]
 pub struct NotifyingCollection<K, V, E>
-   where K: Hash + Eq + Clone,
-         V: PartialEq + Clone,
-         E: From<CollectionEvent<K, V>> + Clone
+where
+    K: Hash + Eq + Clone,
+    V: PartialEq + Clone,
+    E: From<CollectionEvent<K, V>> + Clone,
 {
     map: DashMap<K, V>,
     tx: Sender<E>,
     #[allow(dead_code)]
-    rx: Receiver<K, V, E>
+    rx: Receiver<K, V, E>,
 }
 
-impl <K, V, E> NotifyingCollection<K, V, E>
-    where K: Hash + Eq + Clone,
-          V: PartialEq + Clone,
-          E: From<CollectionEvent<K, V>> + Clone
+impl<K, V, E> NotifyingCollection<K, V, E>
+where
+    K: Hash + Eq + Clone,
+    V: PartialEq + Clone,
+    E: From<CollectionEvent<K, V>> + Clone,
 {
     pub fn new(channel_capacity: usize) -> Self {
         let (tx, rx) = channel(channel_capacity);
         Self {
             map: DashMap::new(),
             tx,
-            rx: rx.into()
+            rx: rx.into(),
         }
     }
 
     pub fn insert(&self, key: K, value: V) {
         match self.map.insert(key.clone(), value.clone()) {
             Some(old_value) if old_value != value => {
-                let _ = self.tx.send(CollectionEvent::Updated { key, old_value, new_value: value }.into());
+                let _ = self.tx.send(
+                    CollectionEvent::Updated {
+                        key,
+                        old_value,
+                        new_value: value,
+                    }
+                    .into(),
+                );
             }
             None => {
-                let _ = self.tx.send(CollectionEvent::Inserted { key, value }.into());
+                let _ = self
+                    .tx
+                    .send(CollectionEvent::Inserted { key, value }.into());
             }
             _ => {}
         }

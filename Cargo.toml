@@ -8,6 +8,8 @@ members = [
     "config",
     "kube-runtime",
     "rpc",
+    "gateway",
+    "controller",
 ]
 
 [workspace.dependencies]

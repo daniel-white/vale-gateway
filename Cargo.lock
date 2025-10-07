@@ -3526,6 +3526,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vg-controller"
+version = "0.0.0"
+dependencies = [
+ "vg-config",
+ "vg-core",
+ "vg-rpc",
+]
+
+[[package]]
 name = "vg-core"
 version = "0.0.0"
 dependencies = [
@@ -3543,6 +3552,15 @@ dependencies = [
  "tokio-shutdown",
  "tokio-test",
  "tracing",
+]
+
+[[package]]
+name = "vg-gateway"
+version = "0.0.0"
+dependencies = [
+ "vg-config",
+ "vg-core",
+ "vg-rpc",
 ]
 
 [[package]]

@@ -2,9 +2,9 @@ use crate::api::v1::http::route::rule::config::{HTTPRouteRuleWrapper, RuleConver
 use crate::resources::{HTTPRouteRef, HTTPRouteWrapper};
 use std::ops::Deref;
 use thiserror::Error;
-use vg_config::http::route::{Route, RouteRef};
 use vg_config::http::route::host::{HostMatcher, HostMatcherConversionError};
 use vg_config::http::route::rule::Rule;
+use vg_config::http::route::{Route, RouteRef};
 
 impl From<HTTPRouteRef> for RouteRef {
     fn from(value: HTTPRouteRef) -> Self {

@@ -1,5 +1,5 @@
 use crate::http::policy::retry::RetryPolicy;
-use crate::http::policy::timeout::TimeoutPolicy;
+use crate::http::policy::timeout::TimeoutPolicies;
 use getset::{CloneGetters, CopyGetters, Getters};
 use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
@@ -31,23 +31,5 @@ pub struct RulePolicies {
 impl RulePolicies {
     pub fn is_none(&self) -> bool {
         self.timeouts.is_none() && self.retries.is_none()
-    }
-}
-
-#[derive(
-    Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CopyGetters, TypedBuilder,
-)]
-#[serde(rename_all = "camelCase")]
-pub struct TimeoutPolicies {
-    #[getset(get_copy = "pub")]
-    request: Option<TimeoutPolicy>,
-
-    #[getset(get_copy = "pub")]
-    backend_request: Option<TimeoutPolicy>,
-}
-
-impl TimeoutPolicies {
-    pub fn is_none(&self) -> bool {
-        self.request.is_none() && self.backend_request.is_none()
     }
 }

@@ -3,7 +3,6 @@ use getset::Getters;
 use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
 use vg_core::collections::{CollectionEvent, NotifyingCollection};
-use crate::http::listener::ListenerRef;
 
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, Clone, From)]
 #[serde(transparent)]
@@ -42,4 +41,3 @@ impl BackendCollection {
         NotifyingCollection::new(channel_capacity).into()
     }
 }
-

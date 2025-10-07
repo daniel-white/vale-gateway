@@ -1,3 +1,6 @@
+pub mod policy;
+
+use crate::http::listener::policy::ListenerPolicies;
 use derive_more::{Deref, From};
 use getset::{CopyGetters, Getters};
 use serde::{Deserialize, Serialize};
@@ -32,6 +35,10 @@ pub struct Listener {
     #[getset(get = "pub")]
     #[serde(rename = "ref")]
     ref_: ListenerRef,
+
+    #[getset(get = "pub")]
+    #[serde(default, skip_serializing_if = "ListenerPolicies::is_default")]
+    policies: ListenerPolicies,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -59,4 +66,3 @@ impl ListenerCollection {
         NotifyingCollection::new(channel_capacity).into()
     }
 }
-

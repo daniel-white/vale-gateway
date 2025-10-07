@@ -1,0 +1,9 @@
+[package]
+name = "vg-gateway"
+version = "0.0.0"
+edition = "2024"
+
+[dependencies]
+vg-core = { path = "../core" }
+vg-config = { path = "../config" }
+vg-rpc = { path = "../rpc", features = ["client"] }

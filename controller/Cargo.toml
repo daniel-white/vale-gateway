@@ -1,0 +1,13 @@
+[package]
+name = "vg-controller"
+version = "0.0.0"
+edition = "2024"
+
+[dependencies]
+http.workspace = true
+jsonrpsee = { workspace = true, features = ["tracing", "server"] }
+jsonrpsee-core.workspace = true
+tokio.workspace = true
+vg-core = { path = "../core" }
+vg-config = { path = "../config" }
+vg-rpc = { path = "../rpc", features = ["server"] }

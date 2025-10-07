@@ -24,7 +24,16 @@ pub enum Format {
 }
 
 #[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TypedBuilder, Getters, CloneGetters,
+    Default,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    TypedBuilder,
+    Getters,
+    CloneGetters,
 )]
 #[serde(rename_all = "camelCase")]
 pub struct ErrorResponsePolicy {
@@ -32,4 +41,10 @@ pub struct ErrorResponsePolicy {
     #[builder(setter(into))]
     #[serde(flatten)]
     format: Format,
+}
+
+impl ErrorResponsePolicy {
+    pub fn is_default(&self) -> bool {
+        *self == Self::default()
+    }
 }

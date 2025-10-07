@@ -81,20 +81,29 @@ impl TrustedProxiesClientAddressExtractor {
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, From)]
 #[serde(tag = "extractor", rename_all = "camelCase")]
 pub enum ClientAddressExtractor {
-    #[default]
     None,
+    #[default]
     Direct,
     TrustedHeader(TrustedHeaderClientAddressExtractor),
     TrustedProxies(TrustedProxiesClientAddressExtractor),
 }
 
 #[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TypedBuilder, Getters, CloneGetters,
+    Debug,
+    Default,
+    Clone,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    TypedBuilder,
+    Getters,
+    CloneGetters,
 )]
 #[serde(rename_all = "camelCase")]
 pub struct ClientAddressesPolicy {
     #[getset(get = "pub")]
-    #[builder(setter(into))]
+    #[builder(default, setter(into))]
     #[serde(flatten)]
     extractor: ClientAddressExtractor,
 
@@ -106,6 +115,12 @@ pub struct ClientAddressesPolicy {
         skip_serializing_if = "Option::is_none"
     )]
     backend_header: Option<HeaderName>,
+}
+
+impl ClientAddressesPolicy {
+    pub fn is_default(&self) -> bool {
+        self == &ClientAddressesPolicy::default() && self.backend_header.is_none()
+    }
 }
 
 #[cfg(test)]

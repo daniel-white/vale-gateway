@@ -3,9 +3,8 @@ use crate::policy::timeout::{TimeoutPolicyConversionError, TimeoutPolicyHandler}
 use getset::{CloneGetters, Getters};
 use thiserror::Error;
 use typed_builder::TypedBuilder;
+use vg_config::http::policy::timeout::TimeoutPolicies as TimeoutPoliciesConfig;
 use vg_config::http::route::rule::policy::RulePolicies as RulePoliciesConfig;
-use vg_config::http::route::rule::policy::TimeoutPolicies as TimeoutPoliciesConfig;
-use crate::policy::error_response::ErrorResponsePolicyHandler;
 
 #[derive(Debug, TypedBuilder, CloneGetters, Getters)]
 pub struct RulePolicies {
