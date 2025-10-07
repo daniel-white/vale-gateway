@@ -1,5 +1,6 @@
 use super::error_codes::ErrorResponseCode;
 use bytes::Bytes;
+use derive_more::From;
 use http::header::{CONTENT_LENGTH, CONTENT_TYPE};
 use http::{Response, StatusCode, Uri};
 use opentelemetry::TraceId;
@@ -10,13 +11,11 @@ use thiserror::Error;
 use tracing::Span;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use typed_builder::TypedBuilder;
-use vg_config::http::filter::error_response::{
-    ErrorResponseGenerator as ErrorResponseGeneratorConfig,
-    ProblemDetailErrorResponseGenerator as ProblemDetailErrorResponseGeneratorConfig,
-};
+use vg_config::http::policy::error_response::{Format, ProblemDetailFormat};
 use vg_core::http::content_type::{ContentType, HTML, PROBLEM_DETAIL};
 
-#[derive(Debug)]
+#[derive(Debug, From)]
+#[allow(private_interfaces)]
 pub enum ErrorResponseGenerator {
     Empty(EmptyErrorResponseGenerator),
     Html(HtmlErrorResponseGenerator),
@@ -34,6 +33,7 @@ impl ErrorResponseGenerator {
 }
 
 #[derive(Debug, Error)]
+#[allow(private_interfaces)]
 pub enum ErrorResponseGeneratorConversionError {
     #[error("Failed to convert problem detail generator: {0}")]
     ProblemDetail(
@@ -44,19 +44,15 @@ pub enum ErrorResponseGeneratorConversionError {
 }
 
 #[allow(clippy::infallible_try_from)]
-impl TryFrom<&ErrorResponseGeneratorConfig> for ErrorResponseGenerator {
+impl TryFrom<&Format> for ErrorResponseGenerator {
     type Error = ErrorResponseGeneratorConversionError;
 
-    fn try_from(config: &ErrorResponseGeneratorConfig) -> Result<Self, Self::Error> {
-        let generator = match config {
-            ErrorResponseGeneratorConfig::Empty => {
-                EmptyErrorResponseGenerator::builder().build().into()
-            }
-            ErrorResponseGeneratorConfig::Html => {
-                HtmlErrorResponseGenerator::builder().build().into()
-            }
-            ErrorResponseGeneratorConfig::ProblemDetail(config) => {
-                ProblemDetailErrorResponseGenerator::try_from(config)?.into()
+    fn try_from(value: &Format) -> Result<Self, Self::Error> {
+        let generator = match value {
+            Format::Empty => EmptyErrorResponseGenerator::builder().build().into(),
+            Format::Html => HtmlErrorResponseGenerator::builder().build().into(),
+            Format::ProblemDetail(format) => {
+                ProblemDetailErrorResponseGenerator::try_from(format)?.into()
             }
         };
 
@@ -101,18 +97,12 @@ trait Generator: Into<ErrorResponseGenerator> {
 }
 
 #[derive(Debug, TypedBuilder)]
-pub struct EmptyErrorResponseGenerator {}
+struct EmptyErrorResponseGenerator {}
 
 impl Generator for EmptyErrorResponseGenerator {}
 
-impl From<EmptyErrorResponseGenerator> for ErrorResponseGenerator {
-    fn from(val: EmptyErrorResponseGenerator) -> Self {
-        Self::Empty(val)
-    }
-}
-
 #[derive(Debug, TypedBuilder)]
-pub struct HtmlErrorResponseGenerator {}
+struct HtmlErrorResponseGenerator {}
 
 impl Generator for HtmlErrorResponseGenerator {
     fn body(&self, code: ErrorResponseCode) -> Option<(ContentType<'static>, Cow<'static, str>)> {
@@ -122,14 +112,8 @@ impl Generator for HtmlErrorResponseGenerator {
     }
 }
 
-impl From<HtmlErrorResponseGenerator> for ErrorResponseGenerator {
-    fn from(val: HtmlErrorResponseGenerator) -> Self {
-        Self::Html(val)
-    }
-}
-
 #[derive(Debug, TypedBuilder)]
-pub struct ProblemDetailErrorResponseGenerator {
+struct ProblemDetailErrorResponseGenerator {
     authority: Option<Uri>,
 }
 
@@ -163,20 +147,14 @@ impl Generator for ProblemDetailErrorResponseGenerator {
     }
 }
 
-impl From<ProblemDetailErrorResponseGenerator> for ErrorResponseGenerator {
-    fn from(val: ProblemDetailErrorResponseGenerator) -> Self {
-        Self::ProblemDetail(val)
-    }
-}
-
 #[derive(Debug, Error)]
-pub enum ProblemDetailErrorResponseGeneratorConversionError {}
+enum ProblemDetailErrorResponseGeneratorConversionError {}
 
 #[allow(clippy::infallible_try_from)]
-impl TryFrom<&ProblemDetailErrorResponseGeneratorConfig> for ProblemDetailErrorResponseGenerator {
+impl TryFrom<&ProblemDetailFormat> for ProblemDetailErrorResponseGenerator {
     type Error = ProblemDetailErrorResponseGeneratorConversionError;
 
-    fn try_from(config: &ProblemDetailErrorResponseGeneratorConfig) -> Result<Self, Self::Error> {
+    fn try_from(config: &ProblemDetailFormat) -> Result<Self, Self::Error> {
         let generator = Self::builder().authority(config.authority()).build();
 
         Ok(generator)

@@ -1,6 +1,5 @@
 use crate::http::filter::access_control::AccessControlFilterRef;
 use crate::http::filter::backend_uri_rewriter::BackendUriRewriterFilter;
-use crate::http::filter::error_response::ErrorResponseFilterRef;
 use crate::http::filter::header_modifier::HeaderModifierFilter;
 use crate::http::filter::redirect_response::RedirectResponseFilter;
 use crate::http::filter::static_response::StaticResponseFilterRef;
@@ -13,7 +12,6 @@ use typed_builder::TypedBuilder;
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum RuleFilter {
     AccessControl(AccessControlRuleFilter),
-    ErrorResponse(ErrorResponseRuleFilter),
     RequestHeaderModifier(RequestHeaderModifierRuleFilter),
     ResponseHeaderModifier(ResponseHeaderModifierRuleFilter),
     RedirectResponse(RedirectResponseRuleFilter),
@@ -38,17 +36,6 @@ pub struct AccessControlRuleFilter {
     #[serde(rename = "ref")]
     #[builder(setter(into))]
     ref_: AccessControlFilterRef,
-}
-
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
-)]
-#[serde(rename_all = "camelCase")]
-pub struct ErrorResponseRuleFilter {
-    #[getset(get_clone = "pub")]
-    #[serde(rename = "ref")]
-    #[builder(setter(into))]
-    ref_: ErrorResponseFilterRef,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Deref, From)]

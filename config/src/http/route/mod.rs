@@ -1,5 +1,5 @@
-use derive_more::From;
 use crate::http::route::host::HostMatcher;
+use derive_more::From;
 use getset::Getters;
 use rule::Rule;
 use serde::{Deserialize, Serialize};

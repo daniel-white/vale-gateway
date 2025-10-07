@@ -4,8 +4,6 @@ use std::fs::create_dir_all;
 use std::io::Write;
 use std::path::Path;
 use vg_kube::api::v1::http::filter::access_control::AccessControlFilter;
-use vg_kube::api::v1::http::filter::client_addr::ClientAddressFilter;
-use vg_kube::api::v1::http::filter::error_response::ErrorResponseFilter;
 use vg_kube::api::v1::http::filter::static_response::StaticResponseFilter;
 use vg_kube::api::v1::parameters::{GatewayClassParameters, GatewayParameters};
 
@@ -32,8 +30,6 @@ fn write_kube_crds(out_dir: &Path) {
         GatewayClassParameters::crd(),
         GatewayParameters::crd(),
         AccessControlFilter::crd(),
-        ErrorResponseFilter::crd(),
-        ClientAddressFilter::crd(),
         StaticResponseFilter::crd(),
     ]
     .iter()

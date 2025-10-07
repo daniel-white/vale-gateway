@@ -1,7 +1,8 @@
+use crate::policy::retry::{RetryPolicyHandler, RetryPolicyHandlerConversionError};
+use crate::policy::timeout::{TimeoutPolicyConversionError, TimeoutPolicyHandler};
 use getset::{CloneGetters, Getters};
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use crate::policy::{RetryPolicy, RetryPolicyConversionError, TimeoutPolicy, TimeoutPolicyConversionError};
 use vg_config::http::route::rule::policy::RulePolicies as RulePoliciesConfig;
 use vg_config::http::route::rule::policy::TimeoutPolicies as TimeoutPoliciesConfig;
 
@@ -11,16 +12,24 @@ pub struct RulePolicies {
     timeouts: TimeoutPolicies,
 
     #[getset(get_clone = "pub")]
-    retries: Option<RetryPolicy>,
+    retries: Option<RetryPolicyHandler>,
 }
 
 #[derive(Debug, Error)]
 pub enum RulePoliciesConversionError {
     #[error("timeout policies are invalid: {0}")]
-    TimeoutPolicies(#[from] #[source] TimeoutPoliciesConversionError),
+    TimeoutPolicies(
+        #[from]
+        #[source]
+        TimeoutPoliciesConversionError,
+    ),
 
     #[error("retry policy is invalid: {0}")]
-    RetryPolicy(#[from] #[source] RetryPolicyConversionError),
+    RetryPolicy(
+        #[from]
+        #[source]
+        RetryPolicyHandlerConversionError,
+    ),
 }
 
 impl TryFrom<&RulePoliciesConfig> for RulePolicies {
@@ -28,7 +37,10 @@ impl TryFrom<&RulePoliciesConfig> for RulePolicies {
 
     fn try_from(value: &RulePoliciesConfig) -> Result<Self, Self::Error> {
         let timeouts = value.timeouts().try_into()?;
-        let retries = value.retries().map(RetryPolicy::try_from).transpose()?;
+        let retries = value
+            .retries()
+            .map(RetryPolicyHandler::try_from)
+            .transpose()?;
 
         let policies = Self::builder().timeouts(timeouts).retries(retries).build();
 
@@ -39,10 +51,10 @@ impl TryFrom<&RulePoliciesConfig> for RulePolicies {
 #[derive(Debug, Clone, TypedBuilder, CloneGetters, Getters)]
 pub struct TimeoutPolicies {
     #[getset(get_clone = "pub")]
-    request: Option<TimeoutPolicy>,
+    request: Option<TimeoutPolicyHandler>,
 
     #[getset(get_clone = "pub")]
-    backend_request: Option<TimeoutPolicy>,
+    backend_request: Option<TimeoutPolicyHandler>,
 }
 
 #[derive(Debug, Error)]

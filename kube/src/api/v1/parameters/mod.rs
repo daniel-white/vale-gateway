@@ -1,4 +1,5 @@
 use super::deployments::GatewayDeployment;
+use crate::api::v1::http::policy::client_addrs::ClientAddressesPolicy;
 use crate::api::v1::parameters::listeners::GatewayListener;
 use instrumentation::GatewayInstrumentation;
 use k8s_openapi::api::core::v1::ServiceSpec;
@@ -61,5 +62,15 @@ pub struct GatewayConfiguration {
     pub instrumentation: Option<GatewayInstrumentation>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policies: Option<GatewayConfigurationPolicies>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub listeners: Option<GatewayListener>,
+}
+
+#[derive(Default, Deserialize, Serialize, Clone, Debug, JsonSchema, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GatewayConfigurationPolicies {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_addrs: Option<ClientAddressesPolicy>,
 }

@@ -11,14 +11,12 @@ use std::ops::Deref;
 use std::sync::Arc;
 use thiserror::Error;
 use vg_config::http::filter::access_control::AccessControlFilterRef;
-use vg_config::http::filter::error_response::ErrorResponseFilterRef;
 use vg_config::http::filter::static_response::StaticResponseFilterRef;
 use vg_config::http::route::rule::filter::RuleFilter as RuleFilterConfig;
 
 #[derive(Debug)]
 pub enum RuleFilter {
     AccessControl(Arc<AccessControlFilterRef>),
-    ErrorResponse(Arc<ErrorResponseFilterRef>),
     RequestHeaderModifier(Arc<HeaderModifierFilterHandler>),
     ResponseHeaderModifier(Arc<HeaderModifierFilterHandler>),
     RedirectResponse(Arc<RedirectResponseFilterHandler>),
@@ -53,9 +51,6 @@ impl TryFrom<&RuleFilterConfig> for RuleFilter {
         match value {
             RuleFilterConfig::AccessControl(filter) => {
                 Ok(RuleFilter::AccessControl(Arc::new(filter.ref_())))
-            }
-            RuleFilterConfig::ErrorResponse(filter) => {
-                Ok(RuleFilter::ErrorResponse(Arc::new(filter.ref_())))
             }
             RuleFilterConfig::RequestHeaderModifier(filter) => {
                 let handler = HeaderModifierFilterHandler::try_from(filter.deref())

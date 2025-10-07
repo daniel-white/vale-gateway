@@ -1,9 +1,9 @@
 use crate::route::host::{HostMatcher, HostMatcherConversionError};
+use crate::route::rule::{Rule, RuleConversionError};
 use getset::Getters;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
 use vg_config::http::route::Route as RouteConfig;
-use crate::route::rule::{Rule, RuleConversionError};
 
 pub mod host;
 pub mod rule;

@@ -7,7 +7,7 @@ use crate::api::v1::http::filter::http_route_url_rewrite::config::{
 use crate::api::v1::http::filter::request_redirect::config::{
     RedirectResponseFilterConversionError, RequestRedirectWrapper,
 };
-use crate::resources::{AccessControlFilterRef, ErrorResponseFilterRef, StaticResponseFilterRef};
+use crate::resources::{AccessControlFilterRef, StaticResponseFilterRef};
 use gateway_api::common::{GatewayInfrastructureParametersReference, HTTPFilterType};
 use gateway_api::httproutes::{HTTPRouteBackendFilter, HTTPRouteFilter};
 use thiserror::Error;
@@ -16,9 +16,8 @@ use vg_config::http::filter::backend_uri_rewriter::BackendUriRewriterFilter;
 use vg_config::http::filter::header_modifier::HeaderModifierFilter;
 use vg_config::http::filter::redirect_response::RedirectResponseFilter;
 use vg_config::http::route::rule::filter::{
-    AccessControlRuleFilter, BackendUriRewriterRuleFilter, ErrorResponseRuleFilter,
-    RedirectResponseRuleFilter, RequestHeaderModifierRuleFilter, RuleBackendFilter, RuleFilter,
-    StaticResponseRuleFilter,
+    AccessControlRuleFilter, BackendUriRewriterRuleFilter, RedirectResponseRuleFilter,
+    RequestHeaderModifierRuleFilter, RuleBackendFilter, RuleFilter, StaticResponseRuleFilter,
 };
 
 type ExtensionRef = GatewayInfrastructureParametersReference;
@@ -223,12 +222,6 @@ impl TryFrom<ExtensionRefWrapper<'_>> for RuleFilter {
             return Ok(filter.into());
         }
 
-        let filter_ref = ErrorResponseFilterRef::try_from(&value);
-        if let Ok(filter_ref) = filter_ref {
-            let filter = ErrorResponseRuleFilter::builder().ref_(filter_ref).build();
-            return Ok(filter.into());
-        }
-
         let filter_ref = StaticResponseFilterRef::try_from(&value);
         if let Ok(filter_ref) = filter_ref {
             let filter = StaticResponseRuleFilter::builder().ref_(filter_ref).build();
@@ -251,22 +244,6 @@ impl TryFrom<&ExtensionRefWrapper<'_>> for AccessControlFilterRef {
         {
             let ref_ =
                 AccessControlFilterRef::new(value.namespace, value.extension_ref.name.as_str());
-            Ok(ref_)
-        } else {
-            Err(())
-        }
-    }
-}
-
-impl TryFrom<&ExtensionRefWrapper<'_>> for ErrorResponseFilterRef {
-    type Error = ();
-
-    fn try_from(value: &ExtensionRefWrapper) -> Result<Self, Self::Error> {
-        if value.extension_ref.group == "vale-gateway.whitefamily.io"
-            && value.extension_ref.name == "ErrorResponseFilter"
-        {
-            let ref_ =
-                ErrorResponseFilterRef::new(value.namespace, value.extension_ref.name.as_str());
             Ok(ref_)
         } else {
             Err(())

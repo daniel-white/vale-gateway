@@ -1,4 +1,4 @@
-use derive_more::{From, FromStr};
+use derive_more::From;
 use getset::{CloneGetters, Getters};
 use http::HeaderName;
 use http::header::FORWARDED;
@@ -7,15 +7,11 @@ use typed_builder::TypedBuilder;
 use vg_core::http::header::{X_FORWARDED_BY, X_FORWARDED_FOR, X_FORWARDED_HOST, X_FORWARDED_PROTO};
 use vg_core::net::IpRef;
 
-#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq, Hash, From, FromStr)]
-#[serde(transparent)]
-pub struct ClientAddrFilterRef(String);
-
 #[derive(
     Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
 )]
 #[serde(rename_all = "camelCase")]
-pub struct TrustedHeaderClientAddrExtractor {
+pub struct TrustedHeaderClientAddressExtractor {
     #[getset(get_clone = "pub")]
     #[serde(with = "http_serde_ext::header_name")]
     trusted_header: HeaderName,
@@ -45,7 +41,7 @@ impl From<TrustedProxyHeaderName> for HeaderName {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, TypedBuilder)]
 #[serde(rename_all = "camelCase")]
-pub struct TrustedProxiesClientAddrExtractor {
+pub struct TrustedProxiesClientAddressExtractor {
     #[getset(get = "pub")]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     trusted_headers: Vec<TrustedProxyHeaderName>,
@@ -55,7 +51,7 @@ pub struct TrustedProxiesClientAddrExtractor {
     proxies: Vec<IpRef>,
 }
 
-impl TrustedProxiesClientAddrExtractor {
+impl TrustedProxiesClientAddressExtractor {
     pub fn trust_forwarded_header(&self) -> bool {
         self.trusted_headers
             .contains(&TrustedProxyHeaderName::Forwarded)
@@ -82,37 +78,25 @@ impl TrustedProxiesClientAddrExtractor {
     }
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, From)]
 #[serde(tag = "extractor", rename_all = "camelCase")]
-pub enum ClientAddrExtractor {
+pub enum ClientAddressExtractor {
     #[default]
     None,
     Direct,
-    TrustedHeader(TrustedHeaderClientAddrExtractor),
-    TrustedProxies(TrustedProxiesClientAddrExtractor),
-}
-
-impl From<TrustedHeaderClientAddrExtractor> for ClientAddrExtractor {
-    fn from(value: TrustedHeaderClientAddrExtractor) -> Self {
-        Self::TrustedHeader(value)
-    }
-}
-
-impl From<TrustedProxiesClientAddrExtractor> for ClientAddrExtractor {
-    fn from(value: TrustedProxiesClientAddrExtractor) -> Self {
-        Self::TrustedProxies(value)
-    }
+    TrustedHeader(TrustedHeaderClientAddressExtractor),
+    TrustedProxies(TrustedProxiesClientAddressExtractor),
 }
 
 #[derive(
     Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TypedBuilder, Getters, CloneGetters,
 )]
 #[serde(rename_all = "camelCase")]
-pub struct ClientAddrFilter {
+pub struct ClientAddressesPolicy {
     #[getset(get = "pub")]
     #[builder(setter(into))]
     #[serde(flatten)]
-    extractor: ClientAddrExtractor,
+    extractor: ClientAddressExtractor,
 
     #[getset(get_clone = "pub")]
     #[builder(setter(into))]
@@ -132,13 +116,13 @@ mod tests {
     use std::net::IpAddr;
 
     #[test]
-    fn test_serialize_client_addr_filter_none() {
-        let filter = ClientAddrFilter::builder()
-            .extractor(ClientAddrExtractor::None)
+    fn test_serialize_client_addr_none() {
+        let policy = ClientAddressesPolicy::builder()
+            .extractor(ClientAddressExtractor::None)
             .backend_header(Some(HeaderName::from_static("x-client-ip")))
             .build();
 
-        let json = serde_json::to_string(&filter).unwrap();
+        let json = serde_json::to_string(&policy).unwrap();
         assert_eq!(
             json,
             r#"{"extractor":"none","backendHeader":"x-client-ip"}"#
@@ -146,13 +130,13 @@ mod tests {
     }
 
     #[test]
-    fn test_serialize_client_addr_filter_direct() {
-        let filter = ClientAddrFilter::builder()
-            .extractor(ClientAddrExtractor::Direct)
+    fn test_serialize_client_addr_direct() {
+        let policy = ClientAddressesPolicy::builder()
+            .extractor(ClientAddressExtractor::Direct)
             .backend_header(Some(HeaderName::from_static("x-client-ip")))
             .build();
 
-        let json = serde_json::to_string(&filter).unwrap();
+        let json = serde_json::to_string(&policy).unwrap();
         assert_eq!(
             json,
             r#"{"extractor":"direct","backendHeader":"x-client-ip"}"#
@@ -160,16 +144,16 @@ mod tests {
     }
 
     #[test]
-    fn test_serialize_client_addr_filter_header() {
-        let extractor = TrustedHeaderClientAddrExtractor::builder()
+    fn test_serialize_client_addr_header() {
+        let extractor = TrustedHeaderClientAddressExtractor::builder()
             .trusted_header(HeaderName::from_static("x-real-ip"))
             .build();
-        let filter = ClientAddrFilter::builder()
+        let policy = ClientAddressesPolicy::builder()
             .extractor(extractor)
             .backend_header(Some(HeaderName::from_static("x-client-ip")))
             .build();
 
-        let json = serde_json::to_string(&filter).unwrap();
+        let json = serde_json::to_string(&policy).unwrap();
         assert_eq!(
             json,
             r#"{"extractor":"trustedHeader","trustedHeader":"x-real-ip","backendHeader":"x-client-ip"}"#
@@ -177,22 +161,22 @@ mod tests {
     }
 
     #[test]
-    fn test_serialize_client_addr_filter_proxies() {
+    fn test_serialize_client_addr_proxies() {
         let addr = IpAddr::from([192, 168, 1, 1]);
         let ip1 = IpRef::Addr(addr);
         let ip2 = IpRef::Net(IpNet::new(addr, 24).unwrap());
-        let extractor = TrustedProxiesClientAddrExtractor::builder()
+        let extractor = TrustedProxiesClientAddressExtractor::builder()
             .trusted_headers(vec![
                 TrustedProxyHeaderName::XForwardedFor,
                 TrustedProxyHeaderName::Forwarded,
             ])
             .proxies(vec![ip1, ip2])
             .build();
-        let filter = ClientAddrFilter::builder()
+        let policy = ClientAddressesPolicy::builder()
             .extractor(extractor)
             .backend_header(Some(HeaderName::from_static("x-real-ip")))
             .build();
-        let json = serde_json::to_string(&filter).unwrap();
+        let json = serde_json::to_string(&policy).unwrap();
         assert_eq!(
             json,
             r#"{"extractor":"trustedProxies","trustedHeaders":["x-forwarded-for","forwarded"],"proxies":["192.168.1.1","192.168.1.1/24"],"backendHeader":"x-real-ip"}"#

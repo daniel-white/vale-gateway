@@ -1,22 +1,22 @@
 pub mod extractors;
 
-use crate::filter::client_addr::extractors::{
-    ClientAddrExtractor, ClientAddrExtractorConversionError,
+use crate::policy::client_addrs::extractors::{
+    ClientAddressExtractor, ClientAddressExtractorConversionError,
 };
 use http::{HeaderName, HeaderValue, request};
 use std::net::{IpAddr, SocketAddr};
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use vg_config::http::filter::client_addr::ClientAddrFilter;
+use vg_config::http::policy::client_addrs::ClientAddressesPolicy;
 
 #[derive(Debug, TypedBuilder)]
-pub struct ClientAddrFilterHandler {
+pub struct ClientAddressesPolicyHandler {
     #[builder(setter(into))]
-    extractor: ClientAddrExtractor,
+    extractor: ClientAddressExtractor,
     backend_header: Option<HeaderName>,
 }
 
-impl ClientAddrFilterHandler {
+impl ClientAddressesPolicyHandler {
     pub fn filter(&self, addr: SocketAddr, req: &mut request::Parts) -> Option<IpAddr> {
         if let Some(header) = &self.backend_header {
             req.headers.remove(header);
@@ -42,17 +42,17 @@ pub enum ClientAddrFilterHandlerConversionError {
     InvalidExtractor(
         #[from]
         #[source]
-        ClientAddrExtractorConversionError,
+        ClientAddressExtractorConversionError,
     ),
 }
 
-impl TryFrom<&ClientAddrFilter> for ClientAddrFilterHandler {
+impl TryFrom<&ClientAddressesPolicy> for ClientAddressesPolicyHandler {
     type Error = ClientAddrFilterHandlerConversionError;
 
-    fn try_from(value: &ClientAddrFilter) -> Result<Self, Self::Error> {
-        let extractor: ClientAddrExtractor = value.extractor().try_into()?;
+    fn try_from(value: &ClientAddressesPolicy) -> Result<Self, Self::Error> {
+        let extractor: ClientAddressExtractor = value.extractor().try_into()?;
 
-        let handler = ClientAddrFilterHandler::builder()
+        let handler = ClientAddressesPolicyHandler::builder()
             .extractor(extractor)
             .backend_header(value.backend_header())
             .build();
@@ -65,8 +65,8 @@ impl TryFrom<&ClientAddrFilter> for ClientAddrFilterHandler {
 mod tests {
     use super::*;
 
-    use crate::filter::client_addr::extractors::{
-        TrustedHeaderClientAddrExtractor, TrustedProxies, TrustedProxiesClientAddrExtractor,
+    use crate::policy::client_addrs::extractors::{
+        TrustedHeaderClientAddressExtractor, TrustedProxies, TrustedProxiesClientAddressExtractor,
     };
     use http::{HeaderValue, request::Parts};
     use std::str::FromStr;
@@ -83,9 +83,9 @@ mod tests {
         // Test extracting client address from direct connection using actual ClientAddrFilterHandler
         use std::net::SocketAddr;
 
-        let extractor = ClientAddrExtractor::None;
+        let extractor = ClientAddressExtractor::None;
 
-        let handler = ClientAddrFilterHandler::builder()
+        let handler = ClientAddressesPolicyHandler::builder()
             .extractor(extractor)
             .backend_header(None)
             .build();
@@ -95,20 +95,20 @@ mod tests {
 
         let result = handler.filter(socket_addr, &mut request_parts);
 
-        // NoopClientAddrExtractor returns None
+        // NoopClientAddressExtractor returns None
         assert!(result.is_none());
     }
 
     #[test]
     fn test_client_addr_extraction_from_x_forwarded_for() {
-        // Test extracting client address from X-Forwarded-For header using TrustedHeaderClientAddrExtractor
+        // Test extracting client address from X-Forwarded-For header using TrustedHeaderClientAddressExtractor
         use std::net::SocketAddr;
 
-        let extractor = TrustedHeaderClientAddrExtractor::builder()
+        let extractor = TrustedHeaderClientAddressExtractor::builder()
             .trusted_header(X_FORWARDED_FOR)
             .build();
 
-        let handler = ClientAddrFilterHandler::builder()
+        let handler = ClientAddressesPolicyHandler::builder()
             .extractor(extractor)
             .backend_header(None)
             .build();
@@ -131,11 +131,11 @@ mod tests {
         // Test extracting client address from X-Real-IP header
         use std::net::SocketAddr;
 
-        let extractor = TrustedHeaderClientAddrExtractor::builder()
+        let extractor = TrustedHeaderClientAddressExtractor::builder()
             .trusted_header(HeaderName::from_static("x-real-ip"))
             .build();
 
-        let handler = ClientAddrFilterHandler::builder()
+        let handler = ClientAddressesPolicyHandler::builder()
             .extractor(extractor)
             .backend_header(None)
             .build();
@@ -172,11 +172,11 @@ mod tests {
             .trust_x_forwarded_by_header(false)
             .build();
 
-        let extractor = TrustedProxiesClientAddrExtractor::builder()
+        let extractor = TrustedProxiesClientAddressExtractor::builder()
             .config(config)
             .build();
 
-        let handler = ClientAddrFilterHandler::builder()
+        let handler = ClientAddressesPolicyHandler::builder()
             .extractor(extractor)
             .backend_header(None)
             .build();
@@ -209,11 +209,11 @@ mod tests {
             .trust_x_forwarded_by_header(false)
             .build();
 
-        let extractor = TrustedProxiesClientAddrExtractor::builder()
+        let extractor = TrustedProxiesClientAddressExtractor::builder()
             .config(config)
             .build();
 
-        let handler = ClientAddrFilterHandler::builder()
+        let handler = ClientAddressesPolicyHandler::builder()
             .extractor(extractor)
             .backend_header(None)
             .build();
@@ -236,11 +236,11 @@ mod tests {
         use std::net::SocketAddr;
 
         // Test X-Real-IP takes precedence when both headers are present
-        let extractor = TrustedHeaderClientAddrExtractor::builder()
+        let extractor = TrustedHeaderClientAddressExtractor::builder()
             .trusted_header(HeaderName::from_static("x-real-ip"))
             .build();
 
-        let handler = ClientAddrFilterHandler::builder()
+        let handler = ClientAddressesPolicyHandler::builder()
             .extractor(extractor)
             .backend_header(None)
             .build();
@@ -265,11 +265,11 @@ mod tests {
         // Test IPv6 client address extraction
         use std::net::SocketAddr;
 
-        let extractor = TrustedHeaderClientAddrExtractor::builder()
+        let extractor = TrustedHeaderClientAddressExtractor::builder()
             .trusted_header(X_FORWARDED_FOR)
             .build();
 
-        let handler = ClientAddrFilterHandler::builder()
+        let handler = ClientAddressesPolicyHandler::builder()
             .extractor(extractor)
             .backend_header(None)
             .build();
@@ -288,11 +288,11 @@ mod tests {
 
     #[test]
     fn test_client_addr_invalid_header_handling() {
-        let extractor = TrustedHeaderClientAddrExtractor::builder()
+        let extractor = TrustedHeaderClientAddressExtractor::builder()
             .trusted_header(X_FORWARDED_FOR)
             .build();
 
-        let handler = ClientAddrFilterHandler::builder()
+        let handler = ClientAddressesPolicyHandler::builder()
             .extractor(extractor)
             .backend_header(None)
             .build();
@@ -314,11 +314,11 @@ mod tests {
         // Test Cloudflare-specific headers (CF-Connecting-IP)
         use std::net::SocketAddr;
 
-        let extractor = TrustedHeaderClientAddrExtractor::builder()
+        let extractor = TrustedHeaderClientAddressExtractor::builder()
             .trusted_header(HeaderName::from_static("cf-connecting-ip"))
             .build();
 
-        let handler = ClientAddrFilterHandler::builder()
+        let handler = ClientAddressesPolicyHandler::builder()
             .extractor(extractor)
             .backend_header(None)
             .build();
@@ -340,11 +340,11 @@ mod tests {
         // Test that backend header is properly set when configured
         use std::net::SocketAddr;
 
-        let extractor = TrustedHeaderClientAddrExtractor::builder()
+        let extractor = TrustedHeaderClientAddressExtractor::builder()
             .trusted_header(HeaderName::from_static("x-real-ip"))
             .build();
 
-        let handler = ClientAddrFilterHandler::builder()
+        let handler = ClientAddressesPolicyHandler::builder()
             .extractor(extractor)
             .backend_header(Some(HeaderName::from_static("x-client-ip")))
             .build();
@@ -372,9 +372,9 @@ mod tests {
         // Test that backend header is removed when present
         use std::net::SocketAddr;
 
-        let extractor = ClientAddrExtractor::None;
+        let extractor = ClientAddressExtractor::None;
 
-        let handler = ClientAddrFilterHandler::builder()
+        let handler = ClientAddressesPolicyHandler::builder()
             .extractor(extractor)
             .backend_header(Some(HeaderName::from_static("x-client-ip")))
             .build();

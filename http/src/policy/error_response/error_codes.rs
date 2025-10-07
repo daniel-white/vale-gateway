@@ -172,4 +172,11 @@ mod tests {
         let result: &'static str = error_code.into();
         assert_eq!(result, expected_str);
     }
+
+    #[test]
+    fn test_status_code_descriptions() {
+        let im_a_teapot_msg = ErrorResponseCode::StatusCode(StatusCode::IM_A_TEAPOT).message();
+
+        assert_eq!(im_a_teapot_msg, "I'm a teapot");
+    }
 }

@@ -1,25 +1,19 @@
-use super::{
-    ClientAddressFilterProxies, ClientAddressFilterProxiesTrustedHeaders,
-    ClientAddressFilterSource, ClientAddressFilterSpec,
+use crate::api::v1::http::policy::client_addrs::{
+    ClientAddressesPolicy, ClientAddressesPolicyProxies,
+    ClientAddressesPolicyProxiesTrustedHeaders, ClientAddressesPolicySource,
 };
-use crate::resources::ClientAddressFilterRef;
 use http::HeaderName;
 use http::header::InvalidHeaderName;
 use thiserror::Error;
-use vg_config::http::filter::client_addr::{
-    ClientAddrExtractor, ClientAddrFilter, ClientAddrFilterRef as ClientAddrFilterRefConfig,
-    TrustedHeaderClientAddrExtractor, TrustedProxiesClientAddrExtractor, TrustedProxyHeaderName,
+use vg_config::http::policy::client_addrs::{
+    ClientAddressExtractor, ClientAddressesPolicy as ClientAddressesPolicyConfig,
+    TrustedHeaderClientAddressExtractor, TrustedProxiesClientAddressExtractor,
+    TrustedProxyHeaderName,
 };
 use vg_core::net::IpRef;
 
-impl From<ClientAddressFilterRef> for ClientAddrFilterRefConfig {
-    fn from(value: ClientAddressFilterRef) -> Self {
-        value.to_string().into()
-    }
-}
-
 #[derive(Debug, Error)]
-pub enum ClientAddrFilterConversionError {
+pub enum ClientAddressesPolicyConversionError {
     #[error("Invalid configuration")]
     InvalidConfiguration,
     #[error("Invalid backend header name: {0}")]
@@ -38,17 +32,17 @@ pub enum ClientAddrFilterConversionError {
     ),
 }
 
-impl TryFrom<&ClientAddressFilterSpec> for ClientAddrFilter {
-    type Error = ClientAddrFilterConversionError;
+impl TryFrom<&ClientAddressesPolicy> for ClientAddressesPolicyConfig {
+    type Error = ClientAddressesPolicyConversionError;
 
-    fn try_from(value: &ClientAddressFilterSpec) -> Result<Self, Self::Error> {
+    fn try_from(value: &ClientAddressesPolicy) -> Result<Self, Self::Error> {
         let builder = Self::builder();
 
         let builder = match &value.backend_header {
             Some(header) => {
                 let backend_header: HeaderName = header
                     .parse()
-                    .map_err(ClientAddrFilterConversionError::BackendHeaderName)?;
+                    .map_err(ClientAddressesPolicyConversionError::BackendHeaderName)?;
                 builder.backend_header(Some(backend_header))
             }
             None => builder.backend_header(None),
@@ -59,37 +53,37 @@ impl TryFrom<&ClientAddressFilterSpec> for ClientAddrFilter {
             value.header.as_deref(),
             value.proxies.as_ref(),
         ) {
-            (ClientAddressFilterSource::None, None, None) => {
-                builder.extractor(ClientAddrExtractor::None)
+            (ClientAddressesPolicySource::None, None, None) => {
+                builder.extractor(ClientAddressExtractor::None)
             }
-            (ClientAddressFilterSource::DirectConnection, None, None) => {
-                builder.extractor(ClientAddrExtractor::Direct)
+            (ClientAddressesPolicySource::DirectConnection, None, None) => {
+                builder.extractor(ClientAddressExtractor::Direct)
             }
-            (ClientAddressFilterSource::Header, Some(header), None) => {
+            (ClientAddressesPolicySource::Header, Some(header), None) => {
                 let trusted_header = header
                     .parse()
-                    .map_err(ClientAddrFilterConversionError::Header)?;
-                let extractor = TrustedHeaderClientAddrExtractor::builder()
+                    .map_err(ClientAddressesPolicyConversionError::Header)?;
+                let extractor = TrustedHeaderClientAddressExtractor::builder()
                     .trusted_header(trusted_header)
                     .build();
                 builder.extractor(extractor)
             }
-            (ClientAddressFilterSource::Header, None, _) => {
-                return Err(ClientAddrFilterConversionError::MissingHeader);
+            (ClientAddressesPolicySource::Header, None, _) => {
+                return Err(ClientAddressesPolicyConversionError::MissingHeader);
             }
-            (ClientAddressFilterSource::Proxies, _, Some(proxies)) => {
-                let extractor: TrustedProxiesClientAddrExtractor = proxies.try_into()?;
+            (ClientAddressesPolicySource::Proxies, _, Some(proxies)) => {
+                let extractor: TrustedProxiesClientAddressExtractor = proxies.try_into()?;
                 builder.extractor(extractor)
             }
-            (ClientAddressFilterSource::Proxies, _, None) => {
-                return Err(ClientAddrFilterConversionError::MissingProxies);
+            (ClientAddressesPolicySource::Proxies, _, None) => {
+                return Err(ClientAddressesPolicyConversionError::MissingProxies);
             }
-            _ => return Err(ClientAddrFilterConversionError::InvalidConfiguration),
+            _ => return Err(ClientAddressesPolicyConversionError::InvalidConfiguration),
         };
 
-        let filter = builder.build();
+        let policy = builder.build();
 
-        Ok(filter)
+        Ok(policy)
     }
 }
 
@@ -97,10 +91,10 @@ impl TryFrom<&ClientAddressFilterSpec> for ClientAddrFilter {
 pub enum TrustedProxiesClientAddrExtractorConversionError {}
 
 #[allow(clippy::infallible_try_from)]
-impl TryFrom<&ClientAddressFilterProxies> for TrustedProxiesClientAddrExtractor {
+impl TryFrom<&ClientAddressesPolicyProxies> for TrustedProxiesClientAddressExtractor {
     type Error = TrustedProxiesClientAddrExtractorConversionError;
 
-    fn try_from(value: &ClientAddressFilterProxies) -> Result<Self, Self::Error> {
+    fn try_from(value: &ClientAddressesPolicyProxies) -> Result<Self, Self::Error> {
         let proxies = {
             let mut proxies: Vec<IpRef> = if value.trust_local_ranges {
                 Vec::with_capacity(
@@ -138,14 +132,14 @@ impl TryFrom<&ClientAddressFilterProxies> for TrustedProxiesClientAddrExtractor 
     }
 }
 
-impl From<ClientAddressFilterProxiesTrustedHeaders> for TrustedProxyHeaderName {
-    fn from(value: ClientAddressFilterProxiesTrustedHeaders) -> Self {
+impl From<ClientAddressesPolicyProxiesTrustedHeaders> for TrustedProxyHeaderName {
+    fn from(value: ClientAddressesPolicyProxiesTrustedHeaders) -> Self {
         match value {
-            ClientAddressFilterProxiesTrustedHeaders::Forwarded => Self::Forwarded,
-            ClientAddressFilterProxiesTrustedHeaders::XForwardedFor => Self::XForwardedFor,
-            ClientAddressFilterProxiesTrustedHeaders::XForwardedHost => Self::XForwardedHost,
-            ClientAddressFilterProxiesTrustedHeaders::XForwardedProto => Self::XForwardedProto,
-            ClientAddressFilterProxiesTrustedHeaders::XForwardedBy => Self::XForwardedBy,
+            ClientAddressesPolicyProxiesTrustedHeaders::Forwarded => Self::Forwarded,
+            ClientAddressesPolicyProxiesTrustedHeaders::XForwardedFor => Self::XForwardedFor,
+            ClientAddressesPolicyProxiesTrustedHeaders::XForwardedHost => Self::XForwardedHost,
+            ClientAddressesPolicyProxiesTrustedHeaders::XForwardedProto => Self::XForwardedProto,
+            ClientAddressesPolicyProxiesTrustedHeaders::XForwardedBy => Self::XForwardedBy,
         }
     }
 }

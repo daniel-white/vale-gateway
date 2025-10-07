@@ -5,8 +5,6 @@ mod macros;
 pub mod namespace;
 
 use crate::api::v1::http::filter::access_control::AccessControlFilter;
-use crate::api::v1::http::filter::client_addr::ClientAddressFilter;
-use crate::api::v1::http::filter::error_response::ErrorResponseFilter;
 use crate::api::v1::http::filter::static_response::StaticResponseFilter;
 use crate::api::v1::parameters::{GatewayClassParameters, GatewayParameters};
 use crate::{cluster_scope, namespace_scope};
@@ -31,6 +29,4 @@ namespace_scope!(GatewayParameters);
 namespace_scope!(Gateway);
 namespace_scope!(HTTPRoute);
 namespace_scope!(AccessControlFilter);
-namespace_scope!(ErrorResponseFilter);
-namespace_scope!(ClientAddressFilter);
 namespace_scope!(StaticResponseFilter);

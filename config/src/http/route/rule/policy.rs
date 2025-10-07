@@ -1,4 +1,5 @@
-use crate::http::policy::{RetryPolicy, TimeoutPolicy};
+use crate::http::policy::retry::RetryPolicy;
+use crate::http::policy::timeout::TimeoutPolicy;
 use getset::{CloneGetters, CopyGetters, Getters};
 use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
