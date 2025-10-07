@@ -5,13 +5,14 @@ use thiserror::Error;
 use typed_builder::TypedBuilder;
 use vg_config::http::route::rule::policy::RulePolicies as RulePoliciesConfig;
 use vg_config::http::route::rule::policy::TimeoutPolicies as TimeoutPoliciesConfig;
+use crate::policy::error_response::ErrorResponsePolicyHandler;
 
 #[derive(Debug, TypedBuilder, CloneGetters, Getters)]
 pub struct RulePolicies {
-    #[getset(get_clone = "pub")]
+    #[getset(get = "pub")]
     timeouts: TimeoutPolicies,
 
-    #[getset(get_clone = "pub")]
+    #[getset(get = "pub")]
     retries: Option<RetryPolicyHandler>,
 }
 

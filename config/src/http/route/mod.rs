@@ -12,10 +12,12 @@ pub mod rule;
 #[serde(transparent)]
 pub struct RouteRef(String);
 
-#[derive(Debug, Serialize, Deserialize, TypedBuilder, Getters)]
+#[derive(Debug, Clone, Serialize, Deserialize, TypedBuilder, Getters)]
 pub struct Route {
     #[getset(get = "pub")]
-    name: String,
+    #[serde(rename = "ref")]
+    #[builder(setter(into))]
+    ref_: RouteRef,
 
     #[getset(get = "pub")]
     host_matchers: Vec<HostMatcher>,

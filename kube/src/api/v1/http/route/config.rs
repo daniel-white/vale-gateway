@@ -2,9 +2,15 @@ use crate::api::v1::http::route::rule::config::{HTTPRouteRuleWrapper, RuleConver
 use crate::resources::{HTTPRouteRef, HTTPRouteWrapper};
 use std::ops::Deref;
 use thiserror::Error;
-use vg_config::http::route::Route;
+use vg_config::http::route::{Route, RouteRef};
 use vg_config::http::route::host::{HostMatcher, HostMatcherConversionError};
 use vg_config::http::route::rule::Rule;
+
+impl From<HTTPRouteRef> for RouteRef {
+    fn from(value: HTTPRouteRef) -> Self {
+        value.to_string().into()
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum RouteConversionError {
@@ -21,7 +27,6 @@ impl TryFrom<HTTPRouteWrapper<'_>> for Route {
 
     fn try_from(value: HTTPRouteWrapper<'_>) -> Result<Self, Self::Error> {
         let ref_ = HTTPRouteRef::from(*value.deref());
-        let name = ref_.to_string();
 
         let spec = &value.spec;
 
@@ -52,7 +57,7 @@ impl TryFrom<HTTPRouteWrapper<'_>> for Route {
             .collect::<Result<_, _>>()?;
 
         let route = Self::builder()
-            .name(name)
+            .ref_(ref_)
             .host_matchers(host_matchers)
             .rules(rules)
             .build();

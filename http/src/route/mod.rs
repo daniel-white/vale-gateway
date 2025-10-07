@@ -3,7 +3,7 @@ use crate::route::rule::{Rule, RuleConversionError};
 use getset::Getters;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use vg_config::http::route::Route as RouteConfig;
+use vg_config::http::route::{Route as RouteConfig, RouteRef};
 
 pub mod host;
 pub mod rule;
@@ -11,7 +11,7 @@ pub mod rule;
 #[derive(Debug, TypedBuilder, Getters)]
 pub struct Route {
     #[getset(get = "pub")]
-    name: String,
+    ref_: RouteRef,
     #[getset(get = "pub")]
     host_matchers: Vec<HostMatcher>,
     #[getset(get = "pub")]
@@ -51,7 +51,7 @@ impl TryFrom<&RouteConfig> for Route {
             .collect::<Result<_, _>>()?;
 
         let route = Self::builder()
-            .name(value.name().clone())
+            .ref_(value.ref_().clone())
             .host_matchers(host_matchers)
             .rules(rules)
             .build();
