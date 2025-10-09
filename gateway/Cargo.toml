@@ -4,6 +4,9 @@ version = "0.0.0"
 edition = "2024"
 
 [dependencies]
+async_from.workspace = true
+http.workspace = true
+tokio.workspace = true
 vg-core = { path = "../core" }
 vg-config = { path = "../config" }
-vg-rpc = { path = "../rpc", features = ["client"] }
+vg-rpc-client = { path = "../rpc-client" }

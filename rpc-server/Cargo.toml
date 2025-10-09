@@ -1,14 +1,19 @@
 [package]
-name = "vg-controller"
+name = "vg-rpc-server"
 version = "0.0.0"
 edition = "2024"
 
 [dependencies]
+async-trait.workspace = true
+dashmap.workspace = true
+getset.workspace = true
 http.workspace = true
 derive_more.workspace = true
+jsonrpsee = { workspace = true, features = ["tracing", "server"] }
+jsonrpsee-core.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 typed-builder.workspace = true
 vg-core = { path = "../core" }
 vg-config = { path = "../config" }
-vg-rpc-server = { path = "../rpc-server" }
+vg-rpc = { path = "../rpc" }

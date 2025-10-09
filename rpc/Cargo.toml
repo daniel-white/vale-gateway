@@ -3,14 +3,14 @@ name = "vg-rpc"
 version = "0.0.0"
 edition = "2024"
 
-[features]
-default = []
-client = ["jsonrpsee/client"]
-server = ["jsonrpsee/server"]
 
 [dependencies]
 async-trait.workspace = true
-jsonrpsee = { workspace = true, features = ["tracing", "macros"] }
+derive_more.workspace = true
+http.workspace = true
+jsonrpsee = { workspace = true, features = ["macros", "client-core", "server-core"] }
+num-traits.workspace = true
+num-derive.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tokio.workspace = true

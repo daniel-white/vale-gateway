@@ -1,17 +1,33 @@
-use jsonrpsee::server::Server;
-use vg_rpc::api::RpcApiServer;
-use crate::rpc::RpcApiServerImpl;
-
-mod rpc;
+use std::net::SocketAddr;
+use std::str::FromStr;
+use tokio::task::JoinSet;
+use vg_rpc_server::{ConfigurationEvent, ConfigurationEventManager, ConfigurationServerOptions};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let server = Server::builder().build("127.0.0.1:9000").await?;
+    let mut join_set = JoinSet::new();
 
-    let addr = server.local_addr()?;
-    let handle = server.start(RpcApiServerImpl::default().into_rpc());
+    let event_manager = ConfigurationEventManager::new();
+    let options = ConfigurationServerOptions::builder()
+        .binding(SocketAddr::from_str("0.0.0.0:9000").unwrap())
+        .event_manager(event_manager.clone())
+        .build();
 
-    tokio::spawn(handle.stopped()).await?;
-    
+    let server_handle = options.start_server().await?;
+
+    join_set.spawn(server_handle.stopped());
+
+    join_set.spawn(async move {
+        loop {
+            event_manager.send(
+                "example_listener".to_string().into(),
+                ConfigurationEvent::ListenerChanged,
+            );
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        }
+    });
+
+    join_set.join_all().await;
+
     Ok(())
 }
