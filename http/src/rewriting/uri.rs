@@ -267,8 +267,8 @@ mod tests {
         "h:8080",
         Some("https")
     )]
-    #[case("http://h:8080/p", None, Some("new."), None, "new.", Some("http"))]
-    #[case("http://h:8080/p", None, None, Some(9001), "h:9001", Some("http"))]
+    #[case("http://h:8080/p", None, Some("new."), None, "new.", Some("configuration"))]
+    #[case("http://h:8080/p", None, None, Some(9001), "h:9001", Some("configuration"))]
     #[case(
         "http://h:8080/p",
         Some(Scheme::HTTPS),

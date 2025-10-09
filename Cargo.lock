@@ -3430,6 +3430,7 @@ name = "vg-config"
 version = "0.0.0"
 dependencies = [
  "assertables",
+ "async-trait",
  "derive_more",
  "getset",
  "hickory-proto",
@@ -3452,6 +3453,7 @@ dependencies = [
 name = "vg-controller"
 version = "0.0.0"
 dependencies = [
+ "async-trait",
  "derive_more",
  "http",
  "thiserror 2.0.17",
@@ -3487,8 +3489,12 @@ name = "vg-gateway"
 version = "0.0.0"
 dependencies = [
  "async_from",
+ "dashmap",
+ "getset",
  "http",
+ "thiserror 2.0.17",
  "tokio",
+ "typed-builder",
  "vg-config",
  "vg-core",
  "vg-rpc-client",

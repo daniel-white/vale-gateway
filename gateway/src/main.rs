@@ -1,3 +1,5 @@
+mod configuration;
+
 use std::time::Duration;
 
 use async_from::AsyncTryInto;
@@ -5,6 +7,7 @@ use http::Uri;
 use tokio::task::JoinSet;
 use tokio::time::sleep;
 use vg_rpc_client::{ConfigurationClient, ConfigurationClientOptions, ConfigurationEvent};
+use crate::configuration::{ConfigurationRegistry, ConfigurationRegistrySynchronizer};
 
 #[tokio::main]
 async fn main() {
@@ -14,32 +17,24 @@ async fn main() {
         .build();
     let client: ConfigurationClient = c.async_try_into().await.unwrap();
 
+    
+    let reg = ConfigurationRegistry::new();
+    
     let e = client.event_receiver();
+    
+    let sync = ConfigurationRegistrySynchronizer::builder().registry(reg.clone()).client(client.clone()).build();
 
     let mut js = JoinSet::new();
-
-    let inner_client = client.clone();
-    js.spawn(async move {
-        let mut e = e;
-        loop {
-            match e.recv().await {
-                Ok(ConfigurationEvent::ListenerChanged) => {
-                    let c = inner_client.listener().await.unwrap();
-                    println!("Received event: {:?}", c)
-                }
-                Ok(event) => println!("Received other event: {:?}", event),
-                Err(err) => println!("Error receiving event: {:?}", err),
-            }
-        }
-    });
-
+    
+    js.spawn(sync.start());
+    
     let _ = client.watch_events().await;
 
+    let mut reg_e = reg.subscribe();
     js.spawn(async move {
         loop {
-            let l = client.listener().await;
-            //  println!("listener: {:?}", l.unwrap());
-            sleep(Duration::from_secs(5)).await;
+            let l = reg_e.recv().await;
+            println!("reg event: {:?}", l);
         }
     });
 

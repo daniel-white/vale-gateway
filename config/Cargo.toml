@@ -4,6 +4,7 @@ version = "0.0.0"
 edition = "2024"
 
 [dependencies]
+async-trait.workspace = true
 derive_more.workspace = true
 getset.workspace = true
 hickory-proto.workspace = true

@@ -62,5 +62,5 @@ pub trait ConfigurationApi {
     async fn route(&self, route_ref: RouteRef) -> Result<Route, ConfigurationApiError>;
 
     #[method(name = "getBackend")]
-    async fn backend(&self, name: BackendRef) -> Result<Backend, ConfigurationApiError>;
+    async fn backend(&self, backend_ref: BackendRef) -> Result<Backend, ConfigurationApiError>;
 }

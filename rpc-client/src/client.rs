@@ -3,6 +3,7 @@ use jsonrpsee::ws_client::WsClient;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::broadcast::{Receiver, Sender};
+use tokio::sync::broadcast::error::RecvError;
 use typed_builder::TypedBuilder;
 use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::listener::{Listener, ListenerRef};
@@ -89,8 +90,12 @@ impl ConfigurationClient {
 }
 
 #[derive(Debug, Error)]
-#[error("Failed to receive configuration event")]
-pub struct ConfigurationEventRecvError;
+pub enum  ConfigurationEventRecvError {
+    #[error("Channel is closed")]
+    Closed,
+    #[error("Channel has lagged")]
+    Lagged,
+}
 
 #[derive(TypedBuilder)]
 pub struct ConfigurationEventReceiver {
@@ -101,7 +106,8 @@ impl ConfigurationEventReceiver {
     pub async fn recv(&mut self) -> Result<ConfigurationEvent, ConfigurationEventRecvError> {
         match self.rx.recv().await {
             Ok(event) => Ok(event),
-            Err(_) => Err(ConfigurationEventRecvError),
+            Err(RecvError::Closed) => Err(ConfigurationEventRecvError::Closed),
+            Err(RecvError::Lagged(_)) => Err(ConfigurationEventRecvError::Lagged),
         }
     }
 }
