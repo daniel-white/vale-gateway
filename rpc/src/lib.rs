@@ -39,9 +39,7 @@ impl From<ErrorObjectOwned> for ConfigurationApiError {
 pub enum ConfigurationEvent {
     ListenerChanged,
     RouteChanged(RouteRef),
-    RouteRemoved(RouteRef),
     BackendChanged(BackendRef),
-    BackendRemoved(BackendRef),
 }
 
 // impl From<ConfigurationEvent> for SubscriptionMessage {

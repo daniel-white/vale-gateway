@@ -3,8 +3,8 @@ use std::net::SocketAddr;
 use std::str::FromStr;
 use tokio::task::JoinSet;
 use vg_config::http::backend::{Backend, BackendRef};
-use vg_config::http::listener::{Listener, ListenerRef};
 use vg_config::http::listener::policy::ListenerPolicies;
+use vg_config::http::listener::{Listener, ListenerRef};
 use vg_config::http::provider::HttpConfigurationProvider;
 use vg_config::http::route::{Route, RouteRef};
 use vg_rpc_server::{ConfigurationEvent, ConfigurationEventManager, ConfigurationServerOptions};
@@ -17,8 +17,10 @@ impl HttpConfigurationProvider for HttpConfigProvider {
         let l = Listener::builder()
             .ref_(listener_ref)
             .policies(ListenerPolicies::default())
+            .backend_refs(Vec::new())
+            .route_refs(Vec::new())
             .build();
-        
+
         Some(l)
     }
 
@@ -33,26 +35,32 @@ impl HttpConfigurationProvider for HttpConfigProvider {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut join_set = JoinSet::new();
+    let mut join_set: JoinSet<()> = JoinSet::new();
 
     let http_config = Box::from(HttpConfigProvider);
     let event_manager = ConfigurationEventManager::new();
     let options = ConfigurationServerOptions::builder()
         .binding(SocketAddr::from_str("0.0.0.0:9000").unwrap())
-        .event_manager(event_manager.clone())
+        .sink_registry(event_manager.sink_registry())
         .http_configuration(http_config)
         .build();
 
+    let sender = event_manager.sender();
+
     let server_handle = options.start_server().await?;
+    let event_polling_handle = event_manager.start_polling().await;
 
     join_set.spawn(server_handle.stopped());
+    join_set.spawn(event_polling_handle.stopped());
 
     join_set.spawn(async move {
         loop {
-            event_manager.send(
-                "example_listener".to_string().into(),
-                ConfigurationEvent::ListenerChanged,
-            );
+            sender
+                .send(
+                    "example_listener".to_string().into(),
+                    ConfigurationEvent::ListenerChanged,
+                )
+                .await;
             tokio::time::sleep(std::time::Duration::from_secs(5)).await;
         }
     });

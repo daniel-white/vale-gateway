@@ -1,6 +1,8 @@
 pub mod policy;
 
+use crate::http::backend::BackendRef;
 use crate::http::listener::policy::ListenerPolicies;
+use crate::http::route::RouteRef;
 use derive_more::{Deref, From};
 use getset::{CopyGetters, Getters};
 use serde::{Deserialize, Serialize};
@@ -39,6 +41,12 @@ pub struct Listener {
     #[getset(get = "pub")]
     #[serde(default, skip_serializing_if = "ListenerPolicies::is_default")]
     policies: ListenerPolicies,
+
+    #[getset(get = "pub")]
+    route_refs: Vec<RouteRef>,
+
+    #[getset(get = "pub")]
+    backend_refs: Vec<BackendRef>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -1,4 +1,5 @@
-use crate::events::{ConfigurationEventManager, PendingConfigurationEventSink};
+use crate::ConfigurationEventSinkRegistry;
+use crate::events::PendingConfigurationEventSink;
 use async_trait::async_trait;
 use jsonrpsee_core::SubscriptionResult;
 use jsonrpsee_core::server::PendingSubscriptionSink;
@@ -11,7 +12,7 @@ use vg_rpc::{ConfigurationApiError, ConfigurationApiServer};
 
 #[derive(TypedBuilder)]
 pub struct ConfigurationApiServerMethods {
-    event_manager: ConfigurationEventManager,
+    sink_registry: ConfigurationEventSinkRegistry,
     http_configuration: Box<dyn HttpConfigurationProvider>,
 }
 
@@ -47,7 +48,7 @@ impl ConfigurationApiServer for ConfigurationApiServerMethods {
             .listener_ref(listener_ref.clone())
             .sink(subscription_sink)
             .build();
-        let _ = self.event_manager.try_subscribe(pending_sink).await;
+        let _ = self.sink_registry.try_register(pending_sink).await;
         // TODO: handle error
         Ok(())
     }

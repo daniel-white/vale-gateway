@@ -2,8 +2,8 @@ use jsonrpsee::core::ClientError;
 use jsonrpsee::ws_client::WsClient;
 use std::sync::Arc;
 use thiserror::Error;
-use tokio::sync::broadcast::{Receiver, Sender};
 use tokio::sync::broadcast::error::RecvError;
+use tokio::sync::broadcast::{Receiver, Sender};
 use typed_builder::TypedBuilder;
 use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::listener::{Listener, ListenerRef};
@@ -90,7 +90,7 @@ impl ConfigurationClient {
 }
 
 #[derive(Debug, Error)]
-pub enum  ConfigurationEventRecvError {
+pub enum ConfigurationEventRecvError {
     #[error("Channel is closed")]
     Closed,
     #[error("Channel has lagged")]

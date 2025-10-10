@@ -1,13 +1,11 @@
 mod configuration;
 
-use std::time::Duration;
 
+use crate::configuration::{ConfigurationRegistry, ConfigurationRegistrySynchronizer};
 use async_from::AsyncTryInto;
 use http::Uri;
 use tokio::task::JoinSet;
-use tokio::time::sleep;
-use vg_rpc_client::{ConfigurationClient, ConfigurationClientOptions, ConfigurationEvent};
-use crate::configuration::{ConfigurationRegistry, ConfigurationRegistrySynchronizer};
+use vg_rpc_client::{ConfigurationClient, ConfigurationClientOptions};
 
 #[tokio::main]
 async fn main() {
@@ -17,17 +15,19 @@ async fn main() {
         .build();
     let client: ConfigurationClient = c.async_try_into().await.unwrap();
 
-    
     let reg = ConfigurationRegistry::new();
-    
+
     let e = client.event_receiver();
-    
-    let sync = ConfigurationRegistrySynchronizer::builder().registry(reg.clone()).client(client.clone()).build();
+
+    let sync = ConfigurationRegistrySynchronizer::builder()
+        .registry(reg.clone())
+        .client(client.clone())
+        .build();
 
     let mut js = JoinSet::new();
-    
+
     js.spawn(sync.start());
-    
+
     let _ = client.watch_events().await;
 
     let mut reg_e = reg.subscribe();

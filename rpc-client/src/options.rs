@@ -36,7 +36,7 @@ impl AsyncTryFrom<ConfigurationClientOptions> for ConfigurationClient {
                 ConfigurationClientInitError::WsClientError
             })?;
 
-        let (tx, _) = channel(128);
+        let (tx, _) = channel(10);
         let client = ConfigurationClient::builder()
             .listener_ref(value.listener_ref)
             .client(Arc::new(client))

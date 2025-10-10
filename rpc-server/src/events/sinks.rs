@@ -1,7 +1,9 @@
+use dashmap::DashMap;
 use getset::Getters;
 use jsonrpsee_core::server::{
     ConnectionId, PendingSubscriptionSink, SubscriptionMessage, SubscriptionSink,
 };
+use std::sync::Arc;
 use typed_builder::TypedBuilder;
 use vg_config::http::listener::ListenerRef;
 use vg_rpc::{ConfigurationApiError, ConfigurationEvent};
@@ -62,5 +64,24 @@ impl ConfigurationEventSink {
 
     pub async fn closed(&self) {
         self.sink.closed().await
+    }
+}
+
+#[derive(Debug, TypedBuilder)]
+pub struct ConfigurationEventSinkRegistry {
+    sinks: Arc<DashMap<ConfigurationEventSinkId, ConfigurationEventSink>>,
+}
+
+impl ConfigurationEventSinkRegistry {
+    pub async fn try_register(
+        &self,
+        pending_sink: PendingConfigurationEventSink,
+    ) -> Result<(), ConfigurationApiError> {
+        // TODO validate and accept/reject the pending sink
+
+        let sink = pending_sink.accept().await.unwrap();
+        self.sinks.insert(sink.connection_id(), sink);
+
+        Ok(())
     }
 }
