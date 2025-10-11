@@ -1,5 +1,5 @@
 use crate::ConfigurationEventSinkRegistry;
-use crate::events::handles::{ConfigurationEventServerHandle, handles};
+use vg_core::sync::handles::{handles, Handle};
 use crate::events::sinks::{ConfigurationEventSink, ConfigurationEventSinkId};
 use dashmap::DashMap;
 use std::sync::Arc;
@@ -44,8 +44,8 @@ impl ConfigurationEventServer {
             .build()
     }
 
-    pub fn start(self) -> ConfigurationEventServerHandle {
-        let (server_handle, stop_handle) = handles();
+    pub fn start(self) -> Handle {
+        let (handle, stop_handle) = handles();
         let rx = self.rx;
         let sinks = self.sinks;
 
@@ -78,7 +78,7 @@ impl ConfigurationEventServer {
             }
         });
 
-        server_handle
+        handle
     }
 }
 

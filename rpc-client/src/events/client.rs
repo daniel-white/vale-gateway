@@ -1,5 +1,5 @@
 use crate::ConfigurationTransport;
-use crate::events::{ConfigurationEventClientHandle, handles};
+use vg_core::sync::handles::{handles, Handle};
 use jsonrpsee::core::ClientError;
 use thiserror::Error;
 use tokio::sync::broadcast::error::RecvError;
@@ -29,11 +29,11 @@ impl ConfigurationEventClient {
 
     pub async fn start(
         self,
-    ) -> Result<ConfigurationEventClientHandle, ConfigurationEventClientError> {
+    ) -> Result<Handle, ConfigurationEventClientError> {
         let client = self.transport.client();
         let listener_ref = self.transport.listener_ref();
         let subscription = client.events(listener_ref).await?;
-        let (client_handle, stop_handle) = handles();
+        let (handle, stop_handle) = handles();
 
         spawn(async move {
             let tx = self.tx;
@@ -53,7 +53,7 @@ impl ConfigurationEventClient {
             }
         });
 
-        Ok(client_handle)
+        Ok(handle)
     }
 }
 
@@ -110,5 +110,9 @@ impl ConfigurationEventReceiver {
             Err(RecvError::Closed) => Err(ConfigurationEventRecvError::Closed),
             Err(RecvError::Lagged(_)) => Err(ConfigurationEventRecvError::Lagged),
         }
+    }
+    
+    pub fn is_closed(&self) -> bool {
+        self.rx.is_closed()
     }
 }

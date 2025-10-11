@@ -13,5 +13,6 @@ jsonrpsee = { workspace = true, features = ["tracing", "ws-client"] }
 thiserror.workspace = true
 tokio.workspace = true
 typed-builder.workspace = true
+vg-core = { path = "../core" }
 vg-config = { path = "../config" }
 vg-rpc = { path = "../rpc" }

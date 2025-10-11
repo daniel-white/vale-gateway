@@ -3482,6 +3482,7 @@ dependencies = [
  "tokio-shutdown",
  "tokio-test",
  "tracing",
+ "typed-builder",
 ]
 
 [[package]]
@@ -3604,6 +3605,7 @@ dependencies = [
  "tokio",
  "typed-builder",
  "vg-config",
+ "vg-core",
  "vg-rpc",
 ]
 
