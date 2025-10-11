@@ -1,7 +1,8 @@
 mod handles;
-mod manager;
+mod server;
 mod sinks;
 
-pub use manager::*;
+pub use handles::*;
+pub use server::*;
 pub use sinks::*;
 pub use vg_rpc::ConfigurationEvent;

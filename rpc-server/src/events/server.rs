@@ -1,43 +1,60 @@
 use crate::ConfigurationEventSinkRegistry;
-use crate::events::handles::{ConfigurationEventPollingHandle, polling_handles};
+use crate::events::handles::{ConfigurationEventServerHandle, handles};
 use crate::events::sinks::{ConfigurationEventSink, ConfigurationEventSinkId};
 use dashmap::DashMap;
 use std::sync::Arc;
-use tokio::select;
 use tokio::sync::mpsc::{Receiver, Sender, channel};
+use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
 use vg_config::http::listener::ListenerRef;
 use vg_rpc::ConfigurationEvent;
 
 #[derive(Debug)]
-pub struct ConfigurationEventManager {
+pub struct ConfigurationEventServer {
     sinks: Arc<DashMap<ConfigurationEventSinkId, ConfigurationEventSink>>,
-    event_tx: Sender<(ListenerRef, ConfigurationEvent)>,
-    event_rx: Receiver<(ListenerRef, ConfigurationEvent)>,
+    tx: Sender<(ListenerRef, ConfigurationEvent)>,
+    rx: Receiver<(ListenerRef, ConfigurationEvent)>,
 }
 
-impl ConfigurationEventManager {
+impl Default for ConfigurationEventServer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ConfigurationEventServer {
     pub fn new() -> Self {
         let (tx, rx) = channel(32);
         Self {
             sinks: Arc::new(DashMap::new()),
-            event_tx: tx,
-            event_rx: rx,
+            tx,
+            rx,
         }
     }
-}
 
-impl ConfigurationEventManager {
-    pub async fn start_polling(self) -> ConfigurationEventPollingHandle {
-        let (polling_handle, stop_handle) = polling_handles();
-        let event_rx = self.event_rx;
+    pub fn sinks(&self) -> ConfigurationEventSinkRegistry {
+        ConfigurationEventSinkRegistry::builder()
+            .sinks(self.sinks.clone())
+            .build()
+    }
+
+    pub fn sender(&self) -> ConfigurationEventSender {
+        ConfigurationEventSender::builder()
+            .tx(self.tx.clone())
+            .build()
+    }
+
+    pub fn start(self) -> ConfigurationEventServerHandle {
+        let (server_handle, stop_handle) = handles();
+        let rx = self.rx;
         let sinks = self.sinks;
-        tokio::spawn(async move {
-            let mut event_rx = event_rx;
+
+        spawn(async move {
+            let mut rx = rx;
             let mut stop_handle = stop_handle;
             loop {
                 select! {
-                    event = event_rx.recv() => {
+                    event = rx.recv() => {
                         match event {
                             Some((listener_ref, event)) => {
                                 let current_sinks: Vec<_> = sinks.iter()
@@ -61,19 +78,7 @@ impl ConfigurationEventManager {
             }
         });
 
-        polling_handle
-    }
-
-    pub fn sink_registry(&self) -> ConfigurationEventSinkRegistry {
-        ConfigurationEventSinkRegistry::builder()
-            .sinks(self.sinks.clone())
-            .build()
-    }
-
-    pub fn sender(&self) -> ConfigurationEventSender {
-        ConfigurationEventSender::builder()
-            .tx(self.event_tx.clone())
-            .build()
+        server_handle
     }
 }
 

@@ -1,5 +1,5 @@
+mod api;
 mod events;
-mod methods;
 mod server;
 
 pub use events::*;

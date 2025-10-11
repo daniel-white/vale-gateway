@@ -29,8 +29,8 @@ impl From<ConfigurationApiError> for ErrorObject<'static> {
     }
 }
 
-impl From<ErrorObjectOwned> for ConfigurationApiError {
-    fn from(val: ErrorObjectOwned) -> Self {
+impl From<&ErrorObjectOwned> for ConfigurationApiError {
+    fn from(val: &ErrorObjectOwned) -> Self {
         ConfigurationApiError::from_i32(val.code()).unwrap_or(ConfigurationApiError::Unknown)
     }
 }
@@ -42,16 +42,10 @@ pub enum ConfigurationEvent {
     BackendChanged(BackendRef),
 }
 
-// impl From<ConfigurationEvent> for SubscriptionMessage {
-//     fn from(event: ConfigurationEvent) -> Self {
-//         SubscriptionMessage::(&event).unwrap()
-//     }
-// }
-
 #[rpc(client, server)]
 pub trait ConfigurationApi {
     #[subscription(name = "subscribeEvents" => "events", item = ConfigurationEvent)]
-    async fn watch_events(&self, listener_ref: ListenerRef) -> SubscriptionResult;
+    async fn events(&self, listener_ref: ListenerRef) -> SubscriptionResult;
 
     #[method(name = "getListener")]
     async fn listener(&self, listener_ref: ListenerRef) -> Result<Listener, ConfigurationApiError>;

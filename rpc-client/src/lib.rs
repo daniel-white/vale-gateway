@@ -1,5 +1,7 @@
-mod client;
-mod options;
+mod api;
+mod events;
+mod transport;
 
-pub use client::*;
-pub use options::*;
+pub use api::*;
+pub use events::*;
+pub use transport::*;

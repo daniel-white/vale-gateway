@@ -1,16 +1,17 @@
+use thiserror::Error;
 use tokio::sync::watch::{Receiver, Sender, channel};
 use typed_builder::TypedBuilder;
 
 #[derive(Debug, Clone, TypedBuilder)]
-pub struct ConfigurationEventServerHandle {
+pub struct ConfigurationEventClientHandle {
     tx: Sender<()>,
 }
 
-#[derive(Debug, Copy, Clone, thiserror::Error)]
-#[error("The server is already stopped")]
+#[derive(Debug, Copy, Clone, Error)]
+#[error("The client is already stopped")]
 pub struct AlreadyStoppedError;
 
-impl ConfigurationEventServerHandle {
+impl ConfigurationEventClientHandle {
     pub async fn stopped(self) {
         self.tx.closed().await
     }
@@ -20,25 +21,25 @@ impl ConfigurationEventServerHandle {
 }
 
 #[derive(Debug, TypedBuilder)]
-pub struct ConfigurationEventServerStopHandle {
+pub struct ConfigurationEventClientStopHandle {
     rx: Receiver<()>,
 }
 
-impl ConfigurationEventServerStopHandle {
+impl ConfigurationEventClientStopHandle {
     pub async fn stopped(&mut self) {
         let _ = self.rx.changed().await;
     }
 }
 
 pub(crate) fn handles() -> (
-    ConfigurationEventServerHandle,
-    ConfigurationEventServerStopHandle,
+    ConfigurationEventClientHandle,
+    ConfigurationEventClientStopHandle,
 ) {
     let (tx, rx) = channel(());
 
-    let server_handle = ConfigurationEventServerHandle::builder().tx(tx).build();
+    let server_handle = ConfigurationEventClientHandle::builder().tx(tx).build();
 
-    let stop_handle = ConfigurationEventServerStopHandle::builder().rx(rx).build();
+    let stop_handle = ConfigurationEventClientStopHandle::builder().rx(rx).build();
 
     (server_handle, stop_handle)
 }

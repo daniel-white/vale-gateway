@@ -6,6 +6,8 @@ edition = "2024"
 [dependencies]
 async-trait.workspace = true
 async_from.workspace = true
+derive_more.workspace = true
+getset.workspace = true
 http.workspace = true
 jsonrpsee = { workspace = true, features = ["tracing", "ws-client"] }
 thiserror.workspace = true

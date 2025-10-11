@@ -7,7 +7,7 @@ use vg_config::http::listener::policy::ListenerPolicies;
 use vg_config::http::listener::{Listener, ListenerRef};
 use vg_config::http::provider::HttpConfigurationProvider;
 use vg_config::http::route::{Route, RouteRef};
-use vg_rpc_server::{ConfigurationEvent, ConfigurationEventManager, ConfigurationServerOptions};
+use vg_rpc_server::{ConfigurationEvent, ConfigurationEventServer, ConfigurationServerOptions};
 
 pub struct HttpConfigProvider;
 
@@ -38,20 +38,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut join_set: JoinSet<()> = JoinSet::new();
 
     let http_config = Box::from(HttpConfigProvider);
-    let event_manager = ConfigurationEventManager::new();
+    let event_server = ConfigurationEventServer::new();
     let options = ConfigurationServerOptions::builder()
         .binding(SocketAddr::from_str("0.0.0.0:9000").unwrap())
-        .sink_registry(event_manager.sink_registry())
+        .event_sinks(event_server.sinks())
         .http_configuration(http_config)
         .build();
 
-    let sender = event_manager.sender();
+    let sender = event_server.sender();
 
-    let server_handle = options.start_server().await?;
-    let event_polling_handle = event_manager.start_polling().await;
+    let server = options.start_server().await?;
+    let event_server = event_server.start();
 
-    join_set.spawn(server_handle.stopped());
-    join_set.spawn(event_polling_handle.stopped());
+    join_set.spawn(server.stopped());
+    join_set.spawn(event_server.stopped());
 
     join_set.spawn(async move {
         loop {
@@ -62,6 +62,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 )
                 .await;
             tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+            sender
+                .send(
+                    "example_listener".to_string().into(),
+                    ConfigurationEvent::RouteChanged(RouteRef::from("a route".to_string())),
+                )
+                .await;
         }
     });
 

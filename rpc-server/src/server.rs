@@ -1,5 +1,5 @@
-use crate::methods::ConfigurationApiServerMethods;
 use crate::ConfigurationEventSinkRegistry;
+use crate::api::ConfigurationApiServerMethods;
 use derive_more::From;
 use jsonrpsee::server::{Server, ServerHandle};
 use std::net::SocketAddr;
@@ -12,7 +12,7 @@ use vg_rpc::ConfigurationApiServer;
 pub struct ConfigurationServerOptions {
     #[builder(setter(into))]
     binding: SocketAddr,
-    sink_registry: ConfigurationEventSinkRegistry,
+    event_sinks: ConfigurationEventSinkRegistry,
     http_configuration: Box<dyn HttpConfigurationProvider>,
 }
 
@@ -39,7 +39,7 @@ impl ConfigurationServerOptions {
             .map_err(|_| StartConfigurationServerError)?;
 
         let methods = ConfigurationApiServerMethods::builder()
-            .sink_registry(self.sink_registry)
+            .event_sinks(self.event_sinks)
             .http_configuration(self.http_configuration)
             .build();
 

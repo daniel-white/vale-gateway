@@ -12,7 +12,7 @@ use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::listener::Listener;
 use vg_config::http::route::{Route, RouteRef};
 use vg_rpc_client::{
-    ConfigurationClient, ConfigurationEvent,
+    ConfigurationTransport, ConfigurationEvent,
 };
 
 #[derive(Clone)]
@@ -152,7 +152,7 @@ impl ConfigurationRegistry {
 #[derive(TypedBuilder)]
 pub struct ConfigurationRegistrySynchronizer {
     registry: ConfigurationRegistry,
-    client: ConfigurationClient,
+    client: ConfigurationTransport,
 }
 
 impl ConfigurationRegistrySynchronizer {
@@ -179,7 +179,7 @@ impl ConfigurationRegistrySynchronizer {
         })
     }
 
-    async fn seed(client: &ConfigurationClient, registry: &mut ConfigurationRegistry) {
+    async fn seed(client: &ConfigurationTransport, registry: &mut ConfigurationRegistry) {
         if let Ok(listener) = client.listener().await { registry.set_listener(listener).await }
     }
 }

@@ -3596,6 +3596,8 @@ version = "0.0.0"
 dependencies = [
  "async-trait",
  "async_from",
+ "derive_more",
+ "getset",
  "http",
  "jsonrpsee",
  "thiserror 2.0.17",

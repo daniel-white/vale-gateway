@@ -1,16 +1,23 @@
-use crate::ConfigurationClient;
 use async_from::AsyncTryFrom;
 use async_trait::async_trait;
+use getset::CloneGetters;
 use http::Uri;
-use jsonrpsee::ws_client::WsClientBuilder;
+use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use std::sync::Arc;
 use thiserror::Error;
-use tokio::sync::broadcast::channel;
 use typed_builder::TypedBuilder;
 use vg_config::http::listener::ListenerRef;
 
+#[derive(Debug, Clone, CloneGetters, TypedBuilder)]
+pub struct ConfigurationTransport {
+    #[getset(get_clone = "pub(crate)")]
+    listener_ref: ListenerRef,
+    #[getset(get_clone = "pub(crate)")]
+    client: Arc<WsClient>,
+}
+
 #[derive(Debug, TypedBuilder)]
-pub struct ConfigurationClientOptions {
+pub struct ConfigurationTransportOptions {
     #[builder(setter(into))]
     listener_ref: ListenerRef,
     #[builder(setter(into))]
@@ -24,10 +31,10 @@ pub enum ConfigurationClientInitError {
 }
 
 #[async_trait]
-impl AsyncTryFrom<ConfigurationClientOptions> for ConfigurationClient {
+impl AsyncTryFrom<ConfigurationTransportOptions> for ConfigurationTransport {
     type Error = ConfigurationClientInitError;
 
-    async fn async_try_from(value: ConfigurationClientOptions) -> Result<Self, Self::Error> {
+    async fn async_try_from(value: ConfigurationTransportOptions) -> Result<Self, Self::Error> {
         let client = WsClientBuilder::new()
             .build(value.address.to_string())
             .await
@@ -36,12 +43,11 @@ impl AsyncTryFrom<ConfigurationClientOptions> for ConfigurationClient {
                 ConfigurationClientInitError::WsClientError
             })?;
 
-        let (tx, _) = channel(10);
-        let client = ConfigurationClient::builder()
+        let transport = ConfigurationTransport::builder()
             .listener_ref(value.listener_ref)
             .client(Arc::new(client))
-            .tx(tx)
             .build();
-        Ok(client)
+
+        Ok(transport)
     }
 }

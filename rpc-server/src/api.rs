@@ -12,7 +12,7 @@ use vg_rpc::{ConfigurationApiError, ConfigurationApiServer};
 
 #[derive(TypedBuilder)]
 pub struct ConfigurationApiServerMethods {
-    sink_registry: ConfigurationEventSinkRegistry,
+    event_sinks: ConfigurationEventSinkRegistry,
     http_configuration: Box<dyn HttpConfigurationProvider>,
 }
 
@@ -39,7 +39,7 @@ impl ConfigurationApiServer for ConfigurationApiServerMethods {
             .ok_or(ConfigurationApiError::NotFound)
     }
 
-    async fn watch_events(
+    async fn events(
         &self,
         subscription_sink: PendingSubscriptionSink,
         listener_ref: ListenerRef,
@@ -48,7 +48,7 @@ impl ConfigurationApiServer for ConfigurationApiServerMethods {
             .listener_ref(listener_ref.clone())
             .sink(subscription_sink)
             .build();
-        let _ = self.sink_registry.try_register(pending_sink).await;
+        let _ = self.event_sinks.try_register(pending_sink).await;
         // TODO: handle error
         Ok(())
     }
