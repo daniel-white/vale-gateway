@@ -38,24 +38,24 @@ impl ConfigurationClient {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Clone, Error)]
 pub enum ConfigurationClientError {
     #[error("Listener not found")]
-    NotFound(#[source] ClientError),
+    NotFound,
     #[error("Request timeout")]
-    RequestTimeout(#[source] ClientError),
+    RequestTimeout,
     #[error("Unknown")]
     Unknown,
 }
 
 impl From<ClientError> for ConfigurationClientError {
     fn from(value: ClientError) -> Self {
-        match &value {
+        match value {
             ClientError::Call(err) => match ConfigurationApiError::from(err) {
-                ConfigurationApiError::NotFound => ConfigurationClientError::NotFound(value),
+                ConfigurationApiError::NotFound => ConfigurationClientError::NotFound,
                 _ => ConfigurationClientError::Unknown,
             },
-            ClientError::RequestTimeout => ConfigurationClientError::RequestTimeout(value),
+            ClientError::RequestTimeout => ConfigurationClientError::RequestTimeout,
             _ => ConfigurationClientError::Unknown,
         }
     }

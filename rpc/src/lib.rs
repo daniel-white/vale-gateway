@@ -29,8 +29,8 @@ impl From<ConfigurationApiError> for ErrorObject<'static> {
     }
 }
 
-impl From<&ErrorObjectOwned> for ConfigurationApiError {
-    fn from(val: &ErrorObjectOwned) -> Self {
+impl From<ErrorObjectOwned> for ConfigurationApiError {
+    fn from(val: ErrorObjectOwned) -> Self {
         ConfigurationApiError::from_i32(val.code()).unwrap_or(ConfigurationApiError::Unknown)
     }
 }

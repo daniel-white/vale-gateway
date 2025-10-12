@@ -14,7 +14,7 @@ impl Handle {
     pub async fn stopped(self) {
         self.tx.closed().await
     }
-    
+
     pub fn shutdown(self) -> Result<(), AlreadyStoppedError> {
         self.tx.send(()).map_err(|_| AlreadyStoppedError)
     }
@@ -31,10 +31,7 @@ impl StopHandle {
     }
 }
 
-pub fn handles() -> (
-    Handle,
-    StopHandle,
-) {
+pub fn handles() -> (Handle, StopHandle) {
     let (tx, rx) = channel(());
 
     let handle = Handle::builder().tx(tx).build();

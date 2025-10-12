@@ -1,53 +1,111 @@
+mod events;
+
+use std::collections::HashMap;
 use std::sync::Arc;
-use dashmap::DashMap;
+use getset::Getters;
 use tokio::{select, spawn};
-use tokio::sync::RwLock;
 use typed_builder::TypedBuilder;
 use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::listener::Listener;
 use vg_config::http::route::{Route, RouteRef};
 use vg_core::sync::handles::{handles, Handle};
-use vg_rpc_client::{ConfigurationClient, ConfigurationEventReceiver};
+use vg_rpc_client::{ConfigurationClient, ConfigurationEventReceiver, ConfigurationEventRecvError};
+use events::watch::channel;
+use crate::configuration::events::processor::ConfigurationEventProcessor;
+pub use events::watch::{SourceConfigurationWatch};
+use crate::configuration::events::watch::SourceConfigurationSender;
 
-#[derive(TypedBuilder)]
-pub struct SourceConfigurationRegistry {
-    #[builder(default, setter(skip))]
-    listener: Arc<RwLock<Option<Arc<Listener>>>>,
-    #[builder(default, setter(skip))]
-    routes: DashMap<RouteRef, Arc<Route>>,
-    #[builder(default, setter(skip))]
-    backends: DashMap<BackendRef, Arc<Backend>>,
-    client: ConfigurationClient,
-    event_rx: ConfigurationEventReceiver
+#[derive(Debug, Clone, Getters,  TypedBuilder)]
+pub struct SourceRoutingConfiguration {
+    #[getset(get = "pub")]
+    listener: Listener,
+    #[getset(get = "pub")]
+    routes: HashMap<RouteRef, Route>
 }
 
-impl SourceConfigurationRegistry {
-    pub fn start(self) -> Handle {
-        let (handle, mut stop_handle) = handles();
-        let processor = ConfigurationEventProcessor::builder()
-            .client(self.client)
-            .build();
-        
-        spawn(async move {
-            let mut event_rx = self.event_rx;
-            println!("closed? {}", event_rx.is_closed());
-           loop {
-               select! {
-                   event = event_rx.recv() => {
-                       println!("event! {:?}", event);
-                   },
-                   _ = stop_handle.stopped() => {
-                       break;
-                   }
-               }
-           } 
-        });
-        
-        handle
+#[derive(Default, Debug, Clone, Getters,  TypedBuilder)]
+pub struct SourceBackendConfiguration {
+    #[getset(get = "pub")]
+    backends: HashMap<BackendRef, Backend>,
+}
+
+
+#[derive(TypedBuilder)]
+pub struct SourceConfigurationRegistryOptions {
+    client: ConfigurationClient,
+    event_rx: ConfigurationEventReceiver,
+}
+
+impl From<SourceConfigurationRegistryOptions> for SourceConfigurationRegistry {
+    fn from(value: SourceConfigurationRegistryOptions) -> Self {
+        let (backends_tx, backends_rx) = channel();
+        let (routing_tx, routing_rx) = channel();
+
+        Self::builder()
+            .client(value.client)
+            .event_rx(value.event_rx)
+            .backends_rx(backends_rx)
+            .backends_tx(backends_tx)
+            .routing_rx(routing_rx)
+            .routing_tx(routing_tx)
+            .build()
     }
 }
 
 #[derive(TypedBuilder)]
-struct ConfigurationEventProcessor {
+pub struct SourceConfigurationRegistry {
     client: ConfigurationClient,
+    event_rx: ConfigurationEventReceiver,
+    backends_tx: SourceConfigurationSender<Arc<SourceBackendConfiguration>>,
+    backends_rx: SourceConfigurationWatch<Arc<SourceBackendConfiguration>>,
+    routing_tx: SourceConfigurationSender<Arc<SourceRoutingConfiguration>>,
+    routing_rx: SourceConfigurationWatch<Arc<SourceRoutingConfiguration>>,
 }
+
+impl SourceConfigurationRegistry {
+    pub fn backends(&self) -> SourceConfigurationWatch<Arc<SourceBackendConfiguration>> {
+        self.backends_rx.clone()
+    }
+
+    pub fn routing(&self) -> SourceConfigurationWatch<Arc<SourceRoutingConfiguration>> {
+        self.routing_rx.clone()
+    }
+
+    pub fn start(self) -> Handle {
+        let (handle, mut stop_handle) = handles();
+        let mut event_rx = self.event_rx;
+
+        let processor = ConfigurationEventProcessor::builder()
+            .client(self.client)
+            .routing_tx(self.routing_tx)
+            .backends_tx(self.backends_tx)
+            .build();
+
+        spawn(async move {
+            processor.init().await;
+            loop {
+                select! {
+                    recv = event_rx.recv() => {
+                        match recv {
+                            Ok(event) => {
+                                processor.handle(event).await;
+                            }
+                            Err(ConfigurationEventRecvError::Lagged) => {
+                                processor.init().await;
+                            }
+                            _ => {
+                                continue;
+                            }
+                        }
+                    },
+                    _ = stop_handle.stopped() => {
+                        break;
+                    }
+                }
+            }
+        });
+
+        handle
+    }
+}
+

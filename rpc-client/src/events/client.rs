@@ -1,12 +1,14 @@
 use crate::ConfigurationTransport;
-use vg_core::sync::handles::{handles, Handle};
 use jsonrpsee::core::ClientError;
 use thiserror::Error;
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::broadcast::{Receiver, Sender, channel};
 use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
-use vg_rpc::{ConfigurationApiClient, ConfigurationApiError, ConfigurationEvent};
+use vg_core::sync::handles::{Handle, handles};
+use vg_rpc::{ConfigurationApiClient, ConfigurationApiError};
+
+pub use vg_rpc::ConfigurationEvent;
 
 #[derive(Debug)]
 pub struct ConfigurationEventClient {
@@ -27,23 +29,23 @@ impl ConfigurationEventClient {
             .build()
     }
 
-    pub async fn start(
-        self,
-    ) -> Result<Handle, ConfigurationEventClientError> {
+    pub async fn start(self) -> Result<Handle, ConfigurationEventClientError> {
         let client = self.transport.client();
         let listener_ref = self.transport.listener_ref();
-        let subscription = client.events(listener_ref).await?;
-        let (handle, stop_handle) = handles();
+        let mut subscription = client.events(listener_ref).await?;
+        let (handle, mut stop_handle) = handles();
 
         spawn(async move {
-            let tx = self.tx;
-            let mut subscription = subscription;
-            let mut stop_handle = stop_handle;
+            // Hold on to the transport to keep the connection alive
+            let transport = self.transport;
+
             loop {
                 select! {
                     event = subscription.next() => {
                         if let Some(Ok(event)) = event {
-                            let _ = tx.send(event);
+                            let _ = self.tx.send(event);
+                        } else {
+                            break;
                         }
                     },
                     _ = stop_handle.stopped() => {
@@ -51,6 +53,9 @@ impl ConfigurationEventClient {
                     }
                 }
             }
+
+            // We don't need the transport anymore
+            drop(transport);
         });
 
         Ok(handle)
@@ -60,21 +65,21 @@ impl ConfigurationEventClient {
 #[derive(Debug, Error)]
 pub enum ConfigurationEventClientError {
     #[error("Listener not found")]
-    NotFound(#[source] ClientError),
+    NotFound,
     #[error("Request timeout")]
-    RequestTimeout(#[source] ClientError),
+    RequestTimeout,
     #[error("Unknown")]
     Unknown,
 }
 
 impl From<ClientError> for ConfigurationEventClientError {
     fn from(value: ClientError) -> Self {
-        match &value {
+        match value {
             ClientError::Call(err) => match ConfigurationApiError::from(err) {
-                ConfigurationApiError::NotFound => ConfigurationEventClientError::NotFound(value),
+                ConfigurationApiError::NotFound => ConfigurationEventClientError::NotFound,
                 _ => ConfigurationEventClientError::Unknown,
             },
-            ClientError::RequestTimeout => ConfigurationEventClientError::RequestTimeout(value),
+            ClientError::RequestTimeout => ConfigurationEventClientError::RequestTimeout,
             _ => ConfigurationEventClientError::Unknown,
         }
     }
@@ -111,7 +116,7 @@ impl ConfigurationEventReceiver {
             Err(RecvError::Lagged(_)) => Err(ConfigurationEventRecvError::Lagged),
         }
     }
-    
+
     pub fn is_closed(&self) -> bool {
         self.rx.is_closed()
     }

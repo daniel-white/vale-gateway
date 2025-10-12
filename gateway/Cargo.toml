@@ -5,12 +5,15 @@ edition = "2024"
 
 [dependencies]
 async_from.workspace = true
+async-stm.workspace = true
 dashmap.workspace = true
-http.workspace = true
+futures.workspace = true
 getset.workspace = true
+http.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 typed-builder.workspace = true
 vg-core = { path = "../core" }
 vg-config = { path = "../config" }
+vg-http = { path = "../http" }
 vg-rpc-client = { path = "../rpc-client" }

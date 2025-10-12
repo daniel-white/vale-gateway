@@ -13,6 +13,7 @@ jsonrpsee = { workspace = true, features = ["tracing", "server"] }
 jsonrpsee-core.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+tracing.workspace = true
 typed-builder.workspace = true
 vg-core = { path = "../core" }
 vg-config = { path = "../config" }

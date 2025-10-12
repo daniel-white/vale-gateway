@@ -1,5 +1,4 @@
 use crate::ConfigurationEventSinkRegistry;
-use vg_core::sync::handles::{handles, Handle};
 use crate::events::sinks::{ConfigurationEventSink, ConfigurationEventSinkId};
 use dashmap::DashMap;
 use std::sync::Arc;
@@ -7,6 +6,7 @@ use tokio::sync::mpsc::{Receiver, Sender, channel};
 use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
 use vg_config::http::listener::ListenerRef;
+use vg_core::sync::handles::{Handle, handles};
 use vg_rpc::ConfigurationEvent;
 
 #[derive(Debug)]
