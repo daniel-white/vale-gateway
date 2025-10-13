@@ -1743,6 +1743,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "opentelemetry-http"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "50f6639e842a97dbea8886e3439710ae463120091e2e064518ba8e716e6ac36d"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "http",
+ "opentelemetry",
+]
+
+[[package]]
 name = "opentelemetry_sdk"
 version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1754,6 +1766,7 @@ dependencies = [
  "opentelemetry",
  "percent-encoding",
  "rand 0.9.2",
+ "serde_json",
  "thiserror 2.0.17",
 ]
 
@@ -3486,6 +3499,7 @@ dependencies = [
  "ipnet",
  "mediatype",
  "opentelemetry",
+ "opentelemetry_sdk",
  "serde",
  "thiserror 2.0.17",
  "tokio",
@@ -3595,9 +3609,12 @@ dependencies = [
  "async-trait",
  "derive_more",
  "http",
+ "http-serde-ext",
  "jsonrpsee",
  "num-derive",
  "num-traits",
+ "opentelemetry",
+ "opentelemetry-http",
  "serde",
  "thiserror 2.0.17",
  "tokio",
@@ -3614,8 +3631,10 @@ dependencies = [
  "getset",
  "http",
  "jsonrpsee",
+ "opentelemetry",
  "thiserror 2.0.17",
  "tokio",
+ "tower-layer",
  "typed-builder",
  "vg-config",
  "vg-core",
@@ -3633,8 +3652,10 @@ dependencies = [
  "http",
  "jsonrpsee",
  "jsonrpsee-core",
+ "opentelemetry",
  "thiserror 2.0.17",
  "tokio",
+ "tower-layer",
  "tracing",
  "typed-builder",
  "vg-config",

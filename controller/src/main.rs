@@ -7,6 +7,7 @@ use vg_config::http::listener::policy::ListenerPolicies;
 use vg_config::http::listener::{Listener, ListenerRef};
 use vg_config::http::provider::HttpConfigurationProvider;
 use vg_config::http::route::{Route, RouteRef};
+use vg_core::instrumentation::init;
 use vg_rpc_server::{ConfigurationEvent, ConfigurationEventServer, ConfigurationServerOptions};
 
 pub struct HttpConfigProvider;
@@ -35,6 +36,8 @@ impl HttpConfigurationProvider for HttpConfigProvider {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    init();
+
     let mut join_set: JoinSet<()> = JoinSet::new();
 
     let http_config = Box::from(HttpConfigProvider);

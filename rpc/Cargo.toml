@@ -8,9 +8,12 @@ edition = "2024"
 async-trait.workspace = true
 derive_more.workspace = true
 http.workspace = true
-jsonrpsee = { workspace = true, features = ["macros", "client-core", "server-core"] }
+http-serde-ext.workspace = true
+jsonrpsee = { workspace = true, features = ["macros", "tracing", "client-core", "server-core"] }
 num-traits.workspace = true
 num-derive.workspace = true
+opentelemetry.workspace = true
+opentelemetry-http.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tokio.workspace = true

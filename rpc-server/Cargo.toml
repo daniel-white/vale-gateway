@@ -11,8 +11,10 @@ http.workspace = true
 derive_more.workspace = true
 jsonrpsee = { workspace = true, features = ["tracing", "server"] }
 jsonrpsee-core.workspace = true
+opentelemetry.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+tower-layer.workspace = true
 tracing.workspace = true
 typed-builder.workspace = true
 vg-core = { path = "../core" }

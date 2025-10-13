@@ -1,3 +1,5 @@
+pub mod propagation;
+
 use derive_more::TryFrom;
 use http::StatusCode;
 use jsonrpsee::core::SubscriptionResult;

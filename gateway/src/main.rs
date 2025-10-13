@@ -1,12 +1,13 @@
 mod configuration;
 mod http;
 
-use std::error::Error;
 use crate::configuration::{SourceConfigurationRegistry, SourceConfigurationRegistryOptions};
-use async_from::AsyncTryInto;
 use ::http::Uri;
+use async_from::AsyncTryInto;
+use std::error::Error;
 use tokio::select;
 use tokio::task::JoinSet;
+use vg_core::instrumentation::init;
 use vg_rpc_client::{
     ConfigurationClient, ConfigurationEventClient, ConfigurationTransport,
     ConfigurationTransportOptions,
@@ -14,6 +15,8 @@ use vg_rpc_client::{
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    init();
+
     let transport: ConfigurationTransport = ConfigurationTransportOptions::builder()
         .address(Uri::from_static("ws://localhost:9000"))
         .listener_ref("example_listener".to_string())
@@ -29,11 +32,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let event_rx = event_client.receiver();
 
-    let source_configuration:SourceConfigurationRegistry = SourceConfigurationRegistryOptions::builder()
-        .client(client)
-        .event_rx(event_rx)
-        .build()
-        .into();
+    let source_configuration: SourceConfigurationRegistry =
+        SourceConfigurationRegistryOptions::builder()
+            .client(client)
+            .event_rx(event_rx)
+            .build()
+            .into();
 
     let mut rrx = source_configuration.routing();
     let mut brx = source_configuration.backends();
@@ -47,17 +51,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
     js.spawn(source_configuration.stopped());
 
     js.spawn(async move {
-       loop {
-           select! {
-               _ = rrx.changed() => {
-                   println!("routing: {:?}", rrx.current());
-               }
-               _ = brx.changed() => {
-                   println!("backends: {:?}", rrx.current());
-               }
-           }
-
-       }
+        loop {
+            select! {
+                _ = rrx.changed() => {
+                    println!("routing: {:?}", rrx.current());
+                }
+                _ = brx.changed() => {
+                    println!("backends: {:?}", rrx.current());
+                }
+            }
+        }
     });
 
     js.join_all().await;

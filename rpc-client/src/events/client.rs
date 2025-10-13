@@ -10,7 +10,6 @@ use vg_rpc::{ConfigurationApiClient, ConfigurationApiError};
 
 pub use vg_rpc::ConfigurationEvent;
 
-#[derive(Debug)]
 pub struct ConfigurationEventClient {
     transport: ConfigurationTransport,
     tx: Sender<ConfigurationEvent>,

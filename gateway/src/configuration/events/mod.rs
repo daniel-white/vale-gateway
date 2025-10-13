@@ -1,2 +1,2 @@
-pub mod watch;
 pub mod processor;
+pub mod watch;

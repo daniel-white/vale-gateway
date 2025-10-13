@@ -1,34 +1,33 @@
 mod events;
 
+use crate::configuration::events::processor::ConfigurationEventProcessor;
+use crate::configuration::events::watch::SourceConfigurationSender;
+pub use events::watch::SourceConfigurationWatch;
+use events::watch::channel;
+use getset::Getters;
 use std::collections::HashMap;
 use std::sync::Arc;
-use getset::Getters;
 use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
 use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::listener::Listener;
 use vg_config::http::route::{Route, RouteRef};
-use vg_core::sync::handles::{handles, Handle};
+use vg_core::sync::handles::{Handle, handles};
 use vg_rpc_client::{ConfigurationClient, ConfigurationEventReceiver, ConfigurationEventRecvError};
-use events::watch::channel;
-use crate::configuration::events::processor::ConfigurationEventProcessor;
-pub use events::watch::{SourceConfigurationWatch};
-use crate::configuration::events::watch::SourceConfigurationSender;
 
-#[derive(Debug, Clone, Getters,  TypedBuilder)]
+#[derive(Debug, Clone, Getters, TypedBuilder)]
 pub struct SourceRoutingConfiguration {
     #[getset(get = "pub")]
     listener: Listener,
     #[getset(get = "pub")]
-    routes: HashMap<RouteRef, Route>
+    routes: HashMap<RouteRef, Route>,
 }
 
-#[derive(Default, Debug, Clone, Getters,  TypedBuilder)]
+#[derive(Default, Debug, Clone, Getters, TypedBuilder)]
 pub struct SourceBackendConfiguration {
     #[getset(get = "pub")]
     backends: HashMap<BackendRef, Backend>,
 }
-
 
 #[derive(TypedBuilder)]
 pub struct SourceConfigurationRegistryOptions {
@@ -108,4 +107,3 @@ impl SourceConfigurationRegistry {
         handle
     }
 }
-
