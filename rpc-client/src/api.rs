@@ -5,7 +5,7 @@ use typed_builder::TypedBuilder;
 use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::listener::Listener;
 use vg_config::http::route::{Route, RouteRef};
-use vg_rpc::{ConfigurationApiClient, ConfigurationApiError};
+use vg_rpc::{ConfigurationApiClient, ConfigurationApiError, Context, GetBackendRequest, GetListenerRequest, GetRouteRequest};
 
 #[derive(Clone, TypedBuilder)]
 pub struct ConfigurationClient {
@@ -15,16 +15,22 @@ pub struct ConfigurationClient {
 impl ConfigurationClient {
     pub async fn listener(&self) -> Result<Listener, ConfigurationClientError> {
         let client = self.transport.client();
-        let listener_ref = self.transport.listener_ref();
+        let req = GetListenerRequest::builder()
+            .context(Context::default())
+            .listener_ref(self.transport.listener_ref())
+            .build();
 
-        Ok(client.listener(listener_ref).await?)
+        Ok(client.listener(req).await?)
     }
 
     pub async fn route(&self, route_ref: &RouteRef) -> Result<Route, ConfigurationClientError> {
         let client = self.transport.client();
-        let route_ref = route_ref.clone();
+        let req = GetRouteRequest::builder()
+            .context(Context::default())
+            .route_ref(route_ref.clone())
+            .build();
 
-        Ok(client.route(route_ref).await?)
+        Ok(client.route(req).await?)
     }
 
     pub async fn backend(
@@ -32,9 +38,12 @@ impl ConfigurationClient {
         backend_ref: &BackendRef,
     ) -> Result<Backend, ConfigurationClientError> {
         let client = self.transport.client();
-        let backend_ref = backend_ref.clone();
+        let req = GetBackendRequest::builder()
+            .context(Context::default())
+            .backend_ref(backend_ref.clone())
+            .build();
 
-        Ok(client.backend(backend_ref).await?)
+        Ok(client.backend(req).await?)
     }
 }
 

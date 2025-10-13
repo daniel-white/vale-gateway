@@ -3608,6 +3608,7 @@ version = "0.0.0"
 dependencies = [
  "async-trait",
  "derive_more",
+ "getset",
  "http",
  "http-serde-ext",
  "jsonrpsee",
@@ -3618,6 +3619,7 @@ dependencies = [
  "serde",
  "thiserror 2.0.17",
  "tokio",
+ "typed-builder",
  "vg-config",
 ]
 

@@ -6,7 +6,7 @@ use tokio::sync::broadcast::{Receiver, Sender, channel};
 use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
 use vg_core::sync::handles::{Handle, handles};
-use vg_rpc::{ConfigurationApiClient, ConfigurationApiError};
+use vg_rpc::{ConfigurationApiClient, ConfigurationApiError, Context, SubscribeEventsRequest};
 
 pub use vg_rpc::ConfigurationEvent;
 
@@ -30,8 +30,11 @@ impl ConfigurationEventClient {
 
     pub async fn start(self) -> Result<Handle, ConfigurationEventClientError> {
         let client = self.transport.client();
-        let listener_ref = self.transport.listener_ref();
-        let mut subscription = client.events(listener_ref).await?;
+        let req = SubscribeEventsRequest::builder()
+            .context(Context::default())
+            .listener_ref(self.transport.listener_ref())
+            .build();
+        let mut subscription = client.events(req).await?;
         let (handle, mut stop_handle) = handles();
 
         spawn(async move {
@@ -42,7 +45,7 @@ impl ConfigurationEventClient {
                 select! {
                     event = subscription.next() => {
                         if let Some(Ok(event)) = event {
-                            let _ = self.tx.send(event);
+                            let _ = self.tx.send(event.event());
                         } else {
                             break;
                         }

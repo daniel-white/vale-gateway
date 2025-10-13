@@ -8,7 +8,7 @@ use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::listener::{Listener, ListenerRef};
 use vg_config::http::provider::HttpConfigurationProvider;
 use vg_config::http::route::{Route, RouteRef};
-use vg_rpc::{ConfigurationApiError, ConfigurationApiServer};
+use vg_rpc::{ConfigurationApiError, ConfigurationApiServer, GetBackendRequest, GetListenerRequest, GetRouteRequest, SubscribeEventsRequest};
 
 #[derive(TypedBuilder)]
 pub struct ConfigurationApiServerMethods {
@@ -18,34 +18,30 @@ pub struct ConfigurationApiServerMethods {
 
 #[async_trait]
 impl ConfigurationApiServer for ConfigurationApiServerMethods {
-    async fn listener(&self, listener_ref: ListenerRef) -> Result<Listener, ConfigurationApiError> {
+    async fn listener(&self, req: GetListenerRequest) -> Result<Listener, ConfigurationApiError> {
         self.http_configuration
-            .listener(listener_ref)
+            .listener(req.listener_ref())
             .await
             .ok_or(ConfigurationApiError::NotFound)
     }
 
-    async fn route(&self, route_ref: RouteRef) -> Result<Route, ConfigurationApiError> {
+    async fn route(&self, req: GetRouteRequest) -> Result<Route, ConfigurationApiError> {
         self.http_configuration
-            .route(route_ref)
+            .route(req.route_ref())
             .await
             .ok_or(ConfigurationApiError::NotFound)
     }
 
-    async fn backend(&self, backend_ref: BackendRef) -> Result<Backend, ConfigurationApiError> {
+    async fn backend(&self, req: GetBackendRequest) -> Result<Backend, ConfigurationApiError> {
         self.http_configuration
-            .backend(backend_ref)
+            .backend(req.backend_ref())
             .await
             .ok_or(ConfigurationApiError::NotFound)
     }
 
-    async fn events(
-        &self,
-        subscription_sink: PendingSubscriptionSink,
-        listener_ref: ListenerRef,
-    ) -> SubscriptionResult {
+    async fn events(&self, subscription_sink: PendingSubscriptionSink, req: SubscribeEventsRequest) -> SubscriptionResult {
         let pending_sink = PendingConfigurationEventSink::builder()
-            .listener_ref(listener_ref.clone())
+            .listener_ref(req.listener_ref())
             .sink(subscription_sink)
             .build();
         let _ = self.event_sinks.try_register(pending_sink).await;

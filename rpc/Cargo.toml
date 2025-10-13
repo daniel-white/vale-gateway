@@ -7,6 +7,7 @@ edition = "2024"
 [dependencies]
 async-trait.workspace = true
 derive_more.workspace = true
+getset.workspace = true
 http.workspace = true
 http-serde-ext.workspace = true
 jsonrpsee = { workspace = true, features = ["macros", "tracing", "client-core", "server-core"] }
@@ -17,4 +18,5 @@ opentelemetry-http.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+typed-builder.workspace = true
 vg-config = { path = "../config" }
