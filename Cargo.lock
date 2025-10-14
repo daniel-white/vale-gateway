@@ -1755,6 +1755,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "opentelemetry-semantic-conventions"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83d059a296a47436748557a353c5e6c5705b9470ef6c95cfc52c21a8814ddac2"
+
+[[package]]
+name = "opentelemetry-stdout"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "447191061af41c3943e082ea359ab8b64ff27d6d34d30d327df309ddef1eef6f"
+dependencies = [
+ "chrono",
+ "opentelemetry",
+ "opentelemetry_sdk",
+]
+
+[[package]]
 name = "opentelemetry_sdk"
 version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3479,6 +3496,7 @@ dependencies = [
  "async-trait",
  "derive_more",
  "http",
+ "opentelemetry",
  "thiserror 2.0.17",
  "tokio",
  "typed-builder",
@@ -3499,6 +3517,7 @@ dependencies = [
  "ipnet",
  "mediatype",
  "opentelemetry",
+ "opentelemetry-stdout",
  "opentelemetry_sdk",
  "serde",
  "thiserror 2.0.17",
@@ -3519,6 +3538,7 @@ dependencies = [
  "futures",
  "getset",
  "http",
+ "opentelemetry",
  "thiserror 2.0.17",
  "tokio",
  "typed-builder",
@@ -3634,6 +3654,7 @@ dependencies = [
  "http",
  "jsonrpsee",
  "opentelemetry",
+ "opentelemetry-semantic-conventions",
  "thiserror 2.0.17",
  "tokio",
  "tower-layer",

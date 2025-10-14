@@ -1,5 +1,6 @@
 mod configuration;
 mod http;
+mod instrumentation;
 
 use crate::configuration::{SourceConfigurationRegistry, SourceConfigurationRegistryOptions};
 use ::http::Uri;

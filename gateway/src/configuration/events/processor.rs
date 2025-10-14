@@ -24,7 +24,7 @@ impl ConfigurationEventProcessor {
         let _ = self.sync_all().await;
     }
 
-    pub async fn handle(&self, event: ConfigurationEvent) {
+    pub async fn handle(&self, event: &ConfigurationEvent) {
         match event {
             ConfigurationEvent::ListenerChanged => {
                 let _ = self.sync_all().await;
@@ -84,8 +84,8 @@ impl ConfigurationEventProcessor {
         Ok(())
     }
 
-    async fn sync_route(&self, route_ref: RouteRef) -> Result<(), ()> {
-        let route = self.client.route(&route_ref).await.map_err(|_| ())?;
+    async fn sync_route(&self, route_ref: &RouteRef) -> Result<(), ()> {
+        let route = self.client.route(route_ref).await.map_err(|_| ())?;
 
         let routing = atomically(|| {
             let routing = self.routing.read()?;
@@ -115,8 +115,8 @@ impl ConfigurationEventProcessor {
         Ok(())
     }
 
-    async fn sync_backend(&self, backend_ref: BackendRef) -> Result<(), ()> {
-        let backend = self.client.backend(&backend_ref).await.map_err(|_| ())?;
+    async fn sync_backend(&self, backend_ref: &BackendRef) -> Result<(), ()> {
+        let backend = self.client.backend(backend_ref).await.map_err(|_| ())?;
 
         let backends = atomically(|| {
             let backends = self.backends.read()?;

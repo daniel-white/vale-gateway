@@ -6,7 +6,9 @@ pub use events::watch::SourceConfigurationWatch;
 use events::watch::channel;
 use getset::Getters;
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::sync::Arc;
+use opentelemetry::trace::FutureExt;
 use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
 use vg_config::http::backend::{Backend, BackendRef};
@@ -87,7 +89,7 @@ impl SourceConfigurationRegistry {
                     recv = event_rx.recv() => {
                         match recv {
                             Ok(event) => {
-                                processor.handle(event).await;
+                                processor.handle(event.deref()).with_current_context().await;
                             }
                             Err(ConfigurationEventRecvError::Lagged) => {
                                 processor.init().await;

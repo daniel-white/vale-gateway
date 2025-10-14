@@ -7,6 +7,7 @@ edition = "2024"
 async-trait.workspace = true
 http.workspace = true
 derive_more.workspace = true
+opentelemetry.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 typed-builder.workspace = true

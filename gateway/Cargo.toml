@@ -10,6 +10,7 @@ dashmap.workspace = true
 futures.workspace = true
 getset.workspace = true
 http.workspace = true
+opentelemetry.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 typed-builder.workspace = true

@@ -17,6 +17,7 @@ ipnet.workspace = true
 mediatype.workspace = true
 opentelemetry.workspace = true
 opentelemetry_sdk.workspace = true
+opentelemetry-stdout.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tokio.workspace = true

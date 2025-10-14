@@ -1,13 +1,15 @@
 use crate::ConfigurationTransport;
 use jsonrpsee::core::ClientError;
+use opentelemetry::trace::{FutureExt, Span, SpanKind, Tracer};
 use thiserror::Error;
-use tokio::sync::broadcast::error::RecvError;
-use tokio::sync::broadcast::{Receiver, Sender, channel};
+use vg_core::sync::broadcast::error::RecvError;
+use vg_core::sync::broadcast::{Receiver, Sender, channel, TracedValue};
 use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
 use vg_core::sync::handles::{Handle, handles};
 use vg_rpc::{ConfigurationApiClient, ConfigurationApiError, Context, SubscribeEventsRequest};
 
+use crate::instrumentation::TRACER;
 pub use vg_rpc::ConfigurationEvent;
 
 pub struct ConfigurationEventClient {
@@ -31,10 +33,15 @@ impl ConfigurationEventClient {
     pub async fn start(self) -> Result<Handle, ConfigurationEventClientError> {
         let client = self.transport.client();
         let req = SubscribeEventsRequest::builder()
-            .context(Context::default())
+            .context(Context::current())
             .listener_ref(self.transport.listener_ref())
             .build();
+        let mut span = TRACER
+            .span_builder("ConfigurationEventClient::events")
+            .with_kind(SpanKind::Client)
+            .start(&*TRACER);
         let mut subscription = client.events(req).await?;
+        span.end();
         let (handle, mut stop_handle) = handles();
 
         spawn(async move {
@@ -45,7 +52,12 @@ impl ConfigurationEventClient {
                 select! {
                     event = subscription.next() => {
                         if let Some(Ok(event)) = event {
+                            let channel = event.context().propagation_channel();
+                            let mut span = TRACER.span_builder("ConfigurationEventClient::recv")
+                                .with_kind(SpanKind::Consumer)
+                                .start_with_context(&*TRACER, &channel.into());
                             let _ = self.tx.send(event.event());
+                            span.end();
                         } else {
                             break;
                         }
@@ -70,7 +82,7 @@ pub enum ConfigurationEventClientError {
     NotFound,
     #[error("Request timeout")]
     RequestTimeout,
-    #[error("Unknown")]
+    #[error("Unknown event")]
     Unknown,
 }
 
@@ -111,8 +123,8 @@ impl Clone for ConfigurationEventReceiver {
 }
 
 impl ConfigurationEventReceiver {
-    pub async fn recv(&mut self) -> Result<ConfigurationEvent, ConfigurationEventRecvError> {
-        match self.rx.recv().await {
+    pub async fn recv(&mut self) -> Result<TracedValue<ConfigurationEvent>, ConfigurationEventRecvError> {
+        match self.rx.recv().with_current_context().await {
             Ok(event) => Ok(event),
             Err(RecvError::Closed) => Err(ConfigurationEventRecvError::Closed),
             Err(RecvError::Lagged(_)) => Err(ConfigurationEventRecvError::Lagged),

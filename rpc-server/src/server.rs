@@ -1,9 +1,7 @@
 use crate::ConfigurationEventSinkRegistry;
 use crate::api::ConfigurationApiServerMethods;
-use crate::middleware::tracing::TracingLayer;
 use derive_more::From;
 use jsonrpsee::server::{Server, ServerHandle};
-use jsonrpsee_core::middleware::RpcServiceBuilder;
 use std::net::SocketAddr;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
@@ -35,13 +33,7 @@ impl ConfigurationServerOptions {
     pub async fn start_server(
         self,
     ) -> Result<ConfigurationServerHandle, StartConfigurationServerError> {
-        let rpc_middleware = RpcServiceBuilder::default()
-            .layer(TracingLayer)
-            .rpc_logger(0)
-;
-
         let server = Server::builder()
-            .set_rpc_middleware(rpc_middleware)
             .build(self.binding)
             .await
             .map_err(|_| StartConfigurationServerError)?;

@@ -1,5 +1,5 @@
 use thiserror::Error;
-use tokio::sync::watch::{Receiver, Sender};
+use tokio::sync::watch::{Receiver, Sender, channel as watch_channel};
 use typed_builder::TypedBuilder;
 
 #[derive(Debug, Error)]
@@ -42,7 +42,7 @@ impl<T: Clone> SourceConfigurationSender<T> {
 }
 
 pub fn channel<T: Clone>() -> (SourceConfigurationSender<T>, SourceConfigurationWatch<T>) {
-    let (tx, rx) = tokio::sync::watch::channel(None);
+    let (tx, rx) = watch_channel(None);
 
     let sender = SourceConfigurationSender::builder().tx(tx).build();
     let watch = SourceConfigurationWatch::builder().rx(rx).build();

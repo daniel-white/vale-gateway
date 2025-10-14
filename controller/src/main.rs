@@ -1,6 +1,8 @@
+mod instrumentation;
 use async_trait::async_trait;
 use std::net::SocketAddr;
 use std::str::FromStr;
+use opentelemetry::trace::{FutureExt, Span, Tracer};
 use tokio::task::JoinSet;
 use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::listener::policy::ListenerPolicies;
@@ -9,6 +11,7 @@ use vg_config::http::provider::HttpConfigurationProvider;
 use vg_config::http::route::{Route, RouteRef};
 use vg_core::instrumentation::init;
 use vg_rpc_server::{ConfigurationEvent, ConfigurationEventServer, ConfigurationServerOptions};
+use crate::instrumentation::TRACER;
 
 pub struct HttpConfigProvider;
 
@@ -58,20 +61,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     join_set.spawn(async move {
         loop {
+            let mut span = TRACER.start("lc");
             sender
                 .send(
                     "example_listener".to_string().into(),
                     ConfigurationEvent::ListenerChanged,
                 )
+                .with_current_context()
                 .await;
             tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            span.end();
 
+            let mut span = TRACER.start("rc");
             sender
                 .send(
                     "example_listener".to_string().into(),
                     ConfigurationEvent::RouteChanged(RouteRef::from("a route".to_string())),
                 )
+                .with_current_context()
                 .await;
+            span.end();
         }
     });
 

@@ -4,11 +4,14 @@ use async_trait::async_trait;
 use jsonrpsee_core::SubscriptionResult;
 use jsonrpsee_core::server::PendingSubscriptionSink;
 use typed_builder::TypedBuilder;
-use vg_config::http::backend::{Backend, BackendRef};
-use vg_config::http::listener::{Listener, ListenerRef};
+use vg_config::http::backend::Backend;
+use vg_config::http::listener::Listener;
 use vg_config::http::provider::HttpConfigurationProvider;
-use vg_config::http::route::{Route, RouteRef};
-use vg_rpc::{ConfigurationApiError, ConfigurationApiServer, GetBackendRequest, GetListenerRequest, GetRouteRequest, SubscribeEventsRequest};
+use vg_config::http::route::Route;
+use vg_rpc::{
+    ConfigurationApiError, ConfigurationApiServer, GetBackendRequest, GetListenerRequest,
+    GetRouteRequest, SubscribeEventsRequest,
+};
 
 #[derive(TypedBuilder)]
 pub struct ConfigurationApiServerMethods {
@@ -39,7 +42,11 @@ impl ConfigurationApiServer for ConfigurationApiServerMethods {
             .ok_or(ConfigurationApiError::NotFound)
     }
 
-    async fn events(&self, subscription_sink: PendingSubscriptionSink, req: SubscribeEventsRequest) -> SubscriptionResult {
+    async fn events(
+        &self,
+        subscription_sink: PendingSubscriptionSink,
+        req: SubscribeEventsRequest,
+    ) -> SubscriptionResult {
         let pending_sink = PendingConfigurationEventSink::builder()
             .listener_ref(req.listener_ref())
             .sink(subscription_sink)

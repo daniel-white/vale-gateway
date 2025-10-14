@@ -1,12 +1,14 @@
+use crate::instrumentation::TRACER;
 use dashmap::DashMap;
 use getset::Getters;
 use jsonrpsee_core::server::{
     ConnectionId, PendingSubscriptionSink, SubscriptionMessage, SubscriptionSink,
 };
+use opentelemetry::trace::{FutureExt, SpanKind, Tracer};
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
 use vg_config::http::listener::ListenerRef;
-use vg_rpc::{ConfigurationApiError, ConfigurationEvent};
+use vg_rpc::{ConfigurationApiError, ConfigurationEvent, ConfigurationEventMessage, Context};
 
 #[derive(Debug, TypedBuilder)]
 pub struct PendingConfigurationEventSink {
@@ -56,10 +58,26 @@ impl ConfigurationEventSink {
 
     pub async fn send(&self, event: ConfigurationEvent) -> Result<(), ()> {
         // TODO handle serialization error
-        let message =
-            SubscriptionMessage::new(self.sink.method_name(), self.sink.subscription_id(), &event)
-                .unwrap();
-        self.sink.send(message).await.map_err(|_| ())
+        let span = TRACER
+            .span_builder("ConfigurationEventSink::send")
+            .with_kind(SpanKind::Producer)
+            .start(&*TRACER);
+        let message = ConfigurationEventMessage::builder()
+            .context(Context::current())
+            .event(event)
+            .build();
+
+        let message = SubscriptionMessage::new(
+            self.sink.method_name(),
+            self.sink.subscription_id(),
+            &message,
+        )
+        .unwrap();
+        self.sink
+            .send(message)
+            .with_current_context()
+            .await
+            .map_err(|_| ())
     }
 
     pub async fn closed(&self) {
