@@ -1,13 +1,15 @@
 use crate::ConfigurationTransport;
 use jsonrpsee::core::ClientError;
-use opentelemetry::trace::{FutureExt, Span, SpanKind, Tracer};
+use opentelemetry::Context;
+use opentelemetry::context::FutureExt;
+use opentelemetry::trace::{Span, SpanKind, TraceContextExt, Tracer};
 use thiserror::Error;
-use vg_core::sync::broadcast::error::RecvError;
-use vg_core::sync::broadcast::{Receiver, Sender, channel, TracedValue};
 use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
+use vg_core::sync::broadcast::error::RecvError;
+use vg_core::sync::broadcast::{Receiver, Sender, Traced, WithContext, channel};
 use vg_core::sync::handles::{Handle, handles};
-use vg_rpc::{ConfigurationApiClient, ConfigurationApiError, Context, SubscribeEventsRequest};
+use vg_rpc::{ConfigurationApiClient, ConfigurationApiError, RequestContext, SubscribeEventsRequest};
 
 use crate::instrumentation::TRACER;
 pub use vg_rpc::ConfigurationEvent;
@@ -31,17 +33,17 @@ impl ConfigurationEventClient {
     }
 
     pub async fn start(self) -> Result<Handle, ConfigurationEventClientError> {
-        let client = self.transport.client();
-        let req = SubscribeEventsRequest::builder()
-            .context(Context::current())
-            .listener_ref(self.transport.listener_ref())
-            .build();
-        let mut span = TRACER
+        let span = TRACER
             .span_builder("ConfigurationEventClient::events")
             .with_kind(SpanKind::Client)
             .start(&*TRACER);
+        let client = self.transport.client();
+        let req = SubscribeEventsRequest::builder()
+            .context(RequestContext::new(span))
+            .listener_ref(self.transport.listener_ref())
+            .build();
+
         let mut subscription = client.events(req).await?;
-        span.end();
         let (handle, mut stop_handle) = handles();
 
         spawn(async move {
@@ -123,9 +125,15 @@ impl Clone for ConfigurationEventReceiver {
 }
 
 impl ConfigurationEventReceiver {
-    pub async fn recv(&mut self) -> Result<TracedValue<ConfigurationEvent>, ConfigurationEventRecvError> {
-        match self.rx.recv().with_current_context().await {
-            Ok(event) => Ok(event),
+    pub async fn recv(
+        &mut self,
+    ) -> Result<Traced<ConfigurationEvent>, ConfigurationEventRecvError> {
+        let span = TRACER.span_builder("ConfigurationEventReceiver::recv")
+            .with_kind(SpanKind::Consumer)
+            .start(&*TRACER);
+        let context = Context::current().with_span(span);
+        match self.rx.recv().with_context(context).await {
+            Ok(value) => Ok(value),
             Err(RecvError::Closed) => Err(ConfigurationEventRecvError::Closed),
             Err(RecvError::Lagged(_)) => Err(ConfigurationEventRecvError::Lagged),
         }

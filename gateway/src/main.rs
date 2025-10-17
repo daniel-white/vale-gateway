@@ -16,7 +16,7 @@ use vg_rpc_client::{
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    init();
+    init("vg-gateway");
 
     let transport: ConfigurationTransport = ConfigurationTransportOptions::builder()
         .address(Uri::from_static("ws://localhost:9000"))

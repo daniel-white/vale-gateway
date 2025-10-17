@@ -1,41 +1,42 @@
 pub mod error;
 
 use std::ops::Deref;
-use opentelemetry::{Context, ContextGuard};
-use error::{SendError, RecvError};
+use error::{RecvError, SendError};
+use opentelemetry::{Context};
+use opentelemetry::trace::{FutureExt, SpanContext, SpanKind, TraceContextExt, Tracer};
+use crate::instrumentation::TRACER;
 
 #[derive(Clone)]
-struct Message<T: Clone> {
+pub struct WithContext<T: Clone> {
     value: T,
-    context: Context
+    span_context: SpanContext,
 }
 
-impl <T: Clone> From<T> for Message<T> {
+impl<T: Clone> From<T> for WithContext<T> {
     fn from(value: T) -> Self {
         Self {
             value,
-            context: Context::current()
+            span_context: Context::current().span().span_context().clone(),
         }
     }
 }
 
-impl <T: Clone> From<Message<T>> for TracedValue<T> {
-    fn from(value: Message<T>) -> Self {
+pub struct Traced<T: Clone> {
+    pub value: T,
+    pub context: Context,
+}
+
+impl <T: Clone> From<WithContext<T>> for Traced<T> {
+    fn from(value: WithContext<T>) -> Self {
+        let context = Context::current().with_remote_span_context(value.span_context);
         Self {
             value: value.value,
-            guard: value.context.attach(),
+            context
         }
     }
 }
 
-pub struct TracedValue<T : Clone> {
-    value: T,
-    guard: ContextGuard
-}
-
-unsafe impl <T: Clone> Send for TracedValue<T> {}
-
-impl <T: Clone> Deref for TracedValue<T> {
+impl <T: Clone> Deref for Traced<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -44,24 +45,34 @@ impl <T: Clone> Deref for TracedValue<T> {
 }
 
 #[derive(Debug)]
-pub struct Receiver<T: Clone>(tokio::sync::broadcast::Receiver<Message<T>>);
+pub struct Receiver<T: Clone>(tokio::sync::broadcast::Receiver<WithContext<T>>);
 
-impl <T: Clone> Receiver<T> {
+impl<T: Clone> Receiver<T> {
     pub fn is_closed(&self) -> bool {
         self.0.is_closed()
     }
-    
-    pub async fn recv(&mut self) -> Result<TracedValue<T>, RecvError> {
-        self.0.recv().await.map(Into::into)
+
+    pub async fn recv(&mut self) -> Result<Traced<T>, RecvError> {
+        let span = TRACER.span_builder("broadcast::Sender::recv")
+            .with_kind(SpanKind::Producer)
+            .start(&*TRACER);
+        let context = Context::current().with_span(span);
+        self.0.recv().with_context(context).await.map(Into::into)
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct Sender<T: Clone>(tokio::sync::broadcast::Sender<Message<T>>);
+pub struct Sender<T: Clone>(tokio::sync::broadcast::Sender<WithContext<T>>);
 
 impl<T: Clone> Sender<T> {
     pub fn send(&self, value: T) -> Result<usize, SendError<T>> {
-        self.0.send(value.into()).map_err(|err| SendError(err.0.value))
+        let span = TRACER.span_builder("broadcast::Sender::send")
+            .with_kind(SpanKind::Producer)
+            .start(&*TRACER);
+        let context = Context::current().with_span(span).attach();
+        self.0
+            .send(value.into())
+            .map_err(|err| SendError(err.0.value))
     }
 
     pub fn subscribe(&self) -> Receiver<T> {

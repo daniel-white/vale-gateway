@@ -8,7 +8,7 @@ use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::listener::Listener;
 use vg_config::http::route::{Route, RouteRef};
 use vg_rpc::{
-    ConfigurationApiClient, ConfigurationApiError, Context, GetBackendRequest, GetListenerRequest,
+    ConfigurationApiClient, ConfigurationApiError, RequestContext, GetBackendRequest, GetListenerRequest,
     GetRouteRequest,
 };
 
@@ -26,7 +26,7 @@ impl ConfigurationClient {
 
         let client = self.transport.client();
         let req = GetListenerRequest::builder()
-            .context(Context::current())
+            .context(RequestContext::new(span))
             .listener_ref(self.transport.listener_ref())
             .build();
 
@@ -40,7 +40,7 @@ impl ConfigurationClient {
             .start(&*TRACER);
         let client = self.transport.client();
         let req = GetRouteRequest::builder()
-            .context(Context::current())
+            .context(RequestContext::new(span))
             .route_ref(route_ref.clone())
             .build();
 
@@ -57,7 +57,7 @@ impl ConfigurationClient {
             .start(&*TRACER);
         let client = self.transport.client();
         let req = GetBackendRequest::builder()
-            .context(Context::current())
+            .context(RequestContext::new(span))
             .backend_ref(backend_ref.clone())
             .build();
 

@@ -1,41 +1,41 @@
 pub mod error;
 
-use std::ops::{Deref};
-use opentelemetry::{Context, ContextGuard};
-use opentelemetry::trace::FutureExt;
+use std::ops::Deref;
 use error::SendError;
+use opentelemetry::{Context};
+use opentelemetry::context::FutureExt;
+use opentelemetry::trace::{SpanContext, SpanKind, TraceContextExt, Tracer};
+use crate::instrumentation::TRACER;
 
-struct Message<T> {
+pub struct WithContext<T> {
     value: T,
-    context: Context
+    span_context: SpanContext
 }
-
-impl <T> From<T> for Message<T> {
+impl<T> From<T> for WithContext<T> {
     fn from(value: T) -> Self {
         Self {
             value,
-            context: Context::current()
+            span_context: Context::current().span().span_context().clone(),
         }
     }
 }
 
-impl <T> From<Message<T>> for TracedValue<T> {
-    fn from(value: Message<T>) -> Self {
+pub struct Traced<T> {
+    pub value: T,
+    pub context: Context,
+}
+
+impl <T> From<WithContext<T>> for Traced<T> {
+    fn from(value: WithContext<T>) -> Self {
+        let context = Context::current().with_remote_span_context(value.span_context);
         Self {
             value: value.value,
-            guard: value.context.attach(),
+            context
         }
     }
 }
 
-pub struct TracedValue<T> {
-    value: T,
-    guard: ContextGuard
-}
-
-unsafe impl <T> Send for TracedValue<T>{}
-
-impl <T> Deref for TracedValue<T> {
+impl <T> Deref for  Traced<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -43,25 +43,36 @@ impl <T> Deref for TracedValue<T> {
     }
 }
 
+
 #[derive(Debug)]
-pub struct Receiver<T>(tokio::sync::mpsc::Receiver<Message<T>>);
+pub struct Receiver<T>(tokio::sync::mpsc::Receiver<WithContext<T>>);
 
-
-
-
-
-impl <T> Receiver<T> {
-    pub async fn recv(&mut self) -> Option<TracedValue<T>> {
-           self.0.recv().with_current_context().await.map(Into::into)
+impl<T> Receiver<T> {
+    pub async fn recv(&mut self) -> Option<Traced<T>> {
+        let span = TRACER.span_builder(
+            "mpsc::Receiver::recv"
+        ).with_kind(SpanKind::Producer)
+            .start(&*TRACER);
+        let context = Context::current().with_span(span);
+        self.0.recv().with_context(context).await.map(Into::into)
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct Sender<T>(tokio::sync::mpsc::Sender<Message<T>>);
+pub struct Sender<T>(tokio::sync::mpsc::Sender<WithContext<T>>);
 
-impl <T> Sender<T> {
+impl<T> Sender<T> {
     pub async fn send(&self, value: T) -> Result<(), SendError<T>> {
-         self.0.send(value.into()).with_current_context().await.map_err(|err| SendError(err.0.value))
+        let span = TRACER.span_builder(
+            "mpsc::Sender::send"
+        ).with_kind(SpanKind::Producer)
+            .start(&*TRACER);
+        let context = Context::current().with_span(span);
+        self.0
+            .send(value.into())
+            .with_context(context)
+            .await
+            .map_err(|err| SendError(err.0.value))
     }
 }
 

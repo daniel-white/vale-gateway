@@ -1,13 +1,16 @@
 use crate::ConfigurationEventSinkRegistry;
 use crate::events::sinks::{ConfigurationEventSink, ConfigurationEventSinkId};
+use crate::instrumentation::TRACER;
 use dashmap::DashMap;
-use opentelemetry::trace::FutureExt;
+use opentelemetry::Context;
+use opentelemetry::trace::{FutureExt, Span, SpanKind, TraceContextExt, Tracer};
 use std::sync::Arc;
 use tokio::{select, spawn};
+use tracing::instrument;
 use typed_builder::TypedBuilder;
 use vg_config::http::listener::ListenerRef;
 use vg_core::sync::handles::{Handle, handles};
-use vg_core::sync::mpsc::{Receiver, Sender, channel};
+use vg_core::sync::mpsc::{Receiver, Sender, Traced, channel};
 use vg_rpc::ConfigurationEvent;
 
 #[derive(Debug)]
@@ -55,16 +58,18 @@ impl ConfigurationEventServer {
             let mut stop_handle = stop_handle;
             loop {
                 select! {
-                    value = rx.recv().with_current_context() => {
-                        match value.as_deref() {
-                            Some((listener_ref, event)) => {
+                    value = rx.recv() => {
+                        match value {
+                            Some(Traced { value: (listener_ref, event), context }) => {
+                                let span = TRACER.start("ConfigurationEventServer::recv");
+                                let context = context.with_span(span);
                                 let current_sinks: Vec<_> = sinks.iter()
-                                    .filter(|entry| listener_ref == entry.listener_ref() && !entry.is_closed())
+                                    .filter(|entry| &listener_ref == entry.listener_ref() && !entry.is_closed())
                                     .collect();
 
                                 for sink in current_sinks {
                                     let _ = sink.send(event.clone())
-                                        .with_current_context().await;
+                                        .with_context(context.clone()).await;
                                     // TODO handle error
                                 }
 
@@ -91,10 +96,14 @@ pub struct ConfigurationEventSender {
 
 impl ConfigurationEventSender {
     pub async fn send(&self, listener_ref: ListenerRef, event: ConfigurationEvent) {
+        let span = TRACER.span_builder("ConfigurationEventSender::send")
+            .with_kind(SpanKind::Producer)
+            .start(&*TRACER);
+        let context = Context::current().with_span(span);
         if let Err(err) = self
             .tx
             .send((listener_ref, event))
-            .with_current_context()
+            .with_context(context)
             .await
         {
             println!("Error sending: {:?}", err)

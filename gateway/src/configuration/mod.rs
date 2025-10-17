@@ -5,17 +5,19 @@ use crate::configuration::events::watch::SourceConfigurationSender;
 pub use events::watch::SourceConfigurationWatch;
 use events::watch::channel;
 use getset::Getters;
+use opentelemetry::trace::{FutureExt, SpanKind, TraceContextExt, Tracer};
 use std::collections::HashMap;
-use std::ops::Deref;
 use std::sync::Arc;
-use opentelemetry::trace::FutureExt;
+use opentelemetry::Context;
 use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
 use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::listener::Listener;
 use vg_config::http::route::{Route, RouteRef};
+use vg_core::sync::broadcast::{Traced, WithContext};
 use vg_core::sync::handles::{Handle, handles};
 use vg_rpc_client::{ConfigurationClient, ConfigurationEventReceiver, ConfigurationEventRecvError};
+use crate::instrumentation::TRACER;
 
 #[derive(Debug, Clone, Getters, TypedBuilder)]
 pub struct SourceRoutingConfiguration {
@@ -86,10 +88,14 @@ impl SourceConfigurationRegistry {
             processor.init().await;
             loop {
                 select! {
-                    recv = event_rx.recv() => {
-                        match recv {
-                            Ok(event) => {
-                                processor.handle(event.deref()).with_current_context().await;
+                    value = event_rx.recv() => {
+                        match value {
+                            Ok(Traced { value: event, context }) => {
+                                let span = TRACER.span_builder("SourceConfigurationRegistry::recv::ok")
+                                .with_kind(SpanKind::Consumer)
+                                .start_with_context(&*TRACER, &context);
+                                let context = Context::current().with_remote_span_context(context);
+                                processor.handle(event).with_context(context).await;
                             }
                             Err(ConfigurationEventRecvError::Lagged) => {
                                 processor.init().await;

@@ -1,8 +1,10 @@
 mod instrumentation;
+use crate::instrumentation::TRACER;
 use async_trait::async_trait;
+use opentelemetry::trace::{FutureExt, Span, TraceContextExt, Tracer};
 use std::net::SocketAddr;
 use std::str::FromStr;
-use opentelemetry::trace::{FutureExt, Span, Tracer};
+use opentelemetry::Context;
 use tokio::task::JoinSet;
 use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::listener::policy::ListenerPolicies;
@@ -11,7 +13,6 @@ use vg_config::http::provider::HttpConfigurationProvider;
 use vg_config::http::route::{Route, RouteRef};
 use vg_core::instrumentation::init;
 use vg_rpc_server::{ConfigurationEvent, ConfigurationEventServer, ConfigurationServerOptions};
-use crate::instrumentation::TRACER;
 
 pub struct HttpConfigProvider;
 
@@ -39,7 +40,7 @@ impl HttpConfigurationProvider for HttpConfigProvider {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    init();
+    init("vg-controller");
 
     let mut join_set: JoinSet<()> = JoinSet::new();
 
@@ -61,26 +62,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     join_set.spawn(async move {
         loop {
-            let mut span = TRACER.start("lc");
-            sender
-                .send(
-                    "example_listener".to_string().into(),
-                    ConfigurationEvent::ListenerChanged,
-                )
-                .with_current_context()
-                .await;
-            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-            span.end();
+            async {
+                let span = TRACER.start("lc");
+                let context = Context::current().with_span(span);
+                sender
+                    .send(
+                        "example_listener".to_string().into(),
+                        ConfigurationEvent::ListenerChanged,
+                    )
+                    .with_context(context)
+                    .await;
 
-            let mut span = TRACER.start("rc");
-            sender
-                .send(
-                    "example_listener".to_string().into(),
-                    ConfigurationEvent::RouteChanged(RouteRef::from("a route".to_string())),
-                )
-                .with_current_context()
-                .await;
-            span.end();
+            }.await;
+
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+            async {
+                let span = TRACER.start("rc");
+                let context = Context::current().with_span(span);
+                sender
+                    .send(
+                        "example_listener".to_string().into(),
+                        ConfigurationEvent::RouteChanged(RouteRef::from("a route".to_string())),
+                    )
+                    .with_context(context)
+                    .await;
+            }.await;
         }
     });
 

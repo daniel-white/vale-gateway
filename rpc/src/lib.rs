@@ -6,7 +6,8 @@ use jsonrpsee::proc_macros::rpc;
 use jsonrpsee::types::{ErrorObject, ErrorObjectOwned};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use opentelemetry::global::get_text_map_propagator;
+use opentelemetry::global::{get_text_map_propagator, BoxedSpan};
+use opentelemetry::trace::{Span, TraceContextExt};
 use opentelemetry_http::{HeaderExtractor, HeaderInjector};
 use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
@@ -64,22 +65,23 @@ impl From<&PropagationChannel> for opentelemetry::Context {
 }
 
 #[derive(Debug, Serialize, Deserialize, Getters, Clone, TypedBuilder)]
-pub struct Context {
+pub struct RequestContext {
     #[getset(get = "pub")]
     #[serde(default, skip_serializing_if = "HeaderMap::is_empty")]
     propagation_channel: PropagationChannel,
 }
 
-impl Context {
-    pub fn current() -> Self {
+impl RequestContext {
+    pub fn new(span: BoxedSpan) -> Self {
+        let guard = opentelemetry::Context::new().with_span(span).attach();
         Self::builder()
             .propagation_channel(PropagationChannel::current())
             .build()
     }
 }
 
-impl AsRef<Context> for Context {
-    fn as_ref(&self) -> &Context {
+impl AsRef<RequestContext> for RequestContext {
+    fn as_ref(&self) -> &RequestContext {
         self
     }
 }
@@ -94,7 +96,7 @@ pub enum ConfigurationEvent {
 #[derive(Debug, Serialize, Deserialize, Getters, CloneGetters, Clone, TypedBuilder)]
 pub struct ConfigurationEventMessage {
     #[getset(get = "pub")]
-    context: Context,
+    context: RequestContext,
     #[getset(get_clone = "pub")]
     event: ConfigurationEvent,
 }
@@ -102,7 +104,7 @@ pub struct ConfigurationEventMessage {
 #[derive(Debug, Serialize, Deserialize, Getters, CloneGetters, Clone, TypedBuilder)]
 pub struct SubscribeEventsRequest {
     #[getset(get = "pub")]
-    context: Context,
+    context: RequestContext,
     #[getset(get_clone = "pub")]
     listener_ref: ListenerRef,
 }
@@ -110,7 +112,7 @@ pub struct SubscribeEventsRequest {
 #[derive(Debug, Serialize, Deserialize, Getters, CloneGetters, Clone, TypedBuilder)]
 pub struct GetListenerRequest {
     #[getset(get = "pub")]
-    context: Context,
+    context: RequestContext,
     #[getset(get_clone = "pub")]
     listener_ref: ListenerRef,
 }
@@ -118,7 +120,7 @@ pub struct GetListenerRequest {
 #[derive(Debug, Serialize, Deserialize, Getters, CloneGetters, Clone, TypedBuilder)]
 pub struct GetRouteRequest {
     #[getset(get = "pub")]
-    context: Context,
+    context: RequestContext,
     #[getset(get_clone = "pub")]
     route_ref: RouteRef,
 }
@@ -126,7 +128,7 @@ pub struct GetRouteRequest {
 #[derive(Debug, Serialize, Deserialize, Getters, CloneGetters, Clone, TypedBuilder)]
 pub struct GetBackendRequest {
     #[getset(get = "pub")]
-    context: Context,
+    context: RequestContext,
     #[getset(get_clone = "pub")]
     backend_ref: BackendRef,
 }

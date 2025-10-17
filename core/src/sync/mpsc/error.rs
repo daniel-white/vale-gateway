@@ -1,1 +1,1 @@
-pub use tokio::sync::mpsc::error::SendError;
+pub use tokio::sync::mpsc::error::*;
