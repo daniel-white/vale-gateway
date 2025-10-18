@@ -2,7 +2,7 @@ use async_from::AsyncTryFrom;
 use async_trait::async_trait;
 use getset::CloneGetters;
 use http::Uri;
-use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
+use jsonrpsee::ws_client::{PingConfig, WsClient, WsClientBuilder};
 use std::sync::Arc;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
@@ -36,6 +36,7 @@ impl AsyncTryFrom<ConfigurationTransportOptions> for ConfigurationTransport {
 
     async fn async_try_from(value: ConfigurationTransportOptions) -> Result<Self, Self::Error> {
         let client = WsClientBuilder::new()
+            .enable_ws_ping(PingConfig::default())
             .build(value.address.to_string())
             .await
             .map_err(|err| {

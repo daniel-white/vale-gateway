@@ -1,12 +1,12 @@
 mod instrumentation;
 use crate::instrumentation::TRACER;
 use async_trait::async_trait;
-use opentelemetry::trace::{FutureExt, Span, TraceContextExt, Tracer};
+use opentelemetry::Context;
+use opentelemetry::trace::{FutureExt, TraceContextExt, Tracer};
 use std::net::SocketAddr;
 use std::str::FromStr;
-use opentelemetry::Context;
 use tokio::task::JoinSet;
-use vg_config::http::backend::{Backend, BackendRef};
+use vg_config::http::backend::{Backend, BackendEndpoint, BackendRef};
 use vg_config::http::listener::policy::ListenerPolicies;
 use vg_config::http::listener::{Listener, ListenerRef};
 use vg_config::http::provider::HttpConfigurationProvider;
@@ -19,10 +19,11 @@ pub struct HttpConfigProvider;
 #[async_trait]
 impl HttpConfigurationProvider for HttpConfigProvider {
     async fn listener(&self, listener_ref: ListenerRef) -> Option<Listener> {
+        let beref = BackendRef::from("be1".to_string());
         let l = Listener::builder()
             .ref_(listener_ref)
             .policies(ListenerPolicies::default())
-            .backend_refs(Vec::new())
+            .backend_refs(vec![beref])
             .route_refs(Vec::new())
             .build();
 
@@ -34,7 +35,24 @@ impl HttpConfigurationProvider for HttpConfigProvider {
     }
 
     async fn backend(&self, backend_ref: BackendRef) -> Option<Backend> {
-        None
+        let ep1 = BackendEndpoint::builder()
+            .addrs(Vec::new())
+            .node(Some("a".to_string()))
+            .zone(Some("us-west-1".to_string()))
+            .build();
+
+        let ep2 = BackendEndpoint::builder()
+            .addrs(Vec::new())
+            .node(Some("b".to_string()))
+            .zone(Some("us-west-1".to_string()))
+            .build();
+        
+        let be = Backend::builder()
+            .ref_(BackendRef::from("be1".to_string()))
+            .endpoints(vec![ep1, ep2])
+            .build();
+        
+        Some(be)
     }
 }
 
@@ -72,8 +90,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     )
                     .with_context(context)
                     .await;
-
-            }.await;
+            }
+            .await;
 
             tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
@@ -87,7 +105,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     )
                     .with_context(context)
                     .await;
-            }.await;
+            }
+            .await;
         }
     });
 

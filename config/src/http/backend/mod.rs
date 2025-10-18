@@ -1,6 +1,7 @@
 use derive_more::{Deref, From};
-use getset::Getters;
+use getset::{CloneGetters, Getters};
 use serde::{Deserialize, Serialize};
+use std::net::IpAddr;
 use typed_builder::TypedBuilder;
 use vg_core::collections::{CollectionEvent, NotifyingCollection};
 
@@ -8,12 +9,32 @@ use vg_core::collections::{CollectionEvent, NotifyingCollection};
 #[serde(transparent)]
 pub struct BackendRef(String);
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, TypedBuilder, Getters)]
+#[derive(
+    Debug, PartialEq, Eq, Clone, Serialize, Deserialize, TypedBuilder, Getters, CloneGetters,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct Backend {
     #[getset(get = "pub")]
     #[serde(rename = "ref")]
     ref_: BackendRef,
+
+    #[getset(get = "pub")]
+    endpoints: Vec<BackendEndpoint>,
+}
+
+#[derive(Getters, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TypedBuilder)]
+#[serde(rename_all = "camelCase")]
+pub struct BackendEndpoint {
+    #[getset(get = "pub")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    node: Option<String>,
+
+    #[getset(get = "pub")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    zone: Option<String>,
+
+    #[getset(get = "pub")]
+    addrs: Vec<IpAddr>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

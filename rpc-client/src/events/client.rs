@@ -7,9 +7,11 @@ use thiserror::Error;
 use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
 use vg_core::sync::broadcast::error::RecvError;
-use vg_core::sync::broadcast::{Receiver, Sender, Traced, WithContext, channel};
+use vg_core::sync::broadcast::{Receiver, Sender, Traced, channel};
 use vg_core::sync::handles::{Handle, handles};
-use vg_rpc::{ConfigurationApiClient, ConfigurationApiError, RequestContext, SubscribeEventsRequest};
+use vg_rpc::{
+    ConfigurationApiClient, ConfigurationApiError, RequestContext, SubscribeEventsRequest,
+};
 
 use crate::instrumentation::TRACER;
 pub use vg_rpc::ConfigurationEvent;
@@ -128,7 +130,8 @@ impl ConfigurationEventReceiver {
     pub async fn recv(
         &mut self,
     ) -> Result<Traced<ConfigurationEvent>, ConfigurationEventRecvError> {
-        let span = TRACER.span_builder("ConfigurationEventReceiver::recv")
+        let span = TRACER
+            .span_builder("ConfigurationEventReceiver::recv")
             .with_kind(SpanKind::Consumer)
             .start(&*TRACER);
         let context = Context::current().with_span(span);

@@ -8,7 +8,9 @@ use opentelemetry::trace::{FutureExt, SpanKind, Tracer};
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
 use vg_config::http::listener::ListenerRef;
-use vg_rpc::{ConfigurationApiError, ConfigurationEvent, ConfigurationEventMessage, RequestContext};
+use vg_rpc::{
+    ConfigurationApiError, ConfigurationEvent, ConfigurationEventMessage, RequestContext,
+};
 
 #[derive(Debug, TypedBuilder)]
 pub struct PendingConfigurationEventSink {

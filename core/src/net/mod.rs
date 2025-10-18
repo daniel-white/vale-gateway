@@ -1,3 +1,5 @@
+pub mod topology;
+
 use derive_more::From;
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use serde::{Deserialize, Serialize};

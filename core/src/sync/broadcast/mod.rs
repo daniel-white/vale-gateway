@@ -1,10 +1,10 @@
 pub mod error;
 
-use std::ops::Deref;
-use error::{RecvError, SendError};
-use opentelemetry::{Context};
-use opentelemetry::trace::{FutureExt, SpanContext, SpanKind, TraceContextExt, Tracer};
 use crate::instrumentation::TRACER;
+use error::{RecvError, SendError};
+use opentelemetry::Context;
+use opentelemetry::trace::{FutureExt, SpanContext, SpanKind, TraceContextExt, Tracer};
+use std::ops::Deref;
 
 #[derive(Clone)]
 pub struct WithContext<T: Clone> {
@@ -26,17 +26,17 @@ pub struct Traced<T: Clone> {
     pub context: Context,
 }
 
-impl <T: Clone> From<WithContext<T>> for Traced<T> {
+impl<T: Clone> From<WithContext<T>> for Traced<T> {
     fn from(value: WithContext<T>) -> Self {
         let context = Context::current().with_remote_span_context(value.span_context);
         Self {
             value: value.value,
-            context
+            context,
         }
     }
 }
 
-impl <T: Clone> Deref for Traced<T> {
+impl<T: Clone> Deref for Traced<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -53,7 +53,8 @@ impl<T: Clone> Receiver<T> {
     }
 
     pub async fn recv(&mut self) -> Result<Traced<T>, RecvError> {
-        let span = TRACER.span_builder("broadcast::Sender::recv")
+        let span = TRACER
+            .span_builder("broadcast::Sender::recv")
             .with_kind(SpanKind::Producer)
             .start(&*TRACER);
         let context = Context::current().with_span(span);
@@ -66,7 +67,8 @@ pub struct Sender<T: Clone>(tokio::sync::broadcast::Sender<WithContext<T>>);
 
 impl<T: Clone> Sender<T> {
     pub fn send(&self, value: T) -> Result<usize, SendError<T>> {
-        let span = TRACER.span_builder("broadcast::Sender::send")
+        let span = TRACER
+            .span_builder("broadcast::Sender::send")
             .with_kind(SpanKind::Producer)
             .start(&*TRACER);
         let context = Context::current().with_span(span).attach();

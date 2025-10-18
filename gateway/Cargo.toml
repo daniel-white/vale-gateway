@@ -7,6 +7,7 @@ edition = "2024"
 async_from.workspace = true
 async-stm.workspace = true
 dashmap.workspace = true
+enumflags2.workspace = true
 futures.workspace = true
 getset.workspace = true
 http.workspace = true

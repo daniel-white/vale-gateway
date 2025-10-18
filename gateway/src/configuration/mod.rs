@@ -1,28 +1,28 @@
 mod events;
+pub  mod location;
 
 use crate::configuration::events::processor::ConfigurationEventProcessor;
-use crate::configuration::events::watch::SourceConfigurationSender;
-pub use events::watch::SourceConfigurationWatch;
-use events::watch::channel;
+use vg_core::configuration::watch::ConfigurationSender;
+use crate::instrumentation::TRACER;
+pub use vg_core::configuration::watch::ConfigurationWatch;
+use vg_core::configuration::watch::channel;
 use getset::Getters;
+use opentelemetry::Context;
 use opentelemetry::trace::{FutureExt, SpanKind, TraceContextExt, Tracer};
 use std::collections::HashMap;
-use std::sync::Arc;
-use opentelemetry::Context;
 use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
 use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::listener::Listener;
 use vg_config::http::route::{Route, RouteRef};
-use vg_core::sync::broadcast::{Traced, WithContext};
+use vg_core::sync::broadcast::Traced;
 use vg_core::sync::handles::{Handle, handles};
 use vg_rpc_client::{ConfigurationClient, ConfigurationEventReceiver, ConfigurationEventRecvError};
-use crate::instrumentation::TRACER;
 
-#[derive(Debug, Clone, Getters, TypedBuilder)]
+#[derive(Default, Debug, Clone, Getters, TypedBuilder)]
 pub struct SourceRoutingConfiguration {
     #[getset(get = "pub")]
-    listener: Listener,
+    listener: Option<Listener>,
     #[getset(get = "pub")]
     routes: HashMap<RouteRef, Route>,
 }
@@ -59,18 +59,18 @@ impl From<SourceConfigurationRegistryOptions> for SourceConfigurationRegistry {
 pub struct SourceConfigurationRegistry {
     client: ConfigurationClient,
     event_rx: ConfigurationEventReceiver,
-    backends_tx: SourceConfigurationSender<Arc<SourceBackendConfiguration>>,
-    backends_rx: SourceConfigurationWatch<Arc<SourceBackendConfiguration>>,
-    routing_tx: SourceConfigurationSender<Arc<SourceRoutingConfiguration>>,
-    routing_rx: SourceConfigurationWatch<Arc<SourceRoutingConfiguration>>,
+    backends_tx: ConfigurationSender<SourceBackendConfiguration>,
+    backends_rx: ConfigurationWatch<SourceBackendConfiguration>,
+    routing_tx: ConfigurationSender<SourceRoutingConfiguration>,
+    routing_rx: ConfigurationWatch<SourceRoutingConfiguration>,
 }
 
 impl SourceConfigurationRegistry {
-    pub fn backends(&self) -> SourceConfigurationWatch<Arc<SourceBackendConfiguration>> {
+    pub fn backends(&self) -> ConfigurationWatch<SourceBackendConfiguration> {
         self.backends_rx.clone()
     }
 
-    pub fn routing(&self) -> SourceConfigurationWatch<Arc<SourceRoutingConfiguration>> {
+    pub fn routing(&self) -> ConfigurationWatch<SourceRoutingConfiguration> {
         self.routing_rx.clone()
     }
 
@@ -94,7 +94,7 @@ impl SourceConfigurationRegistry {
                                 let span = TRACER.span_builder("SourceConfigurationRegistry::recv::ok")
                                 .with_kind(SpanKind::Consumer)
                                 .start_with_context(&*TRACER, &context);
-                                let context = Context::current().with_remote_span_context(context);
+                                let context = Context::current().with_span(span);
                                 processor.handle(event).with_context(context).await;
                             }
                             Err(ConfigurationEventRecvError::Lagged) => {

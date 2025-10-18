@@ -3,10 +3,9 @@ use crate::events::sinks::{ConfigurationEventSink, ConfigurationEventSinkId};
 use crate::instrumentation::TRACER;
 use dashmap::DashMap;
 use opentelemetry::Context;
-use opentelemetry::trace::{FutureExt, Span, SpanKind, TraceContextExt, Tracer};
+use opentelemetry::trace::{FutureExt, SpanKind, TraceContextExt, Tracer};
 use std::sync::Arc;
 use tokio::{select, spawn};
-use tracing::instrument;
 use typed_builder::TypedBuilder;
 use vg_config::http::listener::ListenerRef;
 use vg_core::sync::handles::{Handle, handles};
@@ -96,7 +95,8 @@ pub struct ConfigurationEventSender {
 
 impl ConfigurationEventSender {
     pub async fn send(&self, listener_ref: ListenerRef, event: ConfigurationEvent) {
-        let span = TRACER.span_builder("ConfigurationEventSender::send")
+        let span = TRACER
+            .span_builder("ConfigurationEventSender::send")
             .with_kind(SpanKind::Producer)
             .start(&*TRACER);
         let context = Context::current().with_span(span);

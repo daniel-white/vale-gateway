@@ -1,4 +1,4 @@
-use crate::configuration::events::watch::SourceConfigurationSender;
+use vg_core::configuration::watch::ConfigurationSender;
 use crate::configuration::{SourceBackendConfiguration, SourceRoutingConfiguration};
 use async_stm::{TVar, atomically};
 use futures::future;
@@ -13,10 +13,10 @@ pub struct ConfigurationEventProcessor {
     client: ConfigurationClient,
     #[builder(default, setter(skip))]
     backends: TVar<SourceBackendConfiguration>,
-    backends_tx: SourceConfigurationSender<Arc<SourceBackendConfiguration>>,
+    backends_tx: ConfigurationSender<SourceBackendConfiguration>,
     #[builder(default, setter(skip))]
-    routing: TVar<Option<SourceRoutingConfiguration>>,
-    routing_tx: SourceConfigurationSender<Arc<SourceRoutingConfiguration>>,
+    routing: TVar<SourceRoutingConfiguration>,
+    routing_tx: ConfigurationSender<SourceRoutingConfiguration>,
 }
 
 impl ConfigurationEventProcessor {
@@ -52,11 +52,11 @@ impl ConfigurationEventProcessor {
                 .collect();
 
             let routing = SourceRoutingConfiguration::builder()
-                .listener(listener.clone())
+                .listener(Some(listener.clone()))
                 .routes(routes)
                 .build();
 
-            self.routing.write(Some(routing))?;
+            self.routing.write(routing)?;
 
             let backends = backends
                 .clone()
@@ -74,11 +74,8 @@ impl ConfigurationEventProcessor {
             Ok((self.routing.read()?, self.backends.read()?))
         })
         .await;
-
-        if let Some(routing) = routing.as_ref() {
-            let _ = self.routing_tx.send(Arc::new(routing.clone()));
-        }
-
+        
+        let _ = self.routing_tx.send(routing);
         let _ = self.backends_tx.send(backends);
 
         Ok(())
@@ -90,7 +87,7 @@ impl ConfigurationEventProcessor {
         let routing = atomically(|| {
             let routing = self.routing.read()?;
 
-            if let Some(routing) = routing.as_ref() {
+
                 let listener = routing.listener().clone();
                 let route_ref = route_ref.clone();
                 let route = route.clone();
@@ -102,16 +99,15 @@ impl ConfigurationEventProcessor {
                     .routes(routes)
                     .build();
 
-                self.routing.write(Some(routing))?
-            }
+                self.routing.write(routing)?;
 
             self.routing.read()
         })
         .await;
 
-        if let Some(routing) = routing.as_ref() {
-            let _ = self.routing_tx.send(Arc::new(routing.clone()));
-        }
+
+            let _ = self.routing_tx.send(routing);
+
         Ok(())
     }
 

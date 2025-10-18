@@ -8,8 +8,8 @@ use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::listener::Listener;
 use vg_config::http::route::{Route, RouteRef};
 use vg_rpc::{
-    ConfigurationApiClient, ConfigurationApiError, RequestContext, GetBackendRequest, GetListenerRequest,
-    GetRouteRequest,
+    ConfigurationApiClient, ConfigurationApiError, GetBackendRequest, GetListenerRequest,
+    GetRouteRequest, RequestContext,
 };
 
 #[derive(Clone, TypedBuilder)]
