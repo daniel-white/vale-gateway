@@ -1,11 +1,11 @@
 use typed_builder::TypedBuilder;
-use vg_core::configuration::watch::{channel, ConfigurationSender, ConfigurationWatch};
+use vg_core::sync::arc_watch::{channel, Sender, Receiver};
 use vg_core::net::topology::TopologyLocation;
 
 #[derive(TypedBuilder)]
 pub struct CurrentLocationConfigurator {
-    tx: ConfigurationSender<TopologyLocation>,
-    rx: ConfigurationWatch<TopologyLocation>
+    tx: Sender<TopologyLocation>,
+    rx: Receiver<TopologyLocation>
 }
 
 impl CurrentLocationConfigurator {
@@ -17,11 +17,11 @@ impl CurrentLocationConfigurator {
             .build()
     }
 
-    pub fn current_location(&self) -> ConfigurationWatch<TopologyLocation> {
+    pub fn current_location(&self) -> Receiver<TopologyLocation> {
         self.rx.clone()
     }
     
-    pub fn start(self) -> ConfigurationSender<TopologyLocation> {
+    pub fn start(self) -> Sender<TopologyLocation> {
         self.tx
     }
 }

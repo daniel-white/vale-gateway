@@ -1,4 +1,4 @@
-use vg_core::configuration::watch::ConfigurationSender;
+use vg_core::sync::arc_watch::Sender;
 use crate::configuration::{SourceBackendConfiguration, SourceRoutingConfiguration};
 use async_stm::{TVar, atomically};
 use futures::future;
@@ -13,10 +13,10 @@ pub struct ConfigurationEventProcessor {
     client: ConfigurationClient,
     #[builder(default, setter(skip))]
     backends: TVar<SourceBackendConfiguration>,
-    backends_tx: ConfigurationSender<SourceBackendConfiguration>,
+    backends_tx: Sender<SourceBackendConfiguration>,
     #[builder(default, setter(skip))]
     routing: TVar<SourceRoutingConfiguration>,
-    routing_tx: ConfigurationSender<SourceRoutingConfiguration>,
+    routing_tx: Sender<SourceRoutingConfiguration>,
 }
 
 impl ConfigurationEventProcessor {

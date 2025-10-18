@@ -7,12 +7,12 @@ use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
 use vg_core::net::topology::{TopologyLocation, TopologyLocationMatch};
 use vg_core::sync::handles::{handles, Handle};
-use crate::configuration::{SourceBackendConfiguration, ConfigurationWatch};
+use crate::configuration::{SourceBackendConfiguration, Receiver};
 use vg_config::http::backend::{Backend as BackendConfig, BackendRef};
-use vg_core::configuration::watch::{channel, ConfigurationSender};
+use vg_core::sync::arc_watch::{channel, Sender};
 
 #[derive(TypedBuilder, Clone, Debug, Getters)]
-pub struct Backend {
+pub struct BackendAddresses {
     #[getset(get = "pub")]
     #[builder(setter(into))]
     ref_: BackendRef,
@@ -21,7 +21,7 @@ pub struct Backend {
 }
 
 
-impl Backend {
+impl BackendAddresses {
     pub fn endpoints_matching(&self, location_match: TopologyLocationMatch) -> HashSet<IpAddr> {
         self.endpoints
             .iter()
@@ -37,7 +37,7 @@ impl Backend {
     }
 }
 
-impl From<(&TopologyLocation, &BackendConfig)> for Backend {
+impl From<(&TopologyLocation, &BackendConfig)> for BackendAddresses {
     fn from((current_location, value): (&TopologyLocation, &BackendConfig)) -> Self {
         let endpoints = value
             .endpoints()
@@ -62,17 +62,15 @@ impl From<(&TopologyLocation, &BackendConfig)> for Backend {
     }
 }
 
-mod topology;
-
 #[derive(Debug, Default, Clone, TypedBuilder)]
 pub struct BackendConfiguration {
-    backends: HashMap<BackendRef, Backend>
+    backends: HashMap<BackendRef, BackendAddresses>
 }
 
 impl From<(&TopologyLocation, &SourceBackendConfiguration)> for BackendConfiguration {
     fn from((current_location, value): (&TopologyLocation, &SourceBackendConfiguration)) -> Self {
         let backends = value.backends().iter().map(|(ref_, backend)| {
-            let backend: Backend = (current_location, backend).into();
+            let backend: BackendAddresses = (current_location, backend).into();
             (ref_.clone(), backend)
         }).collect();
         
@@ -84,18 +82,18 @@ impl From<(&TopologyLocation, &SourceBackendConfiguration)> for BackendConfigura
 
 #[derive(TypedBuilder)]
 pub struct BackendConfiguratorOptions {
-    current_location_rx: ConfigurationWatch<TopologyLocation>,
-    source_backends_rx: ConfigurationWatch<SourceBackendConfiguration>
+    current_location_rx: Receiver<TopologyLocation>,
+    source_backends_rx: Receiver<SourceBackendConfiguration>
 }
 
 
 #[derive(TypedBuilder)]
 pub struct BackendConfigurator {
-    current_location_rx: ConfigurationWatch<TopologyLocation>,
-    source_backends_rx: ConfigurationWatch<SourceBackendConfiguration>,
+    current_location_rx: Receiver<TopologyLocation>,
+    source_backends_rx: Receiver<SourceBackendConfiguration>,
     configuration: TVar<BackendConfiguration>,
-    configuration_tx: ConfigurationSender<BackendConfiguration>,
-    configuration_rx: ConfigurationWatch<BackendConfiguration>
+    configuration_tx: Sender<BackendConfiguration>,
+    configuration_rx: Receiver<BackendConfiguration>
 }
 
 impl From<BackendConfiguratorOptions> for BackendConfigurator {
@@ -113,7 +111,7 @@ impl From<BackendConfiguratorOptions> for BackendConfigurator {
 }
 
 impl BackendConfigurator {
-    pub fn backends(&self) -> ConfigurationWatch<BackendConfiguration> {
+    pub fn backends(&self) -> Receiver<BackendConfiguration> {
         self.configuration_rx.clone()
     }
     

@@ -2,10 +2,10 @@ mod events;
 pub  mod location;
 
 use crate::configuration::events::processor::ConfigurationEventProcessor;
-use vg_core::configuration::watch::ConfigurationSender;
+use vg_core::sync::arc_watch::Sender;
 use crate::instrumentation::TRACER;
-pub use vg_core::configuration::watch::ConfigurationWatch;
-use vg_core::configuration::watch::channel;
+pub use vg_core::sync::arc_watch::Receiver;
+use vg_core::sync::arc_watch::channel;
 use getset::Getters;
 use opentelemetry::Context;
 use opentelemetry::trace::{FutureExt, SpanKind, TraceContextExt, Tracer};
@@ -59,18 +59,18 @@ impl From<SourceConfigurationRegistryOptions> for SourceConfigurationRegistry {
 pub struct SourceConfigurationRegistry {
     client: ConfigurationClient,
     event_rx: ConfigurationEventReceiver,
-    backends_tx: ConfigurationSender<SourceBackendConfiguration>,
-    backends_rx: ConfigurationWatch<SourceBackendConfiguration>,
-    routing_tx: ConfigurationSender<SourceRoutingConfiguration>,
-    routing_rx: ConfigurationWatch<SourceRoutingConfiguration>,
+    backends_tx: Sender<SourceBackendConfiguration>,
+    backends_rx: Receiver<SourceBackendConfiguration>,
+    routing_tx: Sender<SourceRoutingConfiguration>,
+    routing_rx: Receiver<SourceRoutingConfiguration>,
 }
 
 impl SourceConfigurationRegistry {
-    pub fn backends(&self) -> ConfigurationWatch<SourceBackendConfiguration> {
+    pub fn backends(&self) -> Receiver<SourceBackendConfiguration> {
         self.backends_rx.clone()
     }
 
-    pub fn routing(&self) -> ConfigurationWatch<SourceRoutingConfiguration> {
+    pub fn routing(&self) -> Receiver<SourceRoutingConfiguration> {
         self.routing_rx.clone()
     }
 
