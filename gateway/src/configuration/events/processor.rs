@@ -1,13 +1,12 @@
-use vg_core::sync::arc_watch::Sender;
 use crate::configuration::{SourceBackendConfiguration, SourceRoutingConfiguration};
 use async_stm::{TVar, atomically};
-use futures::future;
-use std::sync::Arc;
 use futures::future::join_all;
+use std::sync::Arc;
 use typed_builder::TypedBuilder;
 use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::filter::{SharedFilter, SharedFilterRef};
 use vg_config::http::route::{Route, RouteRef};
+use vg_core::sync::arc_watch::Sender;
 use vg_rpc_client::{ConfigurationClient, ConfigurationClientError, ConfigurationEvent};
 
 #[derive(TypedBuilder)]
@@ -46,7 +45,9 @@ impl ConfigurationEventProcessor {
     async fn sync_all(&self) -> Result<(), ()> {
         let listener = self.client.listener().await.map_err(|_| ())?;
         let routes = self.fetch_routes(listener.route_refs()).await;
-        let shared_filters = self.fetch_shared_filters(listener.shared_filter_refs()).await;
+        let shared_filters = self
+            .fetch_shared_filters(listener.shared_filter_refs())
+            .await;
         let backends = self.fetch_backends(listener.backend_refs()).await;
 
         let (routing, backends) = atomically(|| {
@@ -55,7 +56,8 @@ impl ConfigurationEventProcessor {
                 .filter_map(|r| r.clone().ok())
                 .map(|route| (Arc::new(route.ref_()), route))
                 .collect();
-            let shared_filters = shared_filters.iter()
+            let shared_filters = shared_filters
+                .iter()
                 .filter_map(|r| r.clone().ok())
                 .map(|filter| (Arc::new(filter.ref_()), filter))
                 .collect();
@@ -83,7 +85,7 @@ impl ConfigurationEventProcessor {
             Ok((self.routing.read()?, self.backends.read()?))
         })
         .await;
-        
+
         let _ = self.routing_tx.send(routing);
         let _ = self.backends_tx.send(backends);
 
@@ -95,10 +97,10 @@ impl ConfigurationEventProcessor {
 
         let routing = atomically(|| {
             let routing = self.routing.read()?;
-            
-                let route = route.clone();
-                let mut routes = routing.routes().clone();
-                routes.insert(Arc::new(route.ref_()), route);
+
+            let route = route.clone();
+            let mut routes = routing.routes().clone();
+            routes.insert(Arc::new(route.ref_()), route);
 
             let routing = SourceRoutingConfiguration::builder()
                 .listener(routing.listener().clone())
@@ -106,24 +108,27 @@ impl ConfigurationEventProcessor {
                 .shared_filters(routing.shared_filters().clone())
                 .build();
 
-                self.routing.write(routing)?;
+            self.routing.write(routing)?;
 
             self.routing.read()
         })
         .await;
 
-
-            let _ = self.routing_tx.send(routing);
+        let _ = self.routing_tx.send(routing);
 
         Ok(())
     }
 
     async fn sync_shared_filter(&self, filter_ref: SharedFilterRef) -> Result<(), ()> {
-        let shared_filter = self.client.shared_filter(&filter_ref).await.map_err(|_| ())?;
+        let shared_filter = self
+            .client
+            .shared_filter(&filter_ref)
+            .await
+            .map_err(|_| ())?;
 
         let routing = atomically(|| {
             let routing = self.routing.read()?;
-            
+
             let mut shared_filters = routing.shared_filters().clone();
             shared_filters.insert(Arc::new(shared_filter.ref_()), shared_filter.clone());
 
@@ -137,8 +142,7 @@ impl ConfigurationEventProcessor {
 
             self.routing.read()
         })
-            .await;
-
+        .await;
 
         let _ = self.routing_tx.send(routing);
 

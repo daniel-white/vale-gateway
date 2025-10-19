@@ -1,83 +1,81 @@
+use crate::configuration::SourceRoutingConfiguration;
+use async_stm::{TVar, atomically};
+use getset::{CloneGetters, Getters};
 use std::collections::HashMap;
 use std::sync::Arc;
-use async_stm::{atomically, TVar};
-use getset::{CloneGetters, Getters};
 use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
-use vg_config::http::filter::{SharedFilterRef};
-use vg_core::net::topology::TopologyLocation;
-use vg_core::sync::arc_watch::{channel, Receiver, Sender};
-use vg_core::sync::handles::{handles, Handle};
+use vg_config::http::filter::SharedFilterRef;
+use vg_core::sync::arc_watch::{Receiver, Sender, channel};
+use vg_core::sync::handles::{Handle, handles};
 use vg_http::filter::SharedFilterHandler;
-use crate::configuration::{SourceBackendConfiguration, SourceRoutingConfiguration};
-use crate::http::backend::BackendConfiguration;
 
 #[derive(TypedBuilder, Default, Clone, Debug, Getters, CloneGetters)]
 pub struct SharedFilterHandlers {
-    handlers: HashMap<Arc<SharedFilterRef>, Arc<SharedFilterHandler>>
+    handlers: HashMap<Arc<SharedFilterRef>, Arc<SharedFilterHandler>>,
 }
 
 #[derive(TypedBuilder)]
 pub struct SharedFilterHandlersManagerOptions {
-    source_routing_rx: Receiver<SourceRoutingConfiguration>
+    routing: Receiver<SourceRoutingConfiguration>,
 }
 
 #[derive(TypedBuilder)]
+#[builder(builder_method(vis = ""), builder_type(vis = ""))]
 pub struct SharedFilterHandlersManager {
-    source_routing_rx: Receiver<SourceRoutingConfiguration>,
+    routing: Receiver<SourceRoutingConfiguration>,
     handlers: TVar<SharedFilterHandlers>,
     handlers_tx: Sender<SharedFilterHandlers>,
-    handlers_rx: Receiver<SharedFilterHandlers>
 }
 
 impl From<SharedFilterHandlersManagerOptions> for SharedFilterHandlersManager {
     fn from(value: SharedFilterHandlersManagerOptions) -> Self {
-        let (tx, rx) = channel();
-        
+        let (tx, _) = channel();
+
         Self::builder()
-            .source_routing_rx(value.source_routing_rx)
+            .routing(value.routing)
             .handlers(Default::default())
             .handlers_tx(tx)
-            .handlers_rx(rx)
             .build()
     }
 }
 
 impl SharedFilterHandlersManager {
-    pub  fn handlers(&self) -> Receiver<SharedFilterHandlers> {
-        self.handlers_rx.clone()
+    pub fn handlers(&self) -> Receiver<SharedFilterHandlers> {
+        self.handlers_tx.subscribe()
     }
-    
-    pub  fn start(self) -> Handle {
+
+    pub fn start(self) -> Handle {
         let (handle, mut stop_handle) = handles();
-        let mut source_routing_rx = self.source_routing_rx;
+        let mut routing = self.routing;
         let handlers_t = self.handlers;
         let handlers_tx = self.handlers_tx;
-        
-        spawn(async move { 
+
+        spawn(async move {
             loop {
                 let handlers = atomically(|| {
-                    let source_routing = source_routing_rx.current().unwrap_or_default();
-                    let handlers = source_routing.shared_filters().iter()
+                    let routing = routing.current().unwrap_or_default();
+                    let handlers = routing
+                        .shared_filters()
+                        .iter()
                         .filter_map(|(ref_, filter)| {
-                            let handler: SharedFilterHandler =  filter.as_ref().try_into().ok()?;
+                            let handler: SharedFilterHandler = filter.as_ref().try_into().ok()?;
                             Some((ref_.clone(), Arc::new(handler)))
                         })
                         .collect();
-                    
-                    let handlers = SharedFilterHandlers::builder()
-                        .handlers(handlers)
-                        .build();
-                    
+
+                    let handlers = SharedFilterHandlers::builder().handlers(handlers).build();
+
                     handlers_t.write(handlers)?;
-                    
+
                     handlers_t.read()
-                }).await;
-                
+                })
+                .await;
+
                 let _ = handlers_tx.send(handlers);
 
                 select! {
-                    _ = source_routing_rx.changed() => {
+                    _ = routing.changed() => {
                         continue;
                     }
                     _ = stop_handle.stopped() => {
@@ -86,7 +84,7 @@ impl SharedFilterHandlersManager {
                 }
             }
         });
-        
+
         handle
     }
 }

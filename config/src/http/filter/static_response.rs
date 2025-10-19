@@ -1,8 +1,8 @@
-use std::ops::Deref;
 use derive_more::{From, FromStr};
 use getset::{CloneGetters, CopyGetters, Getters};
 use http::{StatusCode, Uri};
 use serde::{Deserialize, Serialize};
+use std::ops::Deref;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
 use vg_core::http::content_type::ContentTypeBuf;
@@ -115,7 +115,7 @@ pub struct StaticResponseSharedFilter {
 
     #[getset(get = "pub")]
     #[serde(flatten)]
-    filter: StaticResponseFilter
+    filter: StaticResponseFilter,
 }
 
 impl Deref for StaticResponseSharedFilter {

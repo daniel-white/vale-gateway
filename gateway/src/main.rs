@@ -2,7 +2,10 @@ mod configuration;
 mod http;
 mod instrumentation;
 
+use crate::configuration::location::CurrentLocationConfigurator;
 use crate::configuration::{SourceConfigurationRegistry, SourceConfigurationRegistryOptions};
+use crate::http::backend::{BackendConfigurator, BackendConfiguratorOptions};
+use crate::http::filter::{SharedFilterHandlersManager, SharedFilterHandlersManagerOptions};
 use ::http::Uri;
 use async_from::AsyncTryInto;
 use std::error::Error;
@@ -12,12 +15,9 @@ use tokio::task::JoinSet;
 use vg_core::instrumentation::init;
 use vg_core::net::topology::TopologyLocation;
 use vg_rpc_client::{
-    ConfigurationClient, ConfigurationEventClient, ConfigurationTransport,
+    ConfigurationClient, ConfigurationEventsClient, ConfigurationTransport,
     ConfigurationTransportOptions,
 };
-use crate::configuration::location::CurrentLocationConfigurator;
-use crate::http::backend::{BackendConfigurator, BackendConfiguratorOptions};
-use crate::http::filter::{SharedFilterHandlersManager, SharedFilterHandlersManagerOptions};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -34,32 +34,38 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .transport(transport.clone())
         .build();
 
-    let event_client = ConfigurationEventClient::new(transport);
+    let events = ConfigurationEventsClient::new(transport);
 
-    let event_rx = event_client.receiver();
-    
+    let events_rx = events.events();
+
     let current_location = CurrentLocationConfigurator::new();
 
     let source_configuration: SourceConfigurationRegistry =
         SourceConfigurationRegistryOptions::builder()
             .client(client)
-            .event_rx(event_rx)
+            .events(events_rx)
             .build()
             .into();
-    
-    let shared_filter_handlers: SharedFilterHandlersManager = SharedFilterHandlersManagerOptions::builder()
-        .source_routing_rx(source_configuration.routing())
-        .build()
-        .into();
-    
+
+    let shared_filter_handlers: SharedFilterHandlersManager =
+        SharedFilterHandlersManagerOptions::builder()
+            .routing(source_configuration.routing())
+            .build()
+            .into();
+
     let backends_configurator: BackendConfigurator = BackendConfiguratorOptions::builder()
-        .current_location_rx(current_location.current_location())
-        .source_backends_rx(source_configuration.backends())
+        .current_location(current_location.current_location())
+        .backends(source_configuration.backends())
         .build()
         .into();
-    
+
     let current_location = current_location.start();
-    let _ = current_location.send(Arc::new(TopologyLocation::builder().zone("us-west-1".to_string()).node("a".to_string()).build()));
+    let _ = current_location.send(Arc::new(
+        TopologyLocation::builder()
+            .zone("us-west-1".to_string())
+            .node("a".to_string())
+            .build(),
+    ));
 
     let mut rrx = source_configuration.routing();
     let mut brx = backends_configurator.backends();
@@ -68,7 +74,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let shared_filter_handlers = shared_filter_handlers.start();
     let backends_configurator = backends_configurator.start();
     let source_configuration = source_configuration.start();
-    let event_client = event_client.start().await?;
+    let event_client = events.start().await?;
 
     let mut js = JoinSet::new();
 

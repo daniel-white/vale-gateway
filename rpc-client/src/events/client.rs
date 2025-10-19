@@ -16,19 +16,19 @@ use vg_rpc::{
 use crate::instrumentation::TRACER;
 pub use vg_rpc::ConfigurationEvent;
 
-pub struct ConfigurationEventClient {
+pub struct ConfigurationEventsClient {
     transport: ConfigurationTransport,
     tx: Sender<ConfigurationEvent>,
 }
 
-impl ConfigurationEventClient {
+impl ConfigurationEventsClient {
     pub fn new(transport: ConfigurationTransport) -> Self {
         let (tx, _) = channel(32);
         Self { transport, tx }
     }
 
-    pub fn receiver(&self) -> ConfigurationEventReceiver {
-        ConfigurationEventReceiver::builder()
+    pub fn events(&self) -> ConfigurationEventsReceiver {
+        ConfigurationEventsReceiver::builder()
             .tx(self.tx.clone())
             .rx(self.tx.subscribe())
             .build()
@@ -112,12 +112,13 @@ pub enum ConfigurationEventRecvError {
 }
 
 #[derive(Debug, TypedBuilder)]
-pub struct ConfigurationEventReceiver {
+#[builder(builder_method(vis = ""), builder_type(vis = ""))]
+pub struct ConfigurationEventsReceiver {
     tx: Sender<ConfigurationEvent>,
     rx: Receiver<ConfigurationEvent>,
 }
 
-impl Clone for ConfigurationEventReceiver {
+impl Clone for ConfigurationEventsReceiver {
     fn clone(&self) -> Self {
         Self::builder()
             .tx(self.tx.clone())
@@ -126,7 +127,7 @@ impl Clone for ConfigurationEventReceiver {
     }
 }
 
-impl ConfigurationEventReceiver {
+impl ConfigurationEventsReceiver {
     pub async fn recv(
         &mut self,
     ) -> Result<Traced<ConfigurationEvent>, ConfigurationEventRecvError> {

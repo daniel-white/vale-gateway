@@ -1,11 +1,8 @@
 mod events;
-pub  mod location;
+pub mod location;
 
 use crate::configuration::events::processor::ConfigurationEventProcessor;
-use vg_core::sync::arc_watch::Sender;
 use crate::instrumentation::TRACER;
-pub use vg_core::sync::arc_watch::Receiver;
-use vg_core::sync::arc_watch::channel;
 use getset::Getters;
 use opentelemetry::Context;
 use opentelemetry::trace::{FutureExt, SpanKind, TraceContextExt, Tracer};
@@ -14,12 +11,17 @@ use std::sync::Arc;
 use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
 use vg_config::http::backend::{Backend, BackendRef};
-use vg_config::http::filter::{GatewayFilter, SharedFilter, SharedFilterRef};
+use vg_config::http::filter::{SharedFilter, SharedFilterRef};
 use vg_config::http::listener::Listener;
 use vg_config::http::route::{Route, RouteRef};
+pub use vg_core::sync::arc_watch::Receiver;
+use vg_core::sync::arc_watch::Sender;
+use vg_core::sync::arc_watch::channel;
 use vg_core::sync::broadcast::Traced;
 use vg_core::sync::handles::{Handle, handles};
-use vg_rpc_client::{ConfigurationClient, ConfigurationEventReceiver, ConfigurationEventRecvError};
+use vg_rpc_client::{
+    ConfigurationClient, ConfigurationEventRecvError, ConfigurationEventsReceiver,
+};
 
 #[derive(Default, Debug, Clone, Getters, TypedBuilder)]
 pub struct SourceRoutingConfiguration {
@@ -28,7 +30,7 @@ pub struct SourceRoutingConfiguration {
     #[getset(get = "pub")]
     routes: HashMap<Arc<RouteRef>, Arc<Route>>,
     #[getset(get = "pub")]
-    shared_filters: HashMap<Arc<SharedFilterRef>, Arc<SharedFilter>>
+    shared_filters: HashMap<Arc<SharedFilterRef>, Arc<SharedFilter>>,
 }
 
 #[derive(Default, Debug, Clone, Getters, TypedBuilder)]
@@ -40,47 +42,44 @@ pub struct SourceBackendConfiguration {
 #[derive(TypedBuilder)]
 pub struct SourceConfigurationRegistryOptions {
     client: ConfigurationClient,
-    event_rx: ConfigurationEventReceiver,
+    events: ConfigurationEventsReceiver,
 }
 
 impl From<SourceConfigurationRegistryOptions> for SourceConfigurationRegistry {
     fn from(value: SourceConfigurationRegistryOptions) -> Self {
-        let (backends_tx, backends_rx) = channel();
-        let (routing_tx, routing_rx) = channel();
+        let (backends_tx, _) = channel();
+        let (routing_tx, _) = channel();
 
         Self::builder()
             .client(value.client)
-            .event_rx(value.event_rx)
-            .backends_rx(backends_rx)
+            .events(value.events)
             .backends_tx(backends_tx)
-            .routing_rx(routing_rx)
             .routing_tx(routing_tx)
             .build()
     }
 }
 
 #[derive(TypedBuilder)]
+#[builder(builder_method(vis = ""), builder_type(vis = ""))]
 pub struct SourceConfigurationRegistry {
     client: ConfigurationClient,
-    event_rx: ConfigurationEventReceiver,
+    events: ConfigurationEventsReceiver,
     backends_tx: Sender<SourceBackendConfiguration>,
-    backends_rx: Receiver<SourceBackendConfiguration>,
     routing_tx: Sender<SourceRoutingConfiguration>,
-    routing_rx: Receiver<SourceRoutingConfiguration>,
 }
 
 impl SourceConfigurationRegistry {
     pub fn backends(&self) -> Receiver<SourceBackendConfiguration> {
-        self.backends_rx.clone()
+        self.backends_tx.subscribe()
     }
 
     pub fn routing(&self) -> Receiver<SourceRoutingConfiguration> {
-        self.routing_rx.clone()
+        self.routing_tx.subscribe()
     }
 
     pub fn start(self) -> Handle {
         let (handle, mut stop_handle) = handles();
-        let mut event_rx = self.event_rx;
+        let mut events = self.events;
 
         let processor = ConfigurationEventProcessor::builder()
             .client(self.client)
@@ -92,7 +91,7 @@ impl SourceConfigurationRegistry {
             processor.init().await;
             loop {
                 select! {
-                    value = event_rx.recv() => {
+                    value = events.recv() => {
                         match value {
                             Ok(Traced { value: event, context }) => {
                                 let span = TRACER.span_builder("SourceConfigurationRegistry::recv::ok")

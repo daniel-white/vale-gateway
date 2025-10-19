@@ -1,6 +1,7 @@
 pub mod policy;
 
 use crate::http::backend::BackendRef;
+use crate::http::filter::{GatewayFilter, SharedFilterRef};
 use crate::http::listener::policy::ListenerPolicies;
 use crate::http::route::RouteRef;
 use derive_more::{Deref, From};
@@ -9,9 +10,6 @@ use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
 use vg_core::collections::{CollectionEvent, NotifyingCollection};
 use vg_core::net::Port;
-use crate::http::filter::access_control::AccessControlFilterRef;
-use crate::http::filter::{GatewayFilter, SharedFilterRef};
-use crate::http::filter::static_response::StaticResponseFilterRef;
 
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, Clone, From)]
 #[serde(transparent)]
@@ -61,8 +59,6 @@ pub struct Listener {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     backend_refs: Vec<BackendRef>,
 }
-
-
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ListenerCollectionEvent {

@@ -49,12 +49,12 @@ impl HttpConfigurationProvider for HttpConfigProvider {
             .node(Some("b".to_string()))
             .zone(Some("us-west-1".to_string()))
             .build();
-        
+
         let be = Backend::builder()
             .ref_(BackendRef::from("be1".to_string()))
             .endpoints(vec![ep1, ep2])
             .build();
-        
+
         Some(be)
     }
 

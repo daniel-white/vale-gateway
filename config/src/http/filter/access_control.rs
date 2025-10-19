@@ -1,7 +1,7 @@
-use std::ops::Deref;
 use derive_more::{From, FromStr};
 use getset::{CloneGetters, Getters};
 use serde::{Deserialize, Serialize};
+use std::ops::Deref;
 use typed_builder::TypedBuilder;
 use vg_core::net::IpRef;
 
@@ -53,7 +53,7 @@ pub struct AccessControlSharedFilter {
     #[getset(get = "pub")]
     #[builder(setter(into))]
     #[serde(flatten)]
-    filter: AccessControlFilter
+    filter: AccessControlFilter,
 }
 
 impl Deref for AccessControlSharedFilter {
@@ -63,4 +63,3 @@ impl Deref for AccessControlSharedFilter {
         self.filter()
     }
 }
-

@@ -1,8 +1,12 @@
-use crate::http::filter::access_control::{AccessControlFilter, AccessControlFilterRef, AccessControlGatewayFilter, AccessControlSharedFilter};
+use crate::http::filter::access_control::{
+    AccessControlFilterRef, AccessControlGatewayFilter, AccessControlSharedFilter,
+};
 use crate::http::filter::header_modifier::{
     RequestHeaderModifierGatewayFilter, ResponseHeaderModifierGatewayFilter,
 };
-use crate::http::filter::static_response::{StaticResponseFilter, StaticResponseFilterRef, StaticResponseGatewayFilter, StaticResponseSharedFilter};
+use crate::http::filter::static_response::{
+    StaticResponseFilterRef, StaticResponseGatewayFilter, StaticResponseSharedFilter,
+};
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 
@@ -25,7 +29,7 @@ pub enum GatewayFilter {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum SharedFilter {
     AccessControl(AccessControlSharedFilter),
-    StaticResponse(StaticResponseSharedFilter)
+    StaticResponse(StaticResponseSharedFilter),
 }
 
 impl SharedFilter {
@@ -41,5 +45,5 @@ impl SharedFilter {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum SharedFilterRef {
     AccessControl(AccessControlFilterRef),
-    StaticResponse(StaticResponseFilterRef)
+    StaticResponse(StaticResponseFilterRef),
 }

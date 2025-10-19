@@ -1,10 +1,8 @@
-pub  mod error;
+pub mod error;
 
-use std::ops::Deref;
+use error::{RecvError, SendError};
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
-use error::{RecvError, SendError};
-
 
 #[derive(Debug, Clone, TypedBuilder)]
 pub struct Receiver<T> {
@@ -28,8 +26,12 @@ pub struct Sender<T> {
 
 impl<T> Sender<T> {
     pub fn send(&self, val: Arc<T>) -> Result<(), SendError<Arc<T>>> {
-        self.tx.send(Some(val.clone()))
-            .map_err(|_| SendError(val))
+        self.tx.send(Some(val.clone())).map_err(|_| SendError(val))
+    }
+
+    pub fn subscribe(&self) -> Receiver<T> {
+        let rx = self.tx.subscribe();
+        Receiver::builder().rx(rx).build()
     }
 }
 

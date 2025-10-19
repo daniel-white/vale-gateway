@@ -9,7 +9,10 @@ use vg_config::http::filter::SharedFilter;
 use vg_config::http::listener::Listener;
 use vg_config::http::provider::HttpConfigurationProvider;
 use vg_config::http::route::Route;
-use vg_rpc::{ConfigurationApiError, ConfigurationApiServer, GetBackendRequest, GetListenerRequest, GetRouteRequest, GetSharedFilterRequest, SubscribeEventsRequest};
+use vg_rpc::{
+    ConfigurationApiError, ConfigurationApiServer, GetBackendRequest, GetListenerRequest,
+    GetRouteRequest, GetSharedFilterRequest, SubscribeEventsRequest,
+};
 
 #[derive(TypedBuilder)]
 pub struct ConfigurationApiServerMethods {
@@ -40,7 +43,10 @@ impl ConfigurationApiServer for ConfigurationApiServerMethods {
             .ok_or(ConfigurationApiError::NotFound)
     }
 
-    async fn shared_filter(&self, req: GetSharedFilterRequest) -> Result<SharedFilter, ConfigurationApiError> {
+    async fn shared_filter(
+        &self,
+        req: GetSharedFilterRequest,
+    ) -> Result<SharedFilter, ConfigurationApiError> {
         self.http_configuration
             .shared_filter(req.filter_ref())
             .await

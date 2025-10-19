@@ -6,7 +6,7 @@ use jsonrpsee::proc_macros::rpc;
 use jsonrpsee::types::{ErrorObject, ErrorObjectOwned};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use opentelemetry::global::{get_text_map_propagator, BoxedSpan};
+use opentelemetry::global::{BoxedSpan, get_text_map_propagator};
 use opentelemetry::trace::TraceContextExt;
 use opentelemetry_http::{HeaderExtractor, HeaderInjector};
 use serde::{Deserialize, Serialize};
@@ -87,7 +87,6 @@ impl AsRef<RequestContext> for RequestContext {
     }
 }
 
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum ConfigurationEvent {
@@ -166,5 +165,8 @@ pub trait ConfigurationApi {
     async fn backend(&self, req: GetBackendRequest) -> Result<Backend, ConfigurationApiError>;
 
     #[method(name = "getSharedFilter")]
-    async fn shared_filter(&self, req: GetSharedFilterRequest) -> Result<SharedFilter, ConfigurationApiError>;
+    async fn shared_filter(
+        &self,
+        req: GetSharedFilterRequest,
+    ) -> Result<SharedFilter, ConfigurationApiError>;
 }
