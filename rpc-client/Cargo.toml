@@ -7,14 +7,21 @@ edition = "2024"
 async-trait.workspace = true
 async_from.workspace = true
 derive_more.workspace = true
+failsafe.workspace = true
+futures-util.workspace = true
 getset.workspace = true
 http.workspace = true
 jsonrpsee = { workspace = true, features = ["tracing", "ws-client"] }
 opentelemetry.workspace = true
 opentelemetry-semantic-conventions.workspace = true
+pin-project.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+tokio-util.workspace = true
+tower.workspace = true
+tower-http.workspace = true
 tower-layer.workspace = true
+tower-retry.workspace = true
 typed-builder.workspace = true
 vg-core = { path = "../core" }
 vg-config = { path = "../config" }
