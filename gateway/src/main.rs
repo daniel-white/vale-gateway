@@ -17,6 +17,7 @@ use vg_rpc_client::{
 };
 use crate::configuration::location::CurrentLocationConfigurator;
 use crate::http::backend::{BackendConfigurator, BackendConfiguratorOptions};
+use crate::http::filter::{SharedFilterHandlersManager, SharedFilterHandlersManagerOptions};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -46,6 +47,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .build()
             .into();
     
+    let shared_filter_handlers: SharedFilterHandlersManager = SharedFilterHandlersManagerOptions::builder()
+        .source_routing_rx(source_configuration.routing())
+        .build()
+        .into();
+    
     let backends_configurator: BackendConfigurator = BackendConfiguratorOptions::builder()
         .current_location_rx(current_location.current_location())
         .source_backends_rx(source_configuration.backends())
@@ -53,17 +59,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .into();
     
     let current_location = current_location.start();
-    let vg_core = current_location.send(Arc::new(TopologyLocation::builder().zone("us-west-1".to_string()).node("a".to_string()).build()));
+    let _ = current_location.send(Arc::new(TopologyLocation::builder().zone("us-west-1".to_string()).node("a".to_string()).build()));
 
     let mut rrx = source_configuration.routing();
     let mut brx = backends_configurator.backends();
+    let mut sfhx = shared_filter_handlers.handlers();
 
+    let shared_filter_handlers = shared_filter_handlers.start();
     let backends_configurator = backends_configurator.start();
     let source_configuration = source_configuration.start();
     let event_client = event_client.start().await?;
 
     let mut js = JoinSet::new();
 
+    js.spawn(shared_filter_handlers.stopped());
     js.spawn(backends_configurator.stopped());
     js.spawn(event_client.stopped());
     js.spawn(source_configuration.stopped());
@@ -76,6 +85,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 }
                 _ = brx.changed() => {
                     println!("fully resolved backend: {:?}", brx.current());
+                }
+                _ = sfhx.changed() => {
+                    println!("fully resolved handlers: {:?}", sfhx.current());
                 }
             }
         }

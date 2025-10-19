@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use derive_more::{From, FromStr};
 use getset::{CloneGetters, CopyGetters, Getters};
 use http::{StatusCode, Uri};
@@ -115,4 +116,12 @@ pub struct StaticResponseSharedFilter {
     #[getset(get = "pub")]
     #[serde(flatten)]
     filter: StaticResponseFilter
+}
+
+impl Deref for StaticResponseSharedFilter {
+    type Target = StaticResponseFilter;
+
+    fn deref(&self) -> &Self::Target {
+        self.filter()
+    }
 }

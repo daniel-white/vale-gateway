@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use derive_more::{From, FromStr};
 use getset::{CloneGetters, Getters};
 use serde::{Deserialize, Serialize};
@@ -53,5 +54,13 @@ pub struct AccessControlSharedFilter {
     #[builder(setter(into))]
     #[serde(flatten)]
     filter: AccessControlFilter
+}
+
+impl Deref for AccessControlSharedFilter {
+    type Target = AccessControlFilter;
+
+    fn deref(&self) -> &Self::Target {
+        self.filter()
+    }
 }
 
