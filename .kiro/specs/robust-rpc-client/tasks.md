@@ -49,21 +49,27 @@
     - Verify different timeout configurations work correctly
     - _Requirements: 3.1, 3.2, 3.3_
 
-- [ ] 6. Implement retry middleware layer
-  - [ ] 6.1 Create RetryLayer with exponential backoff
+- [x] 6. Implement retry middleware layer
+  - [x] 6.1 Create RetryLayer with exponential backoff
     - Implement ExponentialBackoffPolicy for tower-retry
     - Add error classification for retryable vs non-retryable errors
     - _Requirements: 1.1, 1.2_
   
-  - [ ] 6.2 Integrate retry metrics and logging
+  - [x] 6.2 Integrate retry metrics and logging
     - Track retry attempts and success/failure rates
     - Add tracing spans for retry operations
     - _Requirements: 6.2, 6.4_
   
-  - [ ] 6.3 Add retry layer unit tests
+  - [x] 6.3 Add retry layer unit tests
     - Test retry logic with different error patterns
     - Verify backoff behavior and retry limits
     - _Requirements: 1.1, 1.2_
+
+- [ ] 6.4. Refactor layers into separate modules
+  - Break out TimeoutLayer, RetryLayer, and related types into separate module files
+  - Create layers/timeout.rs, layers/retry.rs, and layers/mod.rs
+  - Update imports and maintain public API compatibility
+  - _Requirements: 7.3_
 
 - [ ] 7. Implement circuit breaker middleware layer
   - [ ] 7.1 Create CircuitBreakerLayer using failsafe crate
