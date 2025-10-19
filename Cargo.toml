@@ -54,6 +54,7 @@ paste = "1"
 pingora = "0.6"
 problemdetails = "0.6"
 regex = { version = "1", features = ["perf", "unicode"] }
+rand = "0.8"
 rstest = "0.26"
 schemars = "1"
 serde = { version = "1", features = ["derive", "rc"] }

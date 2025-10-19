@@ -15,10 +15,11 @@ jsonrpsee = { workspace = true, features = ["tracing", "ws-client"] }
 opentelemetry.workspace = true
 opentelemetry-semantic-conventions.workspace = true
 pin-project.workspace = true
+rand.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
-tower.workspace = true
+tower = { workspace = true, features = ["timeout"] }
 tower-http.workspace = true
 tower-layer.workspace = true
 tower-retry.workspace = true
