@@ -30,3 +30,7 @@ typed-builder.workspace = true
 vg-core = { path = "../core" }
 vg-config = { path = "../config" }
 vg-rpc = { path = "../rpc" }
+
+[dev-dependencies]
+jsonrpsee = { workspace = true, features = ["tracing", "ws-client", "server"] }
+tokio-test = "0.4"
