@@ -47,6 +47,96 @@ impl RobustClientConfig {
 
         Ok(())
     }
+
+    /// Create a production-ready configuration with conservative settings
+    pub fn production() -> Self {
+        Self::builder()
+            .timeout(Some(
+                TimeoutConfig::builder()
+                    .default_timeout(Duration::from_secs(30))
+                    .build(),
+            ))
+            .circuit_breaker(Some(
+                CircuitBreakerConfig::builder()
+                    .failure_threshold(5)
+                    .success_threshold(3)
+                    .timeout(Duration::from_secs(60))
+                    .minimum_throughput(10)
+                    .build(),
+            ))
+            .retry(Some(
+                RetryPolicy::builder()
+                    .max_attempts(3)
+                    .base_delay(Duration::from_millis(500))
+                    .max_delay(Duration::from_secs(30))
+                    .backoff_multiplier(2.0)
+                    .jitter(0.1)
+                    .build(),
+            ))
+            .reconnection(Some(
+                ReconnectionConfig::builder()
+                    .enable_lazy_connection(false)
+                    .max_reconnect_attempts(Some(10))
+                    .reconnect_base_delay(Duration::from_secs(2))
+                    .reconnect_max_delay(Duration::from_secs(300))
+                    .queue_requests_during_reconnection(true)
+                    .max_queued_requests(100)
+                    .build(),
+            ))
+            .instrumentation(InstrumentationConfig::default())
+            .build()
+    }
+
+    /// Create a development-friendly configuration with faster timeouts
+    pub fn development() -> Self {
+        Self::builder()
+            .timeout(Some(
+                TimeoutConfig::builder()
+                    .default_timeout(Duration::from_secs(10))
+                    .build(),
+            ))
+            .circuit_breaker(Some(
+                CircuitBreakerConfig::builder()
+                    .failure_threshold(3)
+                    .success_threshold(2)
+                    .timeout(Duration::from_secs(30))
+                    .minimum_throughput(5)
+                    .build(),
+            ))
+            .retry(Some(
+                RetryPolicy::builder()
+                    .max_attempts(2)
+                    .base_delay(Duration::from_millis(100))
+                    .max_delay(Duration::from_secs(5))
+                    .backoff_multiplier(1.5)
+                    .jitter(0.1)
+                    .build(),
+            ))
+            .reconnection(Some(
+                ReconnectionConfig::builder()
+                    .enable_lazy_connection(true)
+                    .max_reconnect_attempts(Some(5))
+                    .reconnect_base_delay(Duration::from_millis(500))
+                    .reconnect_max_delay(Duration::from_secs(30))
+                    .queue_requests_during_reconnection(true)
+                    .max_queued_requests(50)
+                    .build(),
+            ))
+            .instrumentation(InstrumentationConfig::default())
+            .build()
+    }
+}
+
+impl Default for RobustClientConfig {
+    fn default() -> Self {
+        Self::builder()
+            .timeout(Some(TimeoutConfig::default()))
+            .circuit_breaker(Some(CircuitBreakerConfig::default()))
+            .retry(Some(RetryPolicy::default()))
+            .reconnection(Some(ReconnectionConfig::default()))
+            .instrumentation(InstrumentationConfig::default())
+            .build()
+    }
 }
 
 /// Configuration for request timeouts

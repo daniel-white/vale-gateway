@@ -27,13 +27,13 @@
     - Add request/response logging and error tracking
     - _Requirements: 6.4, 6.5_
 
-- [ ] 4. Create Tower layer abstractions for jsonrpsee integration
-  - [ ] 4.1 Define WsClientLayer trait and LayeredClient wrapper
+- [x] 4. Create Tower layer abstractions for jsonrpsee integration
+  - [x] 4.1 Define WsClientLayer trait and LayeredClient wrapper
     - Create trait for layers that can wrap WsClient
     - Implement LayeredClient that applies middleware stack
     - _Requirements: 7.1, 7.2_
   
-  - [ ] 4.2 Create EnhancedWsClientBuilder
+  - [x] 4.2 Create EnhancedWsClientBuilder
     - Extend WsClientBuilder with layer support
     - Add methods for applying robustness configurations
     - _Requirements: 4.1, 4.2, 4.3_
