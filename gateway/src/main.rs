@@ -7,37 +7,87 @@ use crate::configuration::{SourceConfigurationRegistry, SourceConfigurationRegis
 use crate::http::backend::{BackendConfigurator, BackendConfiguratorOptions};
 use crate::http::filter::{SharedFilterHandlersManager, SharedFilterHandlersManagerOptions};
 use ::http::Uri;
-use async_from::AsyncTryInto;
+
 use std::error::Error;
 use std::sync::Arc;
 use tokio::select;
 use tokio::task::JoinSet;
 use vg_core::instrumentation::init;
 use vg_core::net::topology::TopologyLocation;
-use vg_rpc_client::{
-    ConfigurationClient, ConfigurationEventsClient, ConfigurationTransport,
-    ConfigurationTransportOptions,
-};
+use vg_rpc_client::{ConfigurationClient, ConfigurationEventsClient};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     init("vg-gateway");
 
-    let client = ConfigurationClient::connect(
-        "example_listener".to_string(),
-        Uri::from_static("ws://localhost:9000"),
+    // Validate connection parameters at startup
+    let listener_ref = "example_listener".to_string();
+    let server_uri = Uri::from_static("ws://localhost:9000");
+
+    // Validate URI format
+    if server_uri.scheme_str() != Some("ws") && server_uri.scheme_str() != Some("wss") {
+        return Err("Invalid URI scheme: must be 'ws' or 'wss'".into());
+    }
+
+    if listener_ref.is_empty() {
+        return Err("Listener reference cannot be empty".into());
+    }
+
+    // Create configuration client with proper error handling
+    let client =
+        match ConfigurationClient::connect_production(listener_ref.clone(), server_uri.clone())
+            .await
+        {
+            Ok(client) => {
+                tracing::info!(
+                    "Successfully connected configuration client to {}",
+                    server_uri
+                );
+                client
+            }
+            Err(e) => {
+                tracing::error!(
+                    "Failed to connect configuration client to {}: {}",
+                    server_uri,
+                    e
+                );
+                return Err(format!("Configuration client connection failed: {}", e).into());
+            }
+        };
+
+    // Create events client with proper error handling
+    let events = match ConfigurationEventsClient::connect_production(
+        listener_ref.clone(),
+        server_uri.clone(),
     )
-    .await?;
+    .await
+    {
+        Ok(events) => {
+            tracing::info!("Successfully connected events client to {}", server_uri);
+            events
+        }
+        Err(e) => {
+            tracing::error!("Failed to connect events client to {}: {}", server_uri, e);
+            return Err(format!("Events client connection failed: {}", e).into());
+        }
+    };
 
-    // Create transport for events client
-    let transport: ConfigurationTransport = ConfigurationTransportOptions::builder()
-        .address(Uri::from_static("ws://localhost:9000"))
-        .listener_ref("example_listener".to_string())
-        .build()
-        .async_try_into()
-        .await?;
-
-    let events = ConfigurationEventsClient::new(transport);
+    // Validate client connectivity by attempting to fetch listener configuration
+    // This is a non-blocking validation - if it fails, we log a warning but continue
+    // The robust client will handle retries and reconnection automatically
+    match client.listener().await {
+        Ok(_) => {
+            tracing::info!("Successfully validated client connectivity");
+        }
+        Err(e) => {
+            tracing::warn!(
+                "Client connectivity validation failed (this may be expected during startup): {}",
+                e
+            );
+            // Don't fail startup here as the configuration service might not be ready yet
+            // The robust client will handle retries and reconnection
+        }
+    }
 
     let events_rx = events.events();
 
@@ -77,7 +127,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let shared_filter_handlers = shared_filter_handlers.start();
     let backends_configurator = backends_configurator.start();
     let source_configuration = source_configuration.start();
-    let event_client = events.start().await?;
+
+    // Start event client with proper error handling
+    let event_client = match events.start().await {
+        Ok(handle) => {
+            tracing::info!("Successfully started events client");
+            handle
+        }
+        Err(e) => {
+            tracing::error!("Failed to start events client: {}", e);
+            return Err(format!("Events client startup failed: {}", e).into());
+        }
+    };
 
     let mut js = JoinSet::new();
 

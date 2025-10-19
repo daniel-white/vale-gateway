@@ -3646,6 +3646,7 @@ dependencies = [
  "opentelemetry",
  "thiserror 2.0.17",
  "tokio 1.47.1",
+ "tracing",
  "typed-builder",
  "vg-config",
  "vg-core",

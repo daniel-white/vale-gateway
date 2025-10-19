@@ -1,4 +1,6 @@
 use crate::ConfigurationTransport;
+use async_from::AsyncTryFrom;
+use http::Uri;
 use jsonrpsee::core::ClientError;
 use opentelemetry::Context;
 use opentelemetry::context::FutureExt;
@@ -6,12 +8,14 @@ use opentelemetry::trace::{Span, SpanKind, TraceContextExt, Tracer};
 use thiserror::Error;
 use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
+use vg_config::http::listener::ListenerRef;
 use vg_core::sync::broadcast::error::RecvError;
 use vg_core::sync::broadcast::{Receiver, Sender, Traced, channel};
 use vg_core::sync::handles::{Handle, handles};
 use vg_rpc::{ConfigurationApiError, RequestContext, SubscribeEventsRequest};
 
 use crate::instrumentation::TRACER;
+use crate::{ConfigurationTransportOptions, RobustClientConfig};
 pub use vg_rpc::ConfigurationEvent;
 
 pub struct ConfigurationEventsClient {
@@ -23,6 +27,71 @@ impl ConfigurationEventsClient {
     pub fn new(transport: ConfigurationTransport) -> Self {
         let (tx, _) = channel(32);
         Self { transport, tx }
+    }
+
+    /// Create a new ConfigurationEventsClient with connection parameters
+    /// This method creates the transport internally with production-ready robustness settings
+    pub async fn connect_production(
+        listener_ref: impl Into<ListenerRef>,
+        address: impl Into<Uri>,
+    ) -> Result<Self, ConfigurationEventClientError> {
+        let options = ConfigurationTransportOptions::production(listener_ref, address);
+        let transport = ConfigurationTransport::async_try_from(options)
+            .await
+            .map_err(|_| ConfigurationEventClientError::ConnectionFailed)?;
+
+        Ok(Self::new(transport))
+    }
+
+    /// Create a new ConfigurationEventsClient with connection parameters
+    /// This method creates the transport internally with development-friendly robustness settings
+    pub async fn connect_development(
+        listener_ref: impl Into<ListenerRef>,
+        address: impl Into<Uri>,
+    ) -> Result<Self, ConfigurationEventClientError> {
+        let options = ConfigurationTransportOptions::development(listener_ref, address);
+        let transport = ConfigurationTransport::async_try_from(options)
+            .await
+            .map_err(|_| ConfigurationEventClientError::ConnectionFailed)?;
+
+        Ok(Self::new(transport))
+    }
+
+    /// Create a new ConfigurationEventsClient with custom robustness configuration
+    pub async fn connect_with_config(
+        listener_ref: impl Into<ListenerRef>,
+        address: impl Into<Uri>,
+        robust_config: RobustClientConfig,
+    ) -> Result<Self, ConfigurationEventClientError> {
+        // Validate configuration before proceeding
+        robust_config
+            .validate()
+            .map_err(|_| ConfigurationEventClientError::InvalidConfiguration)?;
+
+        let options =
+            ConfigurationTransportOptions::with_robust_config(listener_ref, address, robust_config);
+        let transport = ConfigurationTransport::async_try_from(options)
+            .await
+            .map_err(|_| ConfigurationEventClientError::ConnectionFailed)?;
+
+        Ok(Self::new(transport))
+    }
+
+    /// Create a new ConfigurationEventsClient with basic connection (no robustness features)
+    /// This maintains backward compatibility
+    pub async fn connect(
+        listener_ref: impl Into<ListenerRef>,
+        address: impl Into<Uri>,
+    ) -> Result<Self, ConfigurationEventClientError> {
+        let options = ConfigurationTransportOptions::builder()
+            .listener_ref(listener_ref)
+            .address(address)
+            .build();
+        let transport = ConfigurationTransport::async_try_from(options)
+            .await
+            .map_err(|_| ConfigurationEventClientError::ConnectionFailed)?;
+
+        Ok(Self::new(transport))
     }
 
     pub fn events(&self) -> ConfigurationEventsReceiver {
@@ -83,6 +152,10 @@ pub enum ConfigurationEventClientError {
     NotFound,
     #[error("Request timeout")]
     RequestTimeout,
+    #[error("Connection failed")]
+    ConnectionFailed,
+    #[error("Invalid configuration")]
+    InvalidConfiguration,
     #[error("Unknown event")]
     Unknown,
 }
