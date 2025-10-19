@@ -10,9 +10,11 @@ use getset::Getters;
 use opentelemetry::Context;
 use opentelemetry::trace::{FutureExt, SpanKind, TraceContextExt, Tracer};
 use std::collections::HashMap;
+use std::sync::Arc;
 use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
 use vg_config::http::backend::{Backend, BackendRef};
+use vg_config::http::filter::{GatewayFilter, SharedFilter, SharedFilterRef};
 use vg_config::http::listener::Listener;
 use vg_config::http::route::{Route, RouteRef};
 use vg_core::sync::broadcast::Traced;
@@ -22,15 +24,17 @@ use vg_rpc_client::{ConfigurationClient, ConfigurationEventReceiver, Configurati
 #[derive(Default, Debug, Clone, Getters, TypedBuilder)]
 pub struct SourceRoutingConfiguration {
     #[getset(get = "pub")]
-    listener: Option<Listener>,
+    listener: Option<Arc<Listener>>,
     #[getset(get = "pub")]
-    routes: HashMap<RouteRef, Route>,
+    routes: HashMap<Arc<RouteRef>, Arc<Route>>,
+    #[getset(get = "pub")]
+    shared_filters: HashMap<Arc<SharedFilterRef>, Arc<SharedFilter>>
 }
 
 #[derive(Default, Debug, Clone, Getters, TypedBuilder)]
 pub struct SourceBackendConfiguration {
     #[getset(get = "pub")]
-    backends: HashMap<BackendRef, Backend>,
+    backends: HashMap<Arc<BackendRef>, Arc<Backend>>,
 }
 
 #[derive(TypedBuilder)]

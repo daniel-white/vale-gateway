@@ -6,12 +6,13 @@ use jsonrpsee::proc_macros::rpc;
 use jsonrpsee::types::{ErrorObject, ErrorObjectOwned};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use opentelemetry::global::{BoxedSpan, get_text_map_propagator};
+use opentelemetry::global::{get_text_map_propagator, BoxedSpan};
 use opentelemetry::trace::TraceContextExt;
 use opentelemetry_http::{HeaderExtractor, HeaderInjector};
 use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
 use vg_config::http::backend::{Backend, BackendRef};
+use vg_config::http::filter::{SharedFilter, SharedFilterRef};
 use vg_config::http::listener::{Listener, ListenerRef};
 use vg_config::http::route::{Route, RouteRef};
 
@@ -86,14 +87,18 @@ impl AsRef<RequestContext> for RequestContext {
     }
 }
 
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub enum ConfigurationEvent {
     ListenerChanged,
     RouteChanged(RouteRef),
     BackendChanged(BackendRef),
+    SharedFilterChanged(SharedFilterRef),
 }
 
 #[derive(Debug, Serialize, Deserialize, Getters, CloneGetters, Clone, TypedBuilder)]
+#[serde(rename_all = "camelCase")]
 pub struct ConfigurationEventMessage {
     #[getset(get = "pub")]
     context: RequestContext,
@@ -102,6 +107,7 @@ pub struct ConfigurationEventMessage {
 }
 
 #[derive(Debug, Serialize, Deserialize, Getters, CloneGetters, Clone, TypedBuilder)]
+#[serde(rename_all = "camelCase")]
 pub struct SubscribeEventsRequest {
     #[getset(get = "pub")]
     context: RequestContext,
@@ -110,6 +116,7 @@ pub struct SubscribeEventsRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Getters, CloneGetters, Clone, TypedBuilder)]
+#[serde(rename_all = "camelCase")]
 pub struct GetListenerRequest {
     #[getset(get = "pub")]
     context: RequestContext,
@@ -118,6 +125,7 @@ pub struct GetListenerRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Getters, CloneGetters, Clone, TypedBuilder)]
+#[serde(rename_all = "camelCase")]
 pub struct GetRouteRequest {
     #[getset(get = "pub")]
     context: RequestContext,
@@ -126,11 +134,21 @@ pub struct GetRouteRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Getters, CloneGetters, Clone, TypedBuilder)]
+#[serde(rename_all = "camelCase")]
 pub struct GetBackendRequest {
     #[getset(get = "pub")]
     context: RequestContext,
     #[getset(get_clone = "pub")]
     backend_ref: BackendRef,
+}
+
+#[derive(Debug, Serialize, Deserialize, Getters, CloneGetters, Clone, TypedBuilder)]
+#[serde(rename_all = "camelCase")]
+pub struct GetSharedFilterRequest {
+    #[getset(get = "pub")]
+    context: RequestContext,
+    #[getset(get_clone = "pub")]
+    filter_ref: SharedFilterRef,
 }
 
 #[rpc(client, server)]
@@ -146,4 +164,7 @@ pub trait ConfigurationApi {
 
     #[method(name = "getBackend")]
     async fn backend(&self, req: GetBackendRequest) -> Result<Backend, ConfigurationApiError>;
+
+    #[method(name = "getSharedFilter")]
+    async fn shared_filter(&self, req: GetSharedFilterRequest) -> Result<SharedFilter, ConfigurationApiError>;
 }

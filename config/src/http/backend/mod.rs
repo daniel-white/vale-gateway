@@ -14,7 +14,7 @@ pub struct BackendRef(String);
 )]
 #[serde(rename_all = "camelCase")]
 pub struct Backend {
-    #[getset(get = "pub")]
+    #[getset(get_clone = "pub")]
     #[serde(rename = "ref")]
     ref_: BackendRef,
 

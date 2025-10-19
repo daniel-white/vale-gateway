@@ -74,7 +74,7 @@ impl TryFrom<HTTPBackendReferenceWrapper<'_>> for RuleBackend {
         Ok(RuleBackend::builder()
             .ref_(ref_)
             .port(port)
-            .weight(backend_ref.weight)
+            .weight(backend_ref.weight.unwrap_or(1).max(0).try_into().unwrap())
             .filters(filters)
             .build())
     }

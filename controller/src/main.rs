@@ -7,6 +7,7 @@ use std::net::SocketAddr;
 use std::str::FromStr;
 use tokio::task::JoinSet;
 use vg_config::http::backend::{Backend, BackendEndpoint, BackendRef};
+use vg_config::http::filter::{SharedFilter, SharedFilterRef};
 use vg_config::http::listener::policy::ListenerPolicies;
 use vg_config::http::listener::{Listener, ListenerRef};
 use vg_config::http::provider::HttpConfigurationProvider;
@@ -25,6 +26,8 @@ impl HttpConfigurationProvider for HttpConfigProvider {
             .policies(ListenerPolicies::default())
             .backend_refs(vec![beref])
             .route_refs(Vec::new())
+            .shared_filter_refs(Vec::new())
+            .filters(Vec::new())
             .build();
 
         Some(l)
@@ -53,6 +56,10 @@ impl HttpConfigurationProvider for HttpConfigProvider {
             .build();
         
         Some(be)
+    }
+
+    async fn shared_filter(&self, filter_ref: SharedFilterRef) -> Option<SharedFilter> {
+        None
     }
 }
 

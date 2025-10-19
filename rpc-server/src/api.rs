@@ -5,13 +5,11 @@ use jsonrpsee_core::SubscriptionResult;
 use jsonrpsee_core::server::PendingSubscriptionSink;
 use typed_builder::TypedBuilder;
 use vg_config::http::backend::Backend;
+use vg_config::http::filter::SharedFilter;
 use vg_config::http::listener::Listener;
 use vg_config::http::provider::HttpConfigurationProvider;
 use vg_config::http::route::Route;
-use vg_rpc::{
-    ConfigurationApiError, ConfigurationApiServer, GetBackendRequest, GetListenerRequest,
-    GetRouteRequest, SubscribeEventsRequest,
-};
+use vg_rpc::{ConfigurationApiError, ConfigurationApiServer, GetBackendRequest, GetListenerRequest, GetRouteRequest, GetSharedFilterRequest, SubscribeEventsRequest};
 
 #[derive(TypedBuilder)]
 pub struct ConfigurationApiServerMethods {
@@ -38,6 +36,13 @@ impl ConfigurationApiServer for ConfigurationApiServerMethods {
     async fn backend(&self, req: GetBackendRequest) -> Result<Backend, ConfigurationApiError> {
         self.http_configuration
             .backend(req.backend_ref())
+            .await
+            .ok_or(ConfigurationApiError::NotFound)
+    }
+
+    async fn shared_filter(&self, req: GetSharedFilterRequest) -> Result<SharedFilter, ConfigurationApiError> {
+        self.http_configuration
+            .shared_filter(req.filter_ref())
             .await
             .ok_or(ConfigurationApiError::NotFound)
     }

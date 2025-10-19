@@ -101,3 +101,18 @@ pub struct StaticResponseGatewayFilter {
     #[builder(setter(into))]
     ref_: StaticResponseFilterRef,
 }
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct StaticResponseSharedFilter {
+    #[getset(get_clone = "pub")]
+    #[serde(rename = "ref")]
+    #[builder(setter(into))]
+    ref_: StaticResponseFilterRef,
+
+    #[getset(get = "pub")]
+    #[serde(flatten)]
+    filter: StaticResponseFilter
+}

@@ -1,8 +1,9 @@
 use std::collections::{HashMap, HashSet};
 use std::net::IpAddr;
+use std::sync::Arc;
 use async_stm::{atomically, TVar};
 use enumflags2::BitFlags;
-use getset::Getters;
+use getset::{CloneGetters, Getters};
 use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
 use vg_core::net::topology::{TopologyLocation, TopologyLocationMatch};
@@ -11,11 +12,10 @@ use crate::configuration::{SourceBackendConfiguration, Receiver};
 use vg_config::http::backend::{Backend as BackendConfig, BackendRef};
 use vg_core::sync::arc_watch::{channel, Sender};
 
-#[derive(TypedBuilder, Clone, Debug, Getters)]
+#[derive(TypedBuilder, Clone, Debug, Getters, CloneGetters)]
 pub struct BackendAddresses {
-    #[getset(get = "pub")]
-    #[builder(setter(into))]
-    ref_: BackendRef,
+    #[getset(get_clone = "pub")]
+    ref_: Arc<BackendRef>,
 
     endpoints: HashMap<BitFlags<TopologyLocationMatch>, HashSet<IpAddr>>,
 }
@@ -56,7 +56,7 @@ impl From<(&TopologyLocation, &BackendConfig)> for BackendAddresses {
             .collect();
 
         Self::builder()
-            .ref_(value.ref_().clone())
+            .ref_(Arc::new(value.ref_()))
             .endpoints(endpoints)
             .build()
     }
@@ -64,14 +64,14 @@ impl From<(&TopologyLocation, &BackendConfig)> for BackendAddresses {
 
 #[derive(Debug, Default, Clone, TypedBuilder)]
 pub struct BackendConfiguration {
-    backends: HashMap<BackendRef, BackendAddresses>
+    backends: HashMap<Arc<BackendRef>, Arc<BackendAddresses>>
 }
 
 impl From<(&TopologyLocation, &SourceBackendConfiguration)> for BackendConfiguration {
     fn from((current_location, value): (&TopologyLocation, &SourceBackendConfiguration)) -> Self {
         let backends = value.backends().iter().map(|(ref_, backend)| {
-            let backend: BackendAddresses = (current_location, backend).into();
-            (ref_.clone(), backend)
+            let backend: BackendAddresses = (current_location, backend.as_ref()).into();
+            (ref_.clone(), Arc::new(backend))
         }).collect();
         
         Self::builder()

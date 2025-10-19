@@ -28,8 +28,7 @@ pub struct RuleBackend {
     port: Option<Port>,
 
     #[getset(get_copy = "pub")]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    weight: Option<i32>,
+    weight: u32,
 
     #[getset(get = "pub")]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

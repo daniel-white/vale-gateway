@@ -38,3 +38,20 @@ pub struct AccessControlGatewayFilter {
     #[builder(setter(into))]
     ref_: AccessControlFilterRef,
 }
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct AccessControlSharedFilter {
+    #[getset(get_clone = "pub")]
+    #[serde(rename = "ref")]
+    #[builder(setter(into))]
+    ref_: AccessControlFilterRef,
+
+    #[getset(get = "pub")]
+    #[builder(setter(into))]
+    #[serde(flatten)]
+    filter: AccessControlFilter
+}
+

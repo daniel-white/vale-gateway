@@ -3,8 +3,10 @@ use crate::configuration::{SourceBackendConfiguration, SourceRoutingConfiguratio
 use async_stm::{TVar, atomically};
 use futures::future;
 use std::sync::Arc;
+use futures::future::join_all;
 use typed_builder::TypedBuilder;
 use vg_config::http::backend::{Backend, BackendRef};
+use vg_config::http::filter::{SharedFilter, SharedFilterRef};
 use vg_config::http::route::{Route, RouteRef};
 use vg_rpc_client::{ConfigurationClient, ConfigurationClientError, ConfigurationEvent};
 
@@ -35,34 +37,41 @@ impl ConfigurationEventProcessor {
             ConfigurationEvent::BackendChanged(backend_ref) => {
                 let _ = self.sync_backend(backend_ref).await;
             }
+            ConfigurationEvent::SharedFilterChanged(filter_ref) => {
+                let _ = self.sync_shared_filter(filter_ref).await;
+            }
         };
     }
 
     async fn sync_all(&self) -> Result<(), ()> {
         let listener = self.client.listener().await.map_err(|_| ())?;
         let routes = self.fetch_routes(listener.route_refs()).await;
+        let shared_filters = self.fetch_shared_filters(listener.shared_filter_refs()).await;
         let backends = self.fetch_backends(listener.backend_refs()).await;
 
         let (routing, backends) = atomically(|| {
             let routes = routes
-                .clone()
-                .into_iter()
-                .filter_map(|r| r.ok())
-                .map(|r| (r.ref_().clone(), r))
+                .iter()
+                .filter_map(|r| r.clone().ok())
+                .map(|route| (Arc::new(route.ref_()), route))
+                .collect();
+            let shared_filters = shared_filters.iter()
+                .filter_map(|r| r.clone().ok())
+                .map(|filter| (Arc::new(filter.ref_()), filter))
                 .collect();
 
             let routing = SourceRoutingConfiguration::builder()
                 .listener(Some(listener.clone()))
                 .routes(routes)
+                .shared_filters(shared_filters)
                 .build();
 
             self.routing.write(routing)?;
 
             let backends = backends
-                .clone()
-                .into_iter()
-                .filter_map(|b| b.ok())
-                .map(|b| (b.ref_().clone(), b))
+                .iter()
+                .filter_map(|r| r.clone().ok())
+                .map(|backend| (Arc::new(backend.ref_()), backend))
                 .collect();
 
             let backends = SourceBackendConfiguration::builder()
@@ -86,18 +95,16 @@ impl ConfigurationEventProcessor {
 
         let routing = atomically(|| {
             let routing = self.routing.read()?;
-
-
-                let listener = routing.listener().clone();
-                let route_ref = route_ref.clone();
+            
                 let route = route.clone();
                 let mut routes = routing.routes().clone();
-                routes.insert(route_ref, route);
+                routes.insert(Arc::new(route.ref_()), route);
 
-                let routing = SourceRoutingConfiguration::builder()
-                    .listener(listener)
-                    .routes(routes)
-                    .build();
+            let routing = SourceRoutingConfiguration::builder()
+                .listener(routing.listener().clone())
+                .routes(routes)
+                .shared_filters(routing.shared_filters().clone())
+                .build();
 
                 self.routing.write(routing)?;
 
@@ -111,6 +118,33 @@ impl ConfigurationEventProcessor {
         Ok(())
     }
 
+    async fn sync_shared_filter(&self, filter_ref: SharedFilterRef) -> Result<(), ()> {
+        let shared_filter = self.client.shared_filter(&filter_ref).await.map_err(|_| ())?;
+
+        let routing = atomically(|| {
+            let routing = self.routing.read()?;
+            
+            let mut shared_filters = routing.shared_filters().clone();
+            shared_filters.insert(Arc::new(shared_filter.ref_()), shared_filter.clone());
+
+            let routing = SourceRoutingConfiguration::builder()
+                .listener(routing.listener.clone())
+                .routes(routing.routes.clone())
+                .shared_filters(shared_filters)
+                .build();
+
+            self.routing.write(routing)?;
+
+            self.routing.read()
+        })
+            .await;
+
+
+        let _ = self.routing_tx.send(routing);
+
+        Ok(())
+    }
+
     async fn sync_backend(&self, backend_ref: BackendRef) -> Result<(), ()> {
         let backend = self.client.backend(&backend_ref).await.map_err(|_| ())?;
 
@@ -119,7 +153,7 @@ impl ConfigurationEventProcessor {
             let mut backends = backends.as_ref().clone();
             backends
                 .backends
-                .insert(backend_ref.clone(), backend.clone());
+                .insert(Arc::new(backend.ref_()), backend.clone());
             self.backends.write(backends)?;
 
             self.backends.read()
@@ -133,22 +167,33 @@ impl ConfigurationEventProcessor {
     async fn fetch_routes(
         &self,
         route_refs: &[RouteRef],
-    ) -> Vec<Result<Route, ConfigurationClientError>> {
+    ) -> Vec<Result<Arc<Route>, ConfigurationClientError>> {
         let routes = route_refs
             .iter()
             .map(|route_ref| self.client.route(route_ref));
 
-        future::join_all(routes).await
+        join_all(routes).await
     }
 
     async fn fetch_backends(
         &self,
         backend_refs: &[BackendRef],
-    ) -> Vec<Result<Backend, ConfigurationClientError>> {
+    ) -> Vec<Result<Arc<Backend>, ConfigurationClientError>> {
         let backends = backend_refs
             .iter()
             .map(|backend_ref| self.client.backend(backend_ref));
 
-        future::join_all(backends).await
+        join_all(backends).await
+    }
+
+    async fn fetch_shared_filters(
+        &self,
+        filter_refs: &[SharedFilterRef],
+    ) -> Vec<Result<Arc<SharedFilter>, ConfigurationClientError>> {
+        let filters = filter_refs
+            .iter()
+            .map(|filter_ref| self.client.shared_filter(filter_ref));
+
+        join_all(filters).await
     }
 }

@@ -1,6 +1,6 @@
 use crate::http::route::host::HostMatcher;
 use derive_more::From;
-use getset::Getters;
+use getset::{CloneGetters, Getters};
 use rule::Rule;
 use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
@@ -12,9 +12,9 @@ pub mod rule;
 #[serde(transparent)]
 pub struct RouteRef(String);
 
-#[derive(Debug, Clone, Serialize, Deserialize, TypedBuilder, Getters)]
+#[derive(Debug, Clone, Serialize, Deserialize, TypedBuilder, Getters, CloneGetters)]
 pub struct Route {
-    #[getset(get = "pub")]
+    #[getset(get_clone = "pub")]
     #[serde(rename = "ref")]
     #[builder(setter(into))]
     ref_: RouteRef,

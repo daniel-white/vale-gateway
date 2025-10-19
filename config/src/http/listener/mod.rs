@@ -9,6 +9,9 @@ use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
 use vg_core::collections::{CollectionEvent, NotifyingCollection};
 use vg_core::net::Port;
+use crate::http::filter::access_control::AccessControlFilterRef;
+use crate::http::filter::{GatewayFilter, SharedFilterRef};
+use crate::http::filter::static_response::StaticResponseFilterRef;
 
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, Clone, From)]
 #[serde(transparent)]
@@ -43,11 +46,23 @@ pub struct Listener {
     policies: ListenerPolicies,
 
     #[getset(get = "pub")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    filters: Vec<GatewayFilter>,
+
+    #[getset(get = "pub")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    shared_filter_refs: Vec<SharedFilterRef>,
+
+    #[getset(get = "pub")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     route_refs: Vec<RouteRef>,
 
     #[getset(get = "pub")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     backend_refs: Vec<BackendRef>,
 }
+
+
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ListenerCollectionEvent {
