@@ -83,9 +83,20 @@ impl EnhancedWsClientBuilder {
             }
 
             // Add timeout layer if configured
-            if let Some(_timeout_config) = &config.timeout {
-                // TODO: Add timeout layer when implemented
-                tracing::debug!("Timeout layer would be added here");
+            if let Some(timeout_config) = &config.timeout {
+                use crate::layers::TimeoutLayer;
+
+                // Note: We'll set the timeout when building the client
+                // The timeout layer will handle timeout configuration
+
+                // Add the timeout layer for additional configuration
+                let timeout_layer = TimeoutLayer::from_config(timeout_config);
+                self.layers.push(Box::new(timeout_layer));
+
+                tracing::debug!(
+                    "Timeout layer added with default timeout: {:?}",
+                    timeout_config.default_timeout
+                );
             }
 
             // Add circuit breaker layer if configured
@@ -113,7 +124,14 @@ impl EnhancedWsClientBuilder {
         mut self,
         uri: impl AsRef<str>,
     ) -> Result<LayeredClient, ConfigurationClientInitError> {
-        // Apply robustness configuration before building
+        // Apply timeout configuration to the builder if configured
+        if let Some(config) = &self.robust_config
+            && let Some(timeout_config) = &config.timeout
+        {
+            self.builder = self.builder.request_timeout(timeout_config.default_timeout);
+        }
+
+        // Apply robustness configuration (add layers)
         self.apply_robust_config();
 
         // Build the base WsClient
@@ -216,5 +234,42 @@ mod tests {
     fn test_default_robustness_builder() {
         let builder = EnhancedWsClientBuilder::with_default_robustness();
         assert!(builder.has_robust_config());
+    }
+
+    #[test]
+    fn test_builder_with_timeout_config() {
+        use crate::config::{RobustClientConfig, TimeoutConfig};
+
+        let timeout_config = TimeoutConfig::builder()
+            .default_timeout(std::time::Duration::from_secs(45))
+            .build();
+
+        let robust_config = RobustClientConfig::builder()
+            .timeout(Some(timeout_config))
+            .build();
+
+        let builder = EnhancedWsClientBuilder::new().with_robust_config(robust_config);
+
+        assert!(builder.has_robust_config());
+    }
+
+    #[test]
+    fn test_builder_layer_addition() {
+        use crate::layers::NoOpLayer;
+
+        let builder = EnhancedWsClientBuilder::new().layer(NoOpLayer);
+
+        assert_eq!(builder.layer_count(), 1);
+    }
+
+    #[test]
+    fn test_builder_multiple_layers() {
+        use crate::layers::{NoOpLayer, TimeoutLayer};
+
+        let builder = EnhancedWsClientBuilder::new()
+            .layer(NoOpLayer)
+            .layer(TimeoutLayer::new(std::time::Duration::from_secs(30)));
+
+        assert_eq!(builder.layer_count(), 2);
     }
 }

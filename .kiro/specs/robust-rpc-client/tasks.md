@@ -38,13 +38,13 @@
     - Add methods for applying robustness configurations
     - _Requirements: 4.1, 4.2, 4.3_
 
-- [ ] 5. Implement timeout middleware layer
-  - [ ] 5.1 Create TimeoutLayer implementation
+- [x] 5. Implement timeout middleware layer
+  - [x] 5.1 Create TimeoutLayer implementation
     - Wrap requests with configurable timeouts
     - Handle timeout errors and convert to appropriate error types
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
   
-  - [ ] 5.2 Add timeout layer unit tests
+  - [x] 5.2 Add timeout layer unit tests
     - Test timeout enforcement and error handling
     - Verify different timeout configurations work correctly
     - _Requirements: 3.1, 3.2, 3.3_
