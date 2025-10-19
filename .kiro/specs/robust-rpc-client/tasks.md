@@ -109,8 +109,8 @@
     - Verify connection state transitions and error handling
     - _Requirements: 1.3, 1.4, 1.5_
 
-- [ ] 9. Update ConfigurationTransport to use enhanced builder
-  - [ ] 9.1 Modify ConfigurationTransportOptions to support robust config
+- [x] 9. Update ConfigurationTransport to use enhanced builder
+  - [x] 9.1 Modify ConfigurationTransportOptions to support robust config
     - Add optional RobustClientConfig to transport options
     - Update AsyncTryFrom implementation to use EnhancedWsClientBuilder
     - _Requirements: 4.1, 4.2, 7.4_
@@ -126,7 +126,7 @@
     - Add validation for configuration parameters
     - _Requirements: 7.4, 7.5_
 
-- [ ] 11. Create integration tests and examples
+- [ ] 11. Create integration tests
   - [ ] 11.1 Create end-to-end integration tests
     - Test complete client behavior with mock server
     - Verify middleware composition and interaction
@@ -136,11 +136,6 @@
     - Implement server with configurable behavior (slow, failing, unavailable)
     - Add network simulation capabilities for testing reconnection
     - _Requirements: 1.3, 2.1, 3.1_
-  
-  - [ ] 11.3 Create usage examples and documentation
-    - Add examples showing different robustness configurations
-    - Document migration path from existing client usage
-    - _Requirements: 7.1, 7.2, 7.3_
 
 - [ ] 12. Performance optimization and final integration
   - [ ] 12.1 Optimize middleware stack performance
