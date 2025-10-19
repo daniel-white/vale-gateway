@@ -1,9 +1,17 @@
 pub mod circuit_breaker;
+pub mod connection;
+#[cfg(test)]
+pub mod connection_tests;
+pub mod reconnection;
 pub mod retry;
+pub mod status;
 pub mod timeout;
 
 pub use circuit_breaker::*;
+pub use connection::*;
+pub use reconnection::*;
 pub use retry::*;
+pub use status::*;
 pub use timeout::*;
 
 use jsonrpsee::ws_client::WsClient;

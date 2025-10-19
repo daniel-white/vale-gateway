@@ -1,0 +1,610 @@
+#[cfg(test)]
+mod connection_management_tests {
+    use super::super::connection::*;
+    use super::super::reconnection::*;
+    use super::super::status::*;
+    use crate::api::ConfigurationClientError;
+    use crate::config::ReconnectionConfig;
+    use crate::instrumentation::ClientMetrics;
+    use async_trait::async_trait;
+    use http::Uri;
+    use jsonrpsee::ws_client::WsClient;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicU32, Ordering},
+    };
+    use std::time::{Duration, SystemTime};
+    use tokio::time::{sleep, timeout};
+
+    /// Mock client factory for comprehensive testing
+    struct TestClientFactory {
+        should_fail: Arc<AtomicBool>,
+        fail_count: Arc<AtomicU32>,
+        success_count: Arc<AtomicU32>,
+        delay: Duration,
+    }
+
+    impl TestClientFactory {
+        fn new() -> Self {
+            Self {
+                should_fail: Arc::new(AtomicBool::new(false)),
+                fail_count: Arc::new(AtomicU32::new(0)),
+                success_count: Arc::new(AtomicU32::new(0)),
+                delay: Duration::ZERO,
+            }
+        }
+
+        fn with_delay(delay: Duration) -> Self {
+            Self {
+                should_fail: Arc::new(AtomicBool::new(false)),
+                fail_count: Arc::new(AtomicU32::new(0)),
+                success_count: Arc::new(AtomicU32::new(0)),
+                delay,
+            }
+        }
+
+        fn set_should_fail(&self, should_fail: bool) {
+            self.should_fail.store(should_fail, Ordering::Relaxed);
+        }
+
+        fn get_fail_count(&self) -> u32 {
+            self.fail_count.load(Ordering::Relaxed)
+        }
+
+        fn get_success_count(&self) -> u32 {
+            self.success_count.load(Ordering::Relaxed)
+        }
+
+        fn reset_counters(&self) {
+            self.fail_count.store(0, Ordering::Relaxed);
+            self.success_count.store(0, Ordering::Relaxed);
+        }
+    }
+
+    #[async_trait]
+    impl ClientFactory for TestClientFactory {
+        async fn create_client(&self, _uri: &Uri) -> Result<WsClient, ClientError> {
+            if !self.delay.is_zero() {
+                sleep(self.delay).await;
+            }
+
+            if self.should_fail.load(Ordering::Relaxed) {
+                self.fail_count.fetch_add(1, Ordering::Relaxed);
+                Err(ClientError::Connection(
+                    "Test connection failure".to_string(),
+                ))
+            } else {
+                self.success_count.fetch_add(1, Ordering::Relaxed);
+                // In real tests, we'd return a mock WsClient
+                // For now, we simulate success by returning an error that indicates success
+                Err(ClientError::Connection(
+                    "Test success - cannot create real client".to_string(),
+                ))
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_connection_manager_basic_lifecycle() {
+        let factory = Arc::new(TestClientFactory::new());
+        let config = ReconnectionConfig::builder()
+            .enable_lazy_connection(false)
+            .max_reconnect_attempts(Some(3))
+            .reconnect_base_delay(Duration::from_millis(10))
+            .build();
+
+        let manager = ConnectionManager::new(factory.clone(), config);
+
+        // Initially disconnected
+        assert_eq!(
+            manager.get_connection_status(),
+            ConnectionStatus::Disconnected
+        );
+
+        // Test connection attempt (will fail with our mock)
+        let uri: Uri = "ws://localhost:8080".parse().unwrap();
+        let result = manager.connect(&uri).await;
+        assert!(result.is_err());
+
+        // Should still be disconnected after failed connection
+        assert_eq!(
+            manager.get_connection_status(),
+            ConnectionStatus::Disconnected
+        );
+    }
+
+    #[tokio::test]
+    async fn test_connection_manager_lazy_connection() {
+        let factory = Arc::new(TestClientFactory::new());
+        let config = ReconnectionConfig::builder()
+            .enable_lazy_connection(true)
+            .build();
+
+        let manager = ConnectionManager::new(factory, config);
+        let uri: Uri = "ws://localhost:8080".parse().unwrap();
+
+        // Lazy connection should succeed without actually connecting
+        let result = manager.initialize(&uri).await;
+        assert!(result.is_ok());
+        assert_eq!(
+            manager.get_connection_status(),
+            ConnectionStatus::Disconnected
+        );
+    }
+
+    #[tokio::test]
+    async fn test_connection_manager_with_metrics() {
+        let factory = Arc::new(TestClientFactory::new());
+        let config = ReconnectionConfig::default();
+        let meter = opentelemetry::global::meter("test");
+        let metrics = Arc::new(ClientMetrics::new(&meter));
+
+        let manager = ConnectionManager::with_metrics(factory, config, metrics);
+        assert_eq!(
+            manager.get_connection_status(),
+            ConnectionStatus::Disconnected
+        );
+    }
+
+    #[tokio::test]
+    async fn test_request_queueing_functionality() {
+        let factory = Arc::new(TestClientFactory::new());
+        let config = ReconnectionConfig::builder()
+            .queue_requests_during_reconnection(true)
+            .max_queued_requests(3)
+            .build();
+
+        let manager = ConnectionManager::new(factory, config);
+
+        // Test successful queueing
+        let (tx1, _rx1) = tokio::sync::oneshot::channel();
+        let request1 = QueuedRequest::new(tx1);
+        assert!(manager.queue_request(request1).await.is_ok());
+
+        let (tx2, _rx2) = tokio::sync::oneshot::channel();
+        let request2 = QueuedRequest::new(tx2);
+        assert!(manager.queue_request(request2).await.is_ok());
+
+        let (tx3, _rx3) = tokio::sync::oneshot::channel();
+        let request3 = QueuedRequest::new(tx3);
+        assert!(manager.queue_request(request3).await.is_ok());
+
+        // Fourth request should fail (queue full)
+        let (tx4, _rx4) = tokio::sync::oneshot::channel();
+        let request4 = QueuedRequest::new(tx4);
+        let result = manager.queue_request(request4).await;
+        assert!(matches!(
+            result,
+            Err(ConfigurationClientError::ServiceUnavailable)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_request_queueing_disabled() {
+        let factory = Arc::new(TestClientFactory::new());
+        let config = ReconnectionConfig::builder()
+            .queue_requests_during_reconnection(false)
+            .build();
+
+        let manager = ConnectionManager::new(factory, config);
+
+        // Queueing should be disabled
+        let (tx, _rx) = tokio::sync::oneshot::channel();
+        let request = QueuedRequest::new(tx);
+        let result = manager.queue_request(request).await;
+        assert!(matches!(
+            result,
+            Err(ConfigurationClientError::ConnectionUnavailable)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_connection_manager_stop() {
+        let factory = Arc::new(TestClientFactory::new());
+        let config = ReconnectionConfig::default();
+        let manager = ConnectionManager::new(factory, config);
+
+        // Stop should complete quickly
+        let stop_result = timeout(Duration::from_secs(2), manager.stop()).await;
+        assert!(stop_result.is_ok());
+        assert_eq!(
+            manager.get_connection_status(),
+            ConnectionStatus::Disconnected
+        );
+    }
+
+    #[tokio::test]
+    async fn test_reconnection_layer_creation_and_config() {
+        let config = ReconnectionConfig::builder()
+            .enable_lazy_connection(true)
+            .max_reconnect_attempts(Some(5))
+            .reconnect_base_delay(Duration::from_secs(2))
+            .reconnect_max_delay(Duration::from_secs(60))
+            .queue_requests_during_reconnection(true)
+            .max_queued_requests(50)
+            .build();
+
+        let layer = ReconnectionLayer::new(config.clone());
+
+        assert_eq!(layer.config().enable_lazy_connection, true);
+        assert_eq!(layer.config().max_reconnect_attempts, Some(5));
+        assert_eq!(layer.config().reconnect_base_delay, Duration::from_secs(2));
+        assert_eq!(layer.config().reconnect_max_delay, Duration::from_secs(60));
+        assert_eq!(layer.config().queue_requests_during_reconnection, true);
+        assert_eq!(layer.config().max_queued_requests, 50);
+    }
+
+    #[tokio::test]
+    async fn test_reconnection_layer_with_metrics() {
+        let config = ReconnectionConfig::default();
+        let meter = opentelemetry::global::meter("test");
+        let metrics = Arc::new(ClientMetrics::new(&meter));
+
+        let layer = ReconnectionLayer::with_metrics(config, metrics);
+        assert!(layer.metrics().is_some());
+    }
+
+    #[tokio::test]
+    async fn test_reconnection_layer_error_classification() {
+        let config = ReconnectionConfig::default();
+        let layer = ReconnectionLayer::new(config);
+
+        // Errors that should trigger reconnection
+        assert!(
+            layer.should_trigger_reconnection(&ConfigurationClientError::ConnectionUnavailable)
+        );
+        assert!(layer.should_trigger_reconnection(&ConfigurationClientError::ServiceUnavailable));
+        assert!(
+            layer.should_trigger_reconnection(&ConfigurationClientError::TransportError(
+                crate::api::SourceError::from(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::ConnectionRefused,
+                    "test"
+                ))
+                    as Box<dyn std::error::Error + Send + Sync>)
+            ))
+        );
+
+        // Errors that should not trigger reconnection
+        assert!(!layer.should_trigger_reconnection(&ConfigurationClientError::NotFound));
+        assert!(!layer.should_trigger_reconnection(&ConfigurationClientError::CircuitBreakerOpen));
+        assert!(
+            !layer.should_trigger_reconnection(&ConfigurationClientError::MaxRetriesExceeded(3))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_reconnection_layer_stop() {
+        let config = ReconnectionConfig::default();
+        let layer = ReconnectionLayer::new(config);
+
+        // Stop should complete without hanging
+        let stop_result = timeout(Duration::from_secs(1), layer.stop()).await;
+        assert!(stop_result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_connection_status_reporter_basic_functionality() {
+        let factory = Arc::new(TestClientFactory::new());
+        let config = ReconnectionConfig::default();
+        let manager = Arc::new(ConnectionManager::new(factory, config));
+        let reporter = ConnectionStatusReporter::new(manager);
+
+        // Test initial status
+        let status = reporter.get_detailed_status();
+        assert_eq!(status.status, ConnectionStatus::Disconnected);
+        assert_eq!(status.total_connections, 0);
+        assert_eq!(status.uptime, Duration::ZERO);
+
+        // Test status update
+        reporter.update_status();
+        let history = reporter.get_status_history();
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].status, ConnectionStatus::Disconnected);
+    }
+
+    #[tokio::test]
+    async fn test_connection_status_reporter_with_metrics() {
+        let factory = Arc::new(TestClientFactory::new());
+        let config = ReconnectionConfig::default();
+        let manager = Arc::new(ConnectionManager::new(factory, config));
+
+        let meter = opentelemetry::global::meter("test");
+        let metrics = Arc::new(ClientMetrics::new(&meter));
+        let reporter = ConnectionStatusReporter::with_metrics(manager, metrics);
+
+        // Should have metrics available
+        assert!(reporter.metrics.is_some());
+
+        // Test status update with metrics
+        reporter.update_status();
+        let history = reporter.get_status_history();
+        assert_eq!(history.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_connection_statistics_calculation() {
+        let factory = Arc::new(TestClientFactory::new());
+        let config = ReconnectionConfig::default();
+        let manager = Arc::new(ConnectionManager::new(factory, config));
+        let reporter = ConnectionStatusReporter::new(manager);
+
+        // Test initial statistics
+        let stats = reporter.get_connection_statistics();
+        assert_eq!(stats.total_connections, 0);
+        assert_eq!(stats.total_disconnections, 0);
+        assert_eq!(stats.uptime, Duration::ZERO);
+        assert_eq!(stats.downtime, Duration::ZERO);
+        assert!(stats.average_connection_duration.is_none());
+
+        // Add some status changes manually for testing
+        reporter.update_status(); // Disconnected
+        let stats = reporter.get_connection_statistics();
+        assert_eq!(stats.status_changes, 1);
+    }
+
+    #[tokio::test]
+    async fn test_connection_health_calculation() {
+        let factory = Arc::new(TestClientFactory::new());
+        let config = ReconnectionConfig::default();
+        let manager = Arc::new(ConnectionManager::new(factory, config));
+        let reporter = ConnectionStatusReporter::new(manager);
+
+        let health = reporter.get_connection_health();
+
+        // With no history, should have perfect availability
+        assert_eq!(health.availability, 1.0);
+        // Disconnected state with high availability should be unhealthy
+        assert!(matches!(health.health, HealthStatus::Unhealthy));
+        assert!(health.mean_time_between_failures.is_none());
+        assert!(health.mean_time_to_recovery.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_status_history_management() {
+        let factory = Arc::new(TestClientFactory::new());
+        let config = ReconnectionConfig::default();
+        let manager = Arc::new(ConnectionManager::new(factory, config));
+        let reporter = ConnectionStatusReporter::new(manager);
+
+        // Test history accumulation
+        reporter.update_status();
+        reporter.update_status(); // Same status, should not add
+        let history = reporter.get_status_history();
+        assert_eq!(history.len(), 1);
+
+        // Test history clearing
+        reporter.clear_history();
+        let history = reporter.get_status_history();
+        assert_eq!(history.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_queued_request_creation_and_timing() {
+        let (tx, _rx) = tokio::sync::oneshot::channel();
+        let request = QueuedRequest::new(tx);
+
+        // Should have a recent timestamp
+        let elapsed = request.queued_at.elapsed();
+        assert!(elapsed < Duration::from_millis(100));
+    }
+
+    #[tokio::test]
+    async fn test_connection_status_equality() {
+        assert_eq!(ConnectionStatus::Connected, ConnectionStatus::Connected);
+        assert_eq!(
+            ConnectionStatus::Disconnected,
+            ConnectionStatus::Disconnected
+        );
+        assert_eq!(ConnectionStatus::Connecting, ConnectionStatus::Connecting);
+        assert_eq!(
+            ConnectionStatus::Reconnecting { attempts: 1 },
+            ConnectionStatus::Reconnecting { attempts: 1 }
+        );
+
+        assert_ne!(ConnectionStatus::Connected, ConnectionStatus::Disconnected);
+        assert_ne!(
+            ConnectionStatus::Reconnecting { attempts: 1 },
+            ConnectionStatus::Reconnecting { attempts: 2 }
+        );
+    }
+
+    #[tokio::test]
+    async fn test_client_error_conversions() {
+        let conn_error = ClientError::Connection("test connection".to_string());
+        let client_error: ConfigurationClientError = conn_error.into();
+        assert!(matches!(
+            client_error,
+            ConfigurationClientError::ConnectionUnavailable
+        ));
+
+        let config_error = ClientError::Configuration("test config".to_string());
+        let client_error2: ConfigurationClientError = config_error.into();
+        assert!(matches!(
+            client_error2,
+            ConfigurationClientError::Unknown(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_reconnection_config_delay_calculation() {
+        let config = ReconnectionConfig::builder()
+            .reconnect_base_delay(Duration::from_millis(100))
+            .reconnect_max_delay(Duration::from_secs(10))
+            .reconnect_backoff_multiplier(2.0)
+            .build();
+
+        // Test delay calculation for different attempts
+        let delay0 = config.delay_for_reconnect_attempt(0);
+        assert_eq!(delay0, Duration::from_millis(100));
+
+        let delay1 = config.delay_for_reconnect_attempt(1);
+        assert_eq!(delay1, Duration::from_millis(200));
+
+        let delay2 = config.delay_for_reconnect_attempt(2);
+        assert_eq!(delay2, Duration::from_millis(400));
+
+        // Test max delay cap
+        let delay_large = config.delay_for_reconnect_attempt(20);
+        assert!(delay_large <= Duration::from_secs(10));
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_connection_operations() {
+        let factory = Arc::new(TestClientFactory::new());
+        let config = ReconnectionConfig::builder()
+            .queue_requests_during_reconnection(true)
+            .max_queued_requests(10)
+            .build();
+
+        let manager = Arc::new(ConnectionManager::new(factory, config));
+
+        // Spawn multiple tasks that try to queue requests concurrently
+        let mut handles = vec![];
+        for i in 0..5 {
+            let manager_clone = Arc::clone(&manager);
+            let handle = tokio::spawn(async move {
+                let (tx, _rx) = tokio::sync::oneshot::channel();
+                let request = QueuedRequest::new(tx);
+                let result = manager_clone.queue_request(request).await;
+                (i, result.is_ok())
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all tasks to complete
+        let mut success_count = 0;
+        for handle in handles {
+            let (_, success) = handle.await.unwrap();
+            if success {
+                success_count += 1;
+            }
+        }
+
+        // All requests should succeed since we're within the queue limit
+        assert_eq!(success_count, 5);
+    }
+
+    #[tokio::test]
+    async fn test_connection_manager_state_transitions() {
+        let factory = Arc::new(TestClientFactory::new());
+        let config = ReconnectionConfig::builder()
+            .enable_lazy_connection(false)
+            .max_reconnect_attempts(Some(2))
+            .reconnect_base_delay(Duration::from_millis(10))
+            .build();
+
+        let manager = ConnectionManager::new(factory.clone(), config);
+        let uri: Uri = "ws://localhost:8080".parse().unwrap();
+
+        // Initially disconnected
+        assert_eq!(
+            manager.get_connection_status(),
+            ConnectionStatus::Disconnected
+        );
+
+        // Attempt connection (will fail)
+        factory.set_should_fail(true);
+        let result = manager.connect(&uri).await;
+        assert!(result.is_err());
+
+        // Should trigger reconnection attempts
+        assert_eq!(
+            manager.get_connection_status(),
+            ConnectionStatus::Disconnected
+        );
+
+        // Verify that connection attempts were made
+        assert!(factory.get_fail_count() > 0);
+    }
+
+    #[tokio::test]
+    async fn test_status_reporter_change_detection() {
+        let factory = Arc::new(TestClientFactory::new());
+        let config = ReconnectionConfig::default();
+        let manager = Arc::new(ConnectionManager::new(factory, config));
+        let reporter = ConnectionStatusReporter::new(manager);
+
+        // Initial update should record change
+        reporter.update_status();
+        let history = reporter.get_status_history();
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].status, ConnectionStatus::Disconnected);
+
+        // Same status should not create new entry
+        reporter.update_status();
+        let history = reporter.get_status_history();
+        assert_eq!(history.len(), 1);
+    }
+
+    #[test]
+    fn test_health_status_ordering() {
+        use std::mem::discriminant;
+
+        // Test that health statuses are distinct
+        assert_ne!(
+            discriminant(&HealthStatus::Healthy),
+            discriminant(&HealthStatus::Degraded)
+        );
+        assert_ne!(
+            discriminant(&HealthStatus::Degraded),
+            discriminant(&HealthStatus::Unhealthy)
+        );
+        assert_ne!(
+            discriminant(&HealthStatus::Unhealthy),
+            discriminant(&HealthStatus::Critical)
+        );
+    }
+
+    #[test]
+    fn test_detailed_status_serialization() {
+        let status = DetailedConnectionStatus {
+            status: ConnectionStatus::Connected,
+            uptime: Duration::from_secs(3600),
+            total_connections: 5,
+            last_connected: Some(SystemTime::now()),
+            last_disconnected: None,
+            status_changes: 10,
+            timestamp: SystemTime::now(),
+        };
+
+        // Test that it can be serialized and deserialized
+        let serialized = serde_json::to_string(&status).expect("Should serialize");
+        let _deserialized: DetailedConnectionStatus =
+            serde_json::from_str(&serialized).expect("Should deserialize");
+    }
+
+    #[test]
+    fn test_connection_statistics_serialization() {
+        let stats = ConnectionStatistics {
+            total_connections: 10,
+            total_disconnections: 5,
+            total_reconnection_attempts: 15,
+            uptime: Duration::from_secs(7200),
+            downtime: Duration::from_secs(300),
+            average_connection_duration: Some(Duration::from_secs(1440)),
+            status_changes: 20,
+            first_connection: Some(SystemTime::now()),
+            last_status_change: Some(SystemTime::now()),
+        };
+
+        // Test serialization
+        let serialized = serde_json::to_string(&stats).expect("Should serialize");
+        let _deserialized: ConnectionStatistics =
+            serde_json::from_str(&serialized).expect("Should deserialize");
+    }
+
+    #[tokio::test]
+    async fn test_reconnection_layer_initialization() {
+        let config = ReconnectionConfig::builder()
+            .enable_lazy_connection(true)
+            .build();
+
+        let mut layer = ReconnectionLayer::new(config);
+        let uri: Uri = "ws://localhost:8080".parse().unwrap();
+
+        // Should successfully initialize with lazy connection
+        let result = layer.initialize(uri).await;
+        // With lazy connection enabled, initialization should succeed without connecting
+        assert!(result.is_ok());
+    }
+}

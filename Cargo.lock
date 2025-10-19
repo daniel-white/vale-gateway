@@ -3764,6 +3764,7 @@ dependencies = [
  "opentelemetry-semantic-conventions",
  "pin-project 1.1.10",
  "rand 0.8.5",
+ "serde",
  "serde_json",
  "thiserror 2.0.17",
  "tokio 1.47.1",
