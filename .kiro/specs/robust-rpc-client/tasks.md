@@ -16,13 +16,13 @@
     - Add error conversion traits for different middleware errors
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [ ] 3. Implement OpenTelemetry instrumentation infrastructure
-  - [ ] 3.1 Create ClientMetrics struct with OpenTelemetry metrics
+- [x] 3. Implement OpenTelemetry instrumentation infrastructure
+  - [x] 3.1 Create ClientMetrics struct with OpenTelemetry metrics
     - Implement counters, histograms, and gauges for client operations
     - Add metrics initialization and registration
     - _Requirements: 6.1, 6.2, 6.3_
   
-  - [ ] 3.2 Create instrumentation layer for tracing
+  - [x] 3.2 Create instrumentation layer for tracing
     - Implement tracing spans for all client operations
     - Add request/response logging and error tracking
     - _Requirements: 6.4, 6.5_

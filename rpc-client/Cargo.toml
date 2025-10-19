@@ -23,6 +23,7 @@ tower = { workspace = true, features = ["timeout"] }
 tower-http.workspace = true
 tower-layer.workspace = true
 tower-retry.workspace = true
+tracing.workspace = true
 typed-builder.workspace = true
 vg-core = { path = "../core" }
 vg-config = { path = "../config" }

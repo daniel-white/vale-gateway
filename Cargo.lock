@@ -3771,6 +3771,7 @@ dependencies = [
  "tower-http",
  "tower-layer",
  "tower-retry",
+ "tracing",
  "typed-builder",
  "vg-config",
  "vg-core",
