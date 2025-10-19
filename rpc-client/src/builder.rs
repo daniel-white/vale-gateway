@@ -1,7 +1,4 @@
-use crate::{
-    ConfigurationClientInitError, RobustClientConfig,
-    layers::{LayeredClient, WsClientLayer},
-};
+use crate::{ConfigurationClientInitError, LayeredClient, RobustClientConfig, WsClientLayer};
 use jsonrpsee::ws_client::{PingConfig, WsClient, WsClientBuilder};
 
 /// Enhanced WebSocket client builder that supports Tower middleware layers

@@ -65,9 +65,10 @@
     - Verify backoff behavior and retry limits
     - _Requirements: 1.1, 1.2_
 
-- [ ] 6.4. Refactor layers into separate modules
+- [x] 6.4. Refactor layers into separate modules
   - Break out TimeoutLayer, RetryLayer, and related types into separate module files
-  - Create layers/timeout.rs, layers/retry.rs, and layers/mod.rs
+  - Promote transport.rs to transport/mod.rs
+  - Create transport/layers/timeout.rs, transport/layers/retry.rs, and layers/mod.rs
   - Update imports and maintain public API compatibility
   - _Requirements: 7.3_
 
