@@ -1,25 +1,139 @@
 use async_from::AsyncTryFrom;
 use async_trait::async_trait;
-use getset::CloneGetters;
+
 use http::Uri;
+use jsonrpsee::core::ClientError;
 use jsonrpsee::ws_client::{PingConfig, WsClient, WsClientBuilder};
 use std::sync::Arc;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
+use vg_config::http::backend::Backend;
+use vg_config::http::filter::SharedFilter;
+use vg_config::http::listener::Listener;
 use vg_config::http::listener::ListenerRef;
+use vg_config::http::route::Route;
+use vg_rpc::{
+    ConfigurationApiClient, ConfigurationApiError, GetBackendRequest, GetListenerRequest,
+    GetRouteRequest, GetSharedFilterRequest,
+};
 
+use crate::transport::layers::LayeredClient;
 use crate::{EnhancedWsClientBuilder, RobustClientConfig};
 
 pub mod layers;
 
 pub use layers::*;
 
-#[derive(Clone, CloneGetters, TypedBuilder)]
+/// Transport wrapper that can hold either a simple WsClient or a LayeredClient
+/// This maintains backward compatibility while supporting enhanced robustness features
+#[derive(Clone)]
+pub enum ClientWrapper {
+    /// Simple WebSocket client without middleware layers
+    Simple(Arc<WsClient>),
+    /// Enhanced client with middleware layers for robustness
+    Layered(Arc<LayeredClient>),
+}
+
+impl ClientWrapper {
+    /// Create a simple wrapper from a WsClient
+    pub fn simple(client: WsClient) -> Self {
+        Self::Simple(Arc::new(client))
+    }
+
+    /// Create a layered wrapper from a LayeredClient
+    pub fn layered(client: LayeredClient) -> Self {
+        Self::Layered(Arc::new(client))
+    }
+
+    /// Execute a request using the appropriate client type
+    pub async fn listener(
+        &self,
+        req: GetListenerRequest,
+    ) -> Result<Listener, ConfigurationApiError> {
+        match self {
+            ClientWrapper::Simple(client) => client
+                .listener(req)
+                .await
+                .map_err(client_error_to_api_error),
+            ClientWrapper::Layered(client) => client
+                .listener(req)
+                .await
+                .map_err(client_error_to_api_error),
+        }
+    }
+
+    /// Execute a route request using the appropriate client type
+    pub async fn route(&self, req: GetRouteRequest) -> Result<Route, ConfigurationApiError> {
+        match self {
+            ClientWrapper::Simple(client) => {
+                client.route(req).await.map_err(client_error_to_api_error)
+            }
+            ClientWrapper::Layered(client) => {
+                client.route(req).await.map_err(client_error_to_api_error)
+            }
+        }
+    }
+
+    /// Execute a backend request using the appropriate client type
+    pub async fn backend(&self, req: GetBackendRequest) -> Result<Backend, ConfigurationApiError> {
+        match self {
+            ClientWrapper::Simple(client) => {
+                client.backend(req).await.map_err(client_error_to_api_error)
+            }
+            ClientWrapper::Layered(client) => {
+                client.backend(req).await.map_err(client_error_to_api_error)
+            }
+        }
+    }
+
+    /// Execute a shared filter request using the appropriate client type
+    pub async fn shared_filter(
+        &self,
+        req: GetSharedFilterRequest,
+    ) -> Result<SharedFilter, ConfigurationApiError> {
+        match self {
+            ClientWrapper::Simple(client) => client
+                .shared_filter(req)
+                .await
+                .map_err(client_error_to_api_error),
+            ClientWrapper::Layered(client) => client
+                .shared_filter(req)
+                .await
+                .map_err(client_error_to_api_error),
+        }
+    }
+
+    /// Subscribe to events using the appropriate client type
+    pub async fn events(
+        &self,
+        req: vg_rpc::SubscribeEventsRequest,
+    ) -> Result<
+        jsonrpsee::core::client::Subscription<vg_rpc::ConfigurationEventMessage>,
+        jsonrpsee::core::ClientError,
+    > {
+        match self {
+            ClientWrapper::Simple(client) => client.events(req).await,
+            ClientWrapper::Layered(client) => client.events(req).await,
+        }
+    }
+}
+
+#[derive(Clone, TypedBuilder)]
 pub struct ConfigurationTransport {
-    #[getset(get_clone = "pub(crate)")]
     listener_ref: ListenerRef,
-    #[getset(get_clone = "pub(crate)")]
-    client: Arc<WsClient>,
+    client: ClientWrapper,
+}
+
+impl ConfigurationTransport {
+    /// Get a reference to the listener ref
+    pub fn listener_ref(&self) -> &ListenerRef {
+        &self.listener_ref
+    }
+
+    /// Get a reference to the underlying client wrapper
+    pub fn client(&self) -> &ClientWrapper {
+        &self.client
+    }
 }
 
 #[derive(Debug, TypedBuilder)]
@@ -87,7 +201,13 @@ impl AsyncTryFrom<ConfigurationTransportOptions> for ConfigurationTransport {
     type Error = ConfigurationClientInitError;
 
     async fn async_try_from(value: ConfigurationTransportOptions) -> Result<Self, Self::Error> {
-        let client = if let Some(robust_config) = value.robust_config {
+        let client_wrapper = if let Some(robust_config) = value.robust_config {
+            // Validate configuration before proceeding
+            robust_config.validate().map_err(|_| {
+                tracing::error!("Invalid robust client configuration");
+                ConfigurationClientInitError::WsClientError
+            })?;
+
             // Use EnhancedWsClientBuilder with robustness features
             let layered_client = EnhancedWsClientBuilder::new()
                 .enable_ws_ping(PingConfig::default())
@@ -95,26 +215,35 @@ impl AsyncTryFrom<ConfigurationTransportOptions> for ConfigurationTransport {
                 .build(value.address.to_string())
                 .await?;
 
-            // Extract the inner WsClient from LayeredClient
-            layered_client.into_inner()
+            ClientWrapper::layered(layered_client)
         } else {
             // Use standard WsClientBuilder for backward compatibility
-            WsClientBuilder::new()
+            let simple_client = WsClientBuilder::new()
                 .enable_ws_ping(PingConfig::default())
                 .build(value.address.to_string())
                 .await
                 .map_err(|err| {
                     tracing::error!("Error creating ws client: {:?}", err);
                     ConfigurationClientInitError::WsClientError
-                })?
+                })?;
+
+            ClientWrapper::simple(simple_client)
         };
 
         let transport = ConfigurationTransport::builder()
             .listener_ref(value.listener_ref)
-            .client(Arc::new(client))
+            .client(client_wrapper)
             .build();
 
         Ok(transport)
+    }
+}
+
+// Helper function to convert ClientError to ConfigurationApiError
+fn client_error_to_api_error(error: ClientError) -> ConfigurationApiError {
+    match error {
+        ClientError::Call(err) => ConfigurationApiError::from(err),
+        _ => ConfigurationApiError::Unknown,
     }
 }
 #[cfg(test)]

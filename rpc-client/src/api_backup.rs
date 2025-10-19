@@ -6,7 +6,7 @@ use opentelemetry::trace::{SpanKind, Tracer};
 use std::sync::Arc;
 use std::time::Duration;
 use thiserror::Error;
-
+use typed_builder::TypedBuilder;
 use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::filter::{SharedFilter, SharedFilterRef};
 use vg_config::http::listener::Listener;
@@ -16,15 +16,344 @@ use vg_rpc::{
     GetSharedFilterRequest, RequestContext,
 };
 
-#[derive(Clone)]
+#[derive(Clone, TypedBuilder)]
 pub struct ConfigurationClient {
     transport: ConfigurationTransport,
 }
 
-impl ConfigurationClient {
-    /// Create a new ConfigurationClient with the given transport
-    pub fn new(transport: ConfigurationTransport) -> Self {
-        Self { transport }
+/// Builder for creating ConfigurationClient with convenient configuration methods
+pub struct ConfigurationClientBuilder;
+
+impl ConfigurationClientBuilder {
+    /// Create a new builder
+    pub fn new() -> Self {
+        Self
+    }
+
+    /// Set the transport options directly
+    pub fn transport_options(mut self, options: crate::ConfigurationTransportOptions) -> Self {
+        self.transport_options = Some(options);
+        self
+    }
+
+    /// Configure basic connection parameters
+    pub fn connection(
+        mut self,
+        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
+        address: impl Into<http::Uri>,
+    ) -> Self {
+        let options = crate::ConfigurationTransportOptions::builder()
+            .listener_ref(listener_ref)
+            .address(address)
+            .build();
+        self.transport_options = Some(options);
+        self
+    }
+
+    /// Configure connection with production-ready robustness settings
+    pub fn production_ready(
+        mut self,
+        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
+        address: impl Into<http::Uri>,
+    ) -> Self {
+        let options = crate::ConfigurationTransportOptions::production(listener_ref, address);
+        self.transport_options = Some(options);
+        self
+    }
+
+    /// Configure connection with development-friendly robustness settings
+    pub fn development_ready(
+        mut self,
+        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
+        address: impl Into<http::Uri>,
+    ) -> Self {
+        let options = crate::ConfigurationTransportOptions::development(listener_ref, address);
+        self.transport_options = Some(options);
+        self
+    }
+
+    /// Configure connection with custom robustness settings
+    pub fn with_robustness(
+        mut self,
+        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
+        address: impl Into<http::Uri>,
+        robust_config: crate::RobustClientConfig,
+    ) -> Self {
+        let options = crate::ConfigurationTransportOptions::with_robust_config(
+            listener_ref,
+            address,
+            robust_config,
+        );
+        self.transport_options = Some(options);
+        self
+    }
+
+    /// Configure connection with default robustness settings
+    pub fn with_default_robustness(
+        mut self,
+        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
+        address: impl Into<http::Uri>,
+    ) -> Self {
+        let options =
+            crate::ConfigurationTransportOptions::with_default_robustness(listener_ref, address);
+        self.transport_options = Some(options);
+        self
+    }
+
+    /// Configure timeout settings
+    pub fn with_timeout(
+        mut self,
+        default_timeout: Duration,
+    ) -> Result<Self, ConfigurationClientError> {
+        let mut options = self.transport_options.take().ok_or_else(|| {
+            ConfigurationClientError::ConfigurationError(
+                crate::ConfigValidationError::InvalidTimeout(
+                    "Connection must be configured before timeout settings".to_string(),
+                ),
+            )
+        })?;
+
+        let timeout_config = crate::TimeoutConfig::builder()
+            .default_timeout(default_timeout)
+            .build();
+
+        // Validate timeout configuration
+        timeout_config
+            .validate()
+            .map_err(ConfigurationClientError::ConfigurationError)?;
+
+        let robust_config = options.robust_config().cloned().unwrap_or_default();
+
+        let updated_config = crate::RobustClientConfig::builder()
+            .timeout(Some(timeout_config))
+            .circuit_breaker(robust_config.circuit_breaker)
+            .retry(robust_config.retry)
+            .reconnection(robust_config.reconnection)
+            .instrumentation(robust_config.instrumentation)
+            .build();
+
+        // Update the options with the new robust config
+        options = crate::ConfigurationTransportOptions::builder()
+            .listener_ref(options.listener_ref.clone())
+            .address(options.address.clone())
+            .robust_config(Some(updated_config))
+            .build();
+
+        self.transport_options = Some(options);
+        Ok(self)
+    }
+
+    /// Configure circuit breaker settings
+    pub fn with_circuit_breaker(
+        mut self,
+        failure_threshold: u32,
+        success_threshold: u32,
+        timeout: Duration,
+    ) -> Result<Self, ConfigurationClientError> {
+        let mut options = self.transport_options.take().ok_or_else(|| {
+            ConfigurationClientError::ConfigurationError(
+                crate::ConfigValidationError::InvalidCircuitBreaker(
+                    "Connection must be configured before circuit breaker settings".to_string(),
+                ),
+            )
+        })?;
+
+        let circuit_breaker_config = crate::CircuitBreakerConfig::builder()
+            .failure_threshold(failure_threshold)
+            .success_threshold(success_threshold)
+            .timeout(timeout)
+            .build();
+
+        // Validate circuit breaker configuration
+        circuit_breaker_config
+            .validate()
+            .map_err(ConfigurationClientError::ConfigurationError)?;
+
+        let robust_config = options.robust_config().cloned().unwrap_or_default();
+
+        let updated_config = crate::RobustClientConfig::builder()
+            .timeout(robust_config.timeout)
+            .circuit_breaker(Some(circuit_breaker_config))
+            .retry(robust_config.retry)
+            .reconnection(robust_config.reconnection)
+            .instrumentation(robust_config.instrumentation)
+            .build();
+
+        // Update the options with the new robust config
+        options = crate::ConfigurationTransportOptions::builder()
+            .listener_ref(options.listener_ref.clone())
+            .address(options.address.clone())
+            .robust_config(Some(updated_config))
+            .build();
+
+        self.transport_options = Some(options);
+        Ok(self)
+    }
+
+    /// Configure retry settings
+    pub fn with_retry(
+        mut self,
+        max_attempts: u32,
+        base_delay: Duration,
+        max_delay: Duration,
+    ) -> Result<Self, ConfigurationClientError> {
+        let mut options = self.transport_options.take().ok_or_else(|| {
+            ConfigurationClientError::ConfigurationError(
+                crate::ConfigValidationError::InvalidRetryPolicy(
+                    "Connection must be configured before retry settings".to_string(),
+                ),
+            )
+        })?;
+
+        let retry_policy = crate::RetryPolicy::builder()
+            .max_attempts(max_attempts)
+            .base_delay(base_delay)
+            .max_delay(max_delay)
+            .build();
+
+        // Validate retry policy configuration
+        retry_policy
+            .validate()
+            .map_err(ConfigurationClientError::ConfigurationError)?;
+
+        let robust_config = options.robust_config().cloned().unwrap_or_default();
+
+        let updated_config = crate::RobustClientConfig::builder()
+            .timeout(robust_config.timeout)
+            .circuit_breaker(robust_config.circuit_breaker)
+            .retry(Some(retry_policy))
+            .reconnection(robust_config.reconnection)
+            .instrumentation(robust_config.instrumentation)
+            .build();
+
+        // Update the options with the new robust config
+        options = crate::ConfigurationTransportOptions::builder()
+            .listener_ref(options.listener_ref.clone())
+            .address(options.address.clone())
+            .robust_config(Some(updated_config))
+            .build();
+
+        self.transport_options = Some(options);
+        Ok(self)
+    }
+
+    /// Configure reconnection settings
+    pub fn with_reconnection(
+        mut self,
+        enable_lazy_connection: bool,
+        max_reconnect_attempts: Option<u32>,
+        reconnect_base_delay: Duration,
+    ) -> Result<Self, ConfigurationClientError> {
+        let mut options = self.transport_options.take().ok_or_else(|| {
+            ConfigurationClientError::ConfigurationError(
+                crate::ConfigValidationError::InvalidReconnection(
+                    "Connection must be configured before reconnection settings".to_string(),
+                ),
+            )
+        })?;
+
+        let reconnection_config = crate::ReconnectionConfig::builder()
+            .enable_lazy_connection(enable_lazy_connection)
+            .max_reconnect_attempts(max_reconnect_attempts)
+            .reconnect_base_delay(reconnect_base_delay)
+            .build();
+
+        // Validate reconnection configuration
+        reconnection_config
+            .validate()
+            .map_err(ConfigurationClientError::ConfigurationError)?;
+
+        let robust_config = options.robust_config().cloned().unwrap_or_default();
+
+        let updated_config = crate::RobustClientConfig::builder()
+            .timeout(robust_config.timeout)
+            .circuit_breaker(robust_config.circuit_breaker)
+            .retry(robust_config.retry)
+            .reconnection(Some(reconnection_config))
+            .instrumentation(robust_config.instrumentation)
+            .build();
+
+        // Update the options with the new robust config
+        options = crate::ConfigurationTransportOptions::builder()
+            .listener_ref(options.listener_ref.clone())
+            .address(options.address.clone())
+            .robust_config(Some(updated_config))
+            .build();
+
+        self.transport_options = Some(options);
+        Ok(self)
+    }
+
+    /// Enable or disable instrumentation features
+    pub fn with_instrumentation(
+        mut self,
+        enable_metrics: bool,
+        enable_tracing: bool,
+        enable_logging: bool,
+    ) -> Result<Self, ConfigurationClientError> {
+        let mut options = self.transport_options.take().ok_or_else(|| {
+            ConfigurationClientError::ConfigurationError(
+                crate::ConfigValidationError::InvalidTimeout(
+                    "Connection must be configured before instrumentation settings".to_string(),
+                ),
+            )
+        })?;
+
+        let instrumentation_config = crate::InstrumentationConfig::builder()
+            .enable_metrics(enable_metrics)
+            .enable_tracing(enable_tracing)
+            .enable_logging(enable_logging)
+            .build();
+
+        let robust_config = options.robust_config().cloned().unwrap_or_default();
+
+        let updated_config = crate::RobustClientConfig::builder()
+            .timeout(robust_config.timeout)
+            .circuit_breaker(robust_config.circuit_breaker)
+            .retry(robust_config.retry)
+            .reconnection(robust_config.reconnection)
+            .instrumentation(instrumentation_config)
+            .build();
+
+        // Update the options with the new robust config
+        options = crate::ConfigurationTransportOptions::builder()
+            .listener_ref(options.listener_ref.clone())
+            .address(options.address.clone())
+            .robust_config(Some(updated_config))
+            .build();
+
+        self.transport_options = Some(options);
+        Ok(self)
+    }
+
+    /// Build the ConfigurationClient
+    pub async fn build(self) -> Result<ConfigurationClient, ConfigurationClientError> {
+        let options = self.transport_options.ok_or_else(|| {
+            ConfigurationClientError::ConfigurationError(
+                crate::ConfigValidationError::InvalidTimeout(
+                    "Connection must be configured before building client".to_string(),
+                ),
+            )
+        })?;
+
+        // Validate the complete configuration if robustness is enabled
+        if let Some(robust_config) = options.robust_config() {
+            robust_config
+                .validate()
+                .map_err(ConfigurationClientError::ConfigurationError)?;
+        }
+
+        let transport = crate::ConfigurationTransport::async_try_from(options)
+            .await
+            .map_err(|_| ConfigurationClientError::ConnectionUnavailable)?;
+
+        Ok(ConfigurationClient::builder().transport(transport).build())
+    }
+}
+
+impl Default for ConfigurationClientBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -33,76 +362,6 @@ impl ConfigurationClient {
     pub fn builder() -> ConfigurationClientBuilder {
         ConfigurationClientBuilder::new()
     }
-
-    /// Create a client with basic connection parameters (no robustness features)
-    pub async fn connect(
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-    ) -> Result<Self, ConfigurationClientError> {
-        let options = crate::ConfigurationTransportOptions::builder()
-            .listener_ref(listener_ref)
-            .address(address)
-            .build();
-
-        let transport = crate::ConfigurationTransport::async_try_from(options)
-            .await
-            .map_err(|_| ConfigurationClientError::ConnectionUnavailable)?;
-
-        Ok(Self::new(transport))
-    }
-
-    /// Create a client with production-ready robustness settings
-    pub async fn connect_production(
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-    ) -> Result<Self, ConfigurationClientError> {
-        let options = crate::ConfigurationTransportOptions::production(listener_ref, address);
-
-        let transport = crate::ConfigurationTransport::async_try_from(options)
-            .await
-            .map_err(|_| ConfigurationClientError::ConnectionUnavailable)?;
-
-        Ok(Self::new(transport))
-    }
-
-    /// Create a client with development-friendly robustness settings
-    pub async fn connect_development(
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-    ) -> Result<Self, ConfigurationClientError> {
-        let options = crate::ConfigurationTransportOptions::development(listener_ref, address);
-
-        let transport = crate::ConfigurationTransport::async_try_from(options)
-            .await
-            .map_err(|_| ConfigurationClientError::ConnectionUnavailable)?;
-
-        Ok(Self::new(transport))
-    }
-
-    /// Create a client with custom robustness configuration
-    pub async fn connect_with_config(
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-        robust_config: crate::RobustClientConfig,
-    ) -> Result<Self, ConfigurationClientError> {
-        // Validate configuration before proceeding
-        robust_config
-            .validate()
-            .map_err(ConfigurationClientError::ConfigurationError)?;
-
-        let options = crate::ConfigurationTransportOptions::with_robust_config(
-            listener_ref,
-            address,
-            robust_config,
-        );
-
-        let transport = crate::ConfigurationTransport::async_try_from(options)
-            .await
-            .map_err(|_| ConfigurationClientError::ConnectionUnavailable)?;
-
-        Ok(Self::new(transport))
-    }
-
     pub async fn listener(&self) -> Result<Arc<Listener>, ConfigurationClientError> {
         let span = TRACER
             .span_builder("ConfigurationClient::listener")
@@ -191,136 +450,6 @@ impl ConfigurationClient {
             })?;
 
         Ok(Arc::new(filter))
-    }
-}
-
-/// Simple builder for creating ConfigurationClient
-pub struct ConfigurationClientBuilder;
-
-impl ConfigurationClientBuilder {
-    /// Create a new builder
-    pub fn new() -> Self {
-        Self
-    }
-
-    /// Create a client with basic connection parameters (no robustness features)
-    pub async fn connect(
-        self,
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-    ) -> Result<ConfigurationClient, ConfigurationClientError> {
-        ConfigurationClient::connect(listener_ref, address).await
-    }
-
-    /// Create a client with production-ready robustness settings
-    pub async fn connect_production(
-        self,
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-    ) -> Result<ConfigurationClient, ConfigurationClientError> {
-        ConfigurationClient::connect_production(listener_ref, address).await
-    }
-
-    /// Create a client with development-friendly robustness settings
-    pub async fn connect_development(
-        self,
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-    ) -> Result<ConfigurationClient, ConfigurationClientError> {
-        ConfigurationClient::connect_development(listener_ref, address).await
-    }
-
-    /// Create a client with custom robustness configuration
-    pub async fn connect_with_config(
-        self,
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-        robust_config: crate::RobustClientConfig,
-    ) -> Result<ConfigurationClient, ConfigurationClientError> {
-        ConfigurationClient::connect_with_config(listener_ref, address, robust_config).await
-    }
-
-    /// Create a client with custom timeout configuration
-    pub async fn connect_with_timeout(
-        self,
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-        timeout: Duration,
-    ) -> Result<ConfigurationClient, ConfigurationClientError> {
-        let timeout_config = crate::TimeoutConfig::builder()
-            .default_timeout(timeout)
-            .build();
-
-        // Validate timeout configuration
-        timeout_config
-            .validate()
-            .map_err(ConfigurationClientError::ConfigurationError)?;
-
-        let robust_config = crate::RobustClientConfig::builder()
-            .timeout(Some(timeout_config))
-            .build();
-
-        ConfigurationClient::connect_with_config(listener_ref, address, robust_config).await
-    }
-
-    /// Create a client with custom circuit breaker configuration
-    pub async fn connect_with_circuit_breaker(
-        self,
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-        failure_threshold: u32,
-        success_threshold: u32,
-        timeout: Duration,
-    ) -> Result<ConfigurationClient, ConfigurationClientError> {
-        let circuit_breaker_config = crate::CircuitBreakerConfig::builder()
-            .failure_threshold(failure_threshold)
-            .success_threshold(success_threshold)
-            .timeout(timeout)
-            .build();
-
-        // Validate circuit breaker configuration
-        circuit_breaker_config
-            .validate()
-            .map_err(ConfigurationClientError::ConfigurationError)?;
-
-        let robust_config = crate::RobustClientConfig::builder()
-            .circuit_breaker(Some(circuit_breaker_config))
-            .build();
-
-        ConfigurationClient::connect_with_config(listener_ref, address, robust_config).await
-    }
-
-    /// Create a client with custom retry configuration
-    pub async fn connect_with_retry(
-        self,
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-        max_attempts: u32,
-        base_delay: Duration,
-        max_delay: Duration,
-    ) -> Result<ConfigurationClient, ConfigurationClientError> {
-        let retry_policy = crate::RetryPolicy::builder()
-            .max_attempts(max_attempts)
-            .base_delay(base_delay)
-            .max_delay(max_delay)
-            .build();
-
-        // Validate retry policy configuration
-        retry_policy
-            .validate()
-            .map_err(ConfigurationClientError::ConfigurationError)?;
-
-        let robust_config = crate::RobustClientConfig::builder()
-            .retry(Some(retry_policy))
-            .build();
-
-        ConfigurationClient::connect_with_config(listener_ref, address, robust_config).await
-    }
-}
-
-impl Default for ConfigurationClientBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

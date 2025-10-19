@@ -23,16 +23,19 @@ use vg_rpc_client::{
 async fn main() -> Result<(), Box<dyn Error>> {
     init("vg-gateway");
 
+    let client = ConfigurationClient::connect(
+        "example_listener".to_string(),
+        Uri::from_static("ws://localhost:9000"),
+    )
+    .await?;
+
+    // Create transport for events client
     let transport: ConfigurationTransport = ConfigurationTransportOptions::builder()
         .address(Uri::from_static("ws://localhost:9000"))
         .listener_ref("example_listener".to_string())
         .build()
         .async_try_into()
         .await?;
-
-    let client = ConfigurationClient::builder()
-        .transport(transport.clone())
-        .build();
 
     let events = ConfigurationEventsClient::new(transport);
 

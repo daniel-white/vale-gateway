@@ -9,9 +9,7 @@ use typed_builder::TypedBuilder;
 use vg_core::sync::broadcast::error::RecvError;
 use vg_core::sync::broadcast::{Receiver, Sender, Traced, channel};
 use vg_core::sync::handles::{Handle, handles};
-use vg_rpc::{
-    ConfigurationApiClient, ConfigurationApiError, RequestContext, SubscribeEventsRequest,
-};
+use vg_rpc::{ConfigurationApiError, RequestContext, SubscribeEventsRequest};
 
 use crate::instrumentation::TRACER;
 pub use vg_rpc::ConfigurationEvent;
@@ -39,13 +37,12 @@ impl ConfigurationEventsClient {
             .span_builder("ConfigurationEventClient::events")
             .with_kind(SpanKind::Client)
             .start(&*TRACER);
-        let client = self.transport.client();
         let req = SubscribeEventsRequest::builder()
             .context(RequestContext::new(span))
-            .listener_ref(self.transport.listener_ref())
+            .listener_ref(self.transport.listener_ref().clone())
             .build();
 
-        let mut subscription = client.events(req).await?;
+        let mut subscription = self.transport.client().events(req).await?;
         let (handle, mut stop_handle) = handles();
 
         spawn(async move {

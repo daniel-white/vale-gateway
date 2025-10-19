@@ -115,40 +115,56 @@
     - Update AsyncTryFrom implementation to use EnhancedWsClientBuilder
     - _Requirements: 4.1, 4.2, 7.4_
 
-- [ ] 10. Update ConfigurationClient API integration
-  - [ ] 10.1 Integrate layered client with existing API methods
+- [x] 10. Update ConfigurationClient API integration
+  - [x] 10.1 Integrate layered client with existing API methods
     - Update listener, route, backend, and shared_filter methods
     - Ensure error handling works with new error types
     - _Requirements: 7.1, 7.2, 5.1, 5.2, 5.3, 5.4, 5.5_
   
-  - [ ] 10.2 Add configuration builder methods
+  - [x] 10.2 Add configuration builder methods
     - Provide convenient methods for configuring robustness features
     - Add validation for configuration parameters
     - _Requirements: 7.4, 7.5_
 
-- [ ] 11. Create integration tests
-  - [ ] 11.1 Create end-to-end integration tests
+- [ ] 11. Update gateway to use robust client features
+  - [ ] 11.1 Replace basic connection with production-ready configuration
+    - Update gateway to use ConfigurationClient::connect_production()
+    - Remove manual transport creation for the main client
+    - _Requirements: 7.1, 7.2, 7.4_
+  
+  - [ ] 11.2 Consolidate transport creation for events client
+    - Update ConfigurationEventsClient to accept connection parameters instead of transport
+    - Remove duplicate transport creation code
+    - _Requirements: 7.1, 7.2_
+  
+  - [ ] 11.3 Add configuration validation and error handling
+    - Add proper error handling for client connection failures
+    - Validate connection parameters at startup
+    - _Requirements: 5.1, 5.2, 7.5_
+
+- [ ] 12. Create integration tests
+  - [ ] 12.1 Create end-to-end integration tests
     - Test complete client behavior with mock server
     - Verify middleware composition and interaction
     - _Requirements: 1.1, 2.1, 3.1, 4.1_
   
-  - [ ] 11.2 Create MockConfigurationServer for testing
+  - [ ] 12.2 Create MockConfigurationServer for testing
     - Implement server with configurable behavior (slow, failing, unavailable)
     - Add network simulation capabilities for testing reconnection
     - _Requirements: 1.3, 2.1, 3.1_
 
-- [ ] 12. Performance optimization and final integration
-  - [ ] 12.1 Optimize middleware stack performance
+- [ ] 13. Performance optimization and final integration
+  - [ ] 13.1 Optimize middleware stack performance
     - Profile middleware overhead and optimize hot paths
     - Ensure minimal impact when robustness features are disabled
     - _Requirements: 7.3_
   
-  - [ ] 12.2 Add comprehensive error handling validation
+  - [ ] 13.2 Add comprehensive error handling validation
     - Verify all error paths work correctly with middleware stack
     - Test error propagation through all layers
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
   
-  - [ ] 12.3 Add property-based tests for robustness invariants
+  - [ ] 13.3 Add property-based tests for robustness invariants
     - Test circuit breaker properties under various failure patterns
     - Verify retry behavior with different error patterns and timing
     - _Requirements: 1.1, 2.1, 3.1_
