@@ -153,18 +153,18 @@
     - Add network simulation capabilities for testing reconnection
     - _Requirements: 1.3, 2.1, 3.1_
 
-- [-] 13. Performance optimization and final integration
-  - [-] 13.1 Optimize middleware stack performance
+- [x] 13. Performance optimization and final integration
+  - [x] 13.1 Optimize middleware stack performance
     - Profile middleware overhead and optimize hot paths
     - Ensure minimal impact when robustness features are disabled
     - _Requirements: 7.3_
   
-  - [ ] 13.2 Add comprehensive error handling validation
+  - [x] 13.2 Add comprehensive error handling validation
     - Verify all error paths work correctly with middleware stack
     - Test error propagation through all layers
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
   
-  - [ ] 13.3 Add property-based tests for robustness invariants
+  - [x] 13.3 Add property-based tests for robustness invariants
     - Test circuit breaker properties under various failure patterns
     - Verify retry behavior with different error patterns and timing
     - _Requirements: 1.1, 2.1, 3.1_

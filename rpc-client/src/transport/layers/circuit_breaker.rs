@@ -205,6 +205,15 @@ impl WsClientLayer for CircuitBreakerLayer {
 
         client
     }
+
+    fn is_enabled(&self) -> bool {
+        // Circuit breaker is enabled if failure threshold > 0
+        self.config.failure_threshold > 0
+    }
+
+    fn layer_name(&self) -> &'static str {
+        "circuit-breaker"
+    }
 }
 
 /// Internal state of the circuit breaker

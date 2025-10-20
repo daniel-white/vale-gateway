@@ -69,6 +69,15 @@ impl WsClientLayer for TimeoutLayer {
 
         client
     }
+
+    fn is_enabled(&self) -> bool {
+        // Timeout layer is enabled if we have a positive timeout
+        !self.default_timeout.is_zero()
+    }
+
+    fn layer_name(&self) -> &'static str {
+        "timeout"
+    }
 }
 
 #[cfg(test)]

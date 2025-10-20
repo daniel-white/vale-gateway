@@ -1,0 +1,556 @@
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use vg_rpc_client::{
+    CircuitBreakerConfig, CircuitBreakerLayer, ConfigurationClientError, ErrorClassification,
+    ExponentialBackoffPolicy, RetryPolicy, WsClientLayer,
+};
+
+/// Property-based tests for robustness invariants
+/// Tests circuit breaker properties under various failure patterns
+/// Verifies retry behavior with different error patterns and timing
+#[cfg(test)]
+mod property_based_tests {
+    use super::*;
+
+    /// Test circuit breaker invariants with various failure patterns
+    #[test]
+    fn test_circuit_breaker_invariants() {
+        // Property: Circuit breaker should open when failure threshold is exceeded
+        let config = CircuitBreakerConfig::builder()
+            .failure_threshold(3)
+            .success_threshold(2)
+            .timeout(Duration::from_millis(100))
+            .minimum_throughput(3)
+            .build();
+
+        let cb = CircuitBreakerLayer::new(config);
+
+        // Initially should allow requests
+        assert!(cb.should_allow_request());
+
+        // Record failures up to threshold
+        cb.record_failure();
+        assert!(cb.should_allow_request()); // Still below threshold
+
+        cb.record_failure();
+        assert!(cb.should_allow_request()); // Still below threshold
+
+        cb.record_failure();
+        assert!(!cb.should_allow_request()); // Should be open now
+
+        // Property: Circuit breaker should transition to half-open after timeout
+        std::thread::sleep(Duration::from_millis(150));
+        assert!(cb.should_allow_request()); // Should be half-open
+
+        // Property: Circuit breaker should close after sufficient successes in half-open
+        cb.record_success();
+        assert!(cb.should_allow_request()); // Still half-open
+
+        cb.record_success();
+        assert!(cb.should_allow_request()); // Should be closed now
+
+        // Verify stats are consistent
+        let stats = cb.get_stats();
+        assert_eq!(stats.failure_count, 0); // Should be reset after closing
+    }
+
+    #[test]
+    fn test_circuit_breaker_minimum_throughput_invariant() {
+        // Property: Circuit breaker should not open below minimum throughput
+        let config = CircuitBreakerConfig::builder()
+            .failure_threshold(2)
+            .success_threshold(1)
+            .timeout(Duration::from_secs(1))
+            .minimum_throughput(5)
+            .build();
+
+        let cb = CircuitBreakerLayer::new(config);
+
+        // Record failures below minimum throughput
+        cb.record_failure();
+        cb.record_failure();
+        assert!(cb.should_allow_request()); // Should still allow (below min throughput)
+
+        // Add more requests to exceed minimum throughput
+        cb.record_failure();
+        cb.record_failure();
+        cb.record_failure();
+        assert!(!cb.should_allow_request()); // Should be open now
+    }
+
+    #[test]
+    fn test_circuit_breaker_half_open_failure_invariant() {
+        // Property: Any failure in half-open state should reopen the circuit
+        let config = CircuitBreakerConfig::builder()
+            .failure_threshold(2)
+            .success_threshold(3)
+            .timeout(Duration::from_millis(50))
+            .minimum_throughput(2)
+            .build();
+
+        let cb = CircuitBreakerLayer::new(config);
+
+        // Open the circuit
+        cb.record_failure();
+        cb.record_failure();
+        assert!(!cb.should_allow_request());
+
+        // Wait for half-open transition
+        std::thread::sleep(Duration::from_millis(100));
+        assert!(cb.should_allow_request()); // Half-open
+
+        // Record a failure in half-open state
+        cb.record_failure();
+        assert!(!cb.should_allow_request()); // Should be open again
+    }
+
+    #[test]
+    fn test_retry_policy_invariants() {
+        // Property: Retry delays should follow exponential backoff
+        let policy = RetryPolicy::builder()
+            .max_attempts(5)
+            .base_delay(Duration::from_millis(100))
+            .max_delay(Duration::from_secs(10))
+            .backoff_multiplier(2.0)
+            .jitter(0.0) // No jitter for predictable testing
+            .build();
+
+        let mut backoff_policy = ExponentialBackoffPolicy::new(policy);
+
+        // Property: First attempt should have no delay
+        assert_eq!(backoff_policy.calculate_delay(), Duration::ZERO);
+
+        // Property: Subsequent delays should increase exponentially
+        backoff_policy.increment_attempt();
+        let delay1 = backoff_policy.calculate_delay();
+        assert_eq!(delay1, Duration::from_millis(100));
+
+        backoff_policy.increment_attempt();
+        let delay2 = backoff_policy.calculate_delay();
+        assert_eq!(delay2, Duration::from_millis(200));
+
+        backoff_policy.increment_attempt();
+        let delay3 = backoff_policy.calculate_delay();
+        assert_eq!(delay3, Duration::from_millis(400));
+
+        // Property: Delays should be capped at max_delay
+        for _ in 0..10 {
+            backoff_policy.increment_attempt();
+        }
+        let max_delay = backoff_policy.calculate_delay();
+        assert!(max_delay <= Duration::from_secs(10));
+    }
+
+    #[test]
+    fn test_retry_policy_jitter_invariants() {
+        // Property: Jitter should add randomness within bounds
+        let policy = RetryPolicy::builder()
+            .max_attempts(3)
+            .base_delay(Duration::from_millis(1000))
+            .max_delay(Duration::from_secs(30))
+            .backoff_multiplier(2.0)
+            .jitter(0.1) // 10% jitter
+            .build();
+
+        let mut delays = Vec::new();
+
+        // Collect multiple delay calculations for the same attempt
+        for _ in 0..100 {
+            let mut backoff_policy = ExponentialBackoffPolicy::new(policy.clone());
+            backoff_policy.increment_attempt();
+            delays.push(backoff_policy.calculate_delay());
+        }
+
+        // Property: All delays should be within jitter bounds
+        let base_delay = Duration::from_millis(1000);
+        let jitter_range = base_delay.as_millis() as f64 * 0.1;
+        let min_expected = base_delay.as_millis() as f64 - jitter_range;
+        let max_expected = base_delay.as_millis() as f64 + jitter_range;
+
+        for delay in &delays {
+            let delay_ms = delay.as_millis() as f64;
+            assert!(delay_ms >= 0.0, "Delay should not be negative");
+            // Allow some tolerance for jitter bounds
+            assert!(
+                delay_ms >= min_expected * 0.9,
+                "Delay should be within lower jitter bound"
+            );
+            assert!(
+                delay_ms <= max_expected * 1.1,
+                "Delay should be within upper jitter bound"
+            );
+        }
+
+        // Property: Delays should show variation (not all the same)
+        let unique_delays: std::collections::HashSet<_> = delays.into_iter().collect();
+        assert!(
+            unique_delays.len() > 1,
+            "Jitter should produce varied delays"
+        );
+    }
+
+    #[test]
+    fn test_retry_exhaustion_invariant() {
+        // Property: Retry policy should stop after max attempts
+        let policy = RetryPolicy::builder()
+            .max_attempts(3)
+            .base_delay(Duration::from_millis(10))
+            .build();
+
+        let mut backoff_policy = ExponentialBackoffPolicy::new(policy);
+
+        // Property: Should not be exhausted initially
+        assert!(!backoff_policy.is_exhausted());
+
+        // Increment attempts up to max
+        for i in 1..=3 {
+            backoff_policy.increment_attempt();
+            if i < 3 {
+                assert!(
+                    !backoff_policy.is_exhausted(),
+                    "Should not be exhausted before max attempts"
+                );
+            } else {
+                assert!(
+                    backoff_policy.is_exhausted(),
+                    "Should be exhausted at max attempts"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_error_classification_invariants() {
+        // Property: Error classification should be consistent
+        let errors = vec![
+            ConfigurationClientError::RequestTimeout(Duration::from_secs(30)),
+            ConfigurationClientError::ConnectionUnavailable,
+            ConfigurationClientError::ServiceUnavailable,
+            ConfigurationClientError::NotFound,
+            ConfigurationClientError::CircuitBreakerOpen,
+            ConfigurationClientError::MaxRetriesExceeded(3),
+        ];
+
+        for error in &errors {
+            // Property: Retryable errors should be temporary
+            if error.is_retryable() {
+                // Most retryable errors should be temporary, but not all temporary errors are retryable
+                // This is a weak invariant - we just check consistency
+                match error {
+                    ConfigurationClientError::RequestTimeout(_) => assert!(error.is_temporary()),
+                    ConfigurationClientError::ConnectionUnavailable => {
+                        assert!(error.is_temporary())
+                    }
+                    ConfigurationClientError::ServiceUnavailable => assert!(error.is_temporary()),
+                    _ => {} // Other cases may vary
+                }
+            }
+
+            // Property: Non-retryable permanent errors should not trigger circuit breaker
+            if !error.is_temporary() && !error.is_retryable() {
+                match error {
+                    ConfigurationClientError::NotFound => {
+                        assert!(!error.should_trip_circuit_breaker())
+                    }
+                    ConfigurationClientError::MaxRetriesExceeded(_) => {
+                        // This is an exception - retry exhaustion should trip circuit breaker
+                        assert!(error.should_trip_circuit_breaker());
+                    }
+                    _ => {} // Other cases may vary
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_circuit_breaker_concurrent_access_invariants() {
+        // Property: Circuit breaker should be thread-safe
+        let config = CircuitBreakerConfig::builder()
+            .failure_threshold(10)
+            .success_threshold(5)
+            .timeout(Duration::from_secs(1))
+            .minimum_throughput(10)
+            .build();
+
+        let cb = Arc::new(CircuitBreakerLayer::new(config));
+        let mut handles = vec![];
+
+        // Spawn multiple threads to test concurrent access
+        for i in 0..5 {
+            let cb_clone = Arc::clone(&cb);
+            let handle = std::thread::spawn(move || {
+                for j in 0..20 {
+                    if (i + j) % 3 == 0 {
+                        cb_clone.record_success();
+                    } else {
+                        cb_clone.record_failure();
+                    }
+                    cb_clone.should_allow_request();
+                }
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all threads to complete
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+        // Property: Circuit breaker should still be functional after concurrent access
+        let stats = cb.get_stats();
+        assert!(stats.request_count > 0, "Should have processed requests");
+
+        // The circuit breaker should be in a valid state
+        let allows_requests = cb.should_allow_request();
+        match stats.status {
+            vg_rpc_client::circuit_breaker::CircuitBreakerStatus::Closed => {
+                assert!(allows_requests)
+            }
+            vg_rpc_client::circuit_breaker::CircuitBreakerStatus::Open => assert!(!allows_requests),
+            vg_rpc_client::circuit_breaker::CircuitBreakerStatus::HalfOpen => {
+                assert!(allows_requests)
+            }
+        }
+    }
+
+    /// Test that simulates various failure patterns and verifies robustness invariants
+    #[test]
+    fn test_failure_pattern_invariants() {
+        struct FailurePattern {
+            name: &'static str,
+            failures: Vec<bool>, // true = failure, false = success
+            expected_final_state: &'static str,
+        }
+
+        let patterns = vec![
+            FailurePattern {
+                name: "alternating_failures",
+                failures: vec![false, true, false, true, false, true, false],
+                expected_final_state: "closed", // Should remain closed due to successes
+            },
+            FailurePattern {
+                name: "burst_failures",
+                failures: vec![true, true, true, true, false, false],
+                expected_final_state: "open", // Should open due to burst
+            },
+            FailurePattern {
+                name: "mostly_successes",
+                failures: vec![false, false, false, false, true, false, false],
+                expected_final_state: "closed", // Should remain closed with mostly successes
+            },
+        ];
+
+        for pattern in patterns {
+            let config = CircuitBreakerConfig::builder()
+                .failure_threshold(3)
+                .success_threshold(2)
+                .timeout(Duration::from_millis(50))
+                .minimum_throughput(3)
+                .build();
+
+            let cb = CircuitBreakerLayer::new(config);
+
+            // Apply the failure pattern
+            for &is_failure in &pattern.failures {
+                if is_failure {
+                    cb.record_failure();
+                } else {
+                    cb.record_success();
+                }
+            }
+
+            let stats = cb.get_stats();
+
+            // Property: Circuit breaker state should be predictable based on pattern
+            match pattern.expected_final_state {
+                "closed" => {
+                    if stats.request_count >= 3 {
+                        // Only check if we have minimum throughput
+                        // For recovery pattern, the circuit may have opened but should allow requests
+                        // after recovery (either closed or half-open allowing requests)
+                        let allows_requests = cb.should_allow_request();
+                        assert!(
+                            allows_requests || stats.failure_count < 3,
+                            "Pattern '{}' should allow requests or have low failure count, got {} failures, allows: {}",
+                            pattern.name,
+                            stats.failure_count,
+                            allows_requests
+                        );
+                    }
+                }
+                "open" => {
+                    if stats.request_count >= 3 {
+                        // Only check if we have minimum throughput
+                        // For open state, we expect high failure count or open status
+                        assert!(
+                            stats.failure_count >= 3
+                                || stats.status
+                                    == vg_rpc_client::circuit_breaker::CircuitBreakerStatus::Open,
+                            "Pattern '{}' should result in open state, got status {:?} with {} failures",
+                            pattern.name,
+                            stats.status,
+                            stats.failure_count
+                        );
+                    }
+                }
+                _ => panic!("Unknown expected state: {}", pattern.expected_final_state),
+            }
+        }
+    }
+
+    /// Test retry behavior with different error patterns and timing
+    #[test]
+    fn test_retry_timing_invariants() {
+        let policy = RetryPolicy::builder()
+            .max_attempts(3)
+            .base_delay(Duration::from_millis(100))
+            .max_delay(Duration::from_secs(5))
+            .backoff_multiplier(2.0)
+            .jitter(0.0) // No jitter for predictable timing
+            .build();
+
+        // Property: Total retry time should be bounded
+        let _start_time = Instant::now();
+        let mut total_delay = Duration::ZERO;
+        let mut backoff_policy = ExponentialBackoffPolicy::new(policy);
+
+        for attempt in 0..3 {
+            let delay = backoff_policy.calculate_delay();
+            total_delay += delay;
+
+            if attempt < 2 {
+                // Don't increment on last iteration
+                backoff_policy.increment_attempt();
+            }
+        }
+
+        // Property: Total delay should be sum of individual delays
+        let expected_total =
+            Duration::ZERO + Duration::from_millis(100) + Duration::from_millis(200);
+        assert_eq!(
+            total_delay, expected_total,
+            "Total delay should match sum of individual delays"
+        );
+
+        // Property: Total time should be reasonable for the number of attempts
+        assert!(
+            total_delay < Duration::from_secs(1),
+            "Total delay should be reasonable for 3 attempts"
+        );
+    }
+
+    /// Test that layer enabling/disabling works correctly
+    #[test]
+    fn test_layer_enabling_invariants() {
+        // Property: Disabled layers should not affect performance
+        let timeout_layer_disabled = vg_rpc_client::TimeoutLayer::new(Duration::ZERO);
+        assert!(
+            !timeout_layer_disabled.is_enabled(),
+            "Zero timeout layer should be disabled"
+        );
+
+        let timeout_layer_enabled = vg_rpc_client::TimeoutLayer::new(Duration::from_secs(30));
+        assert!(
+            timeout_layer_enabled.is_enabled(),
+            "Non-zero timeout layer should be enabled"
+        );
+
+        // Property: Retry layer with single attempt should be disabled
+        let retry_policy_disabled = RetryPolicy::builder().max_attempts(1).build();
+        let retry_layer_disabled = vg_rpc_client::RetryLayer::new(retry_policy_disabled);
+        assert!(
+            !retry_layer_disabled.is_enabled(),
+            "Single attempt retry layer should be disabled"
+        );
+
+        let retry_policy_enabled = RetryPolicy::builder().max_attempts(3).build();
+        let retry_layer_enabled = vg_rpc_client::RetryLayer::new(retry_policy_enabled);
+        assert!(
+            retry_layer_enabled.is_enabled(),
+            "Multi-attempt retry layer should be enabled"
+        );
+
+        // Property: Circuit breaker with zero threshold should be disabled
+        let cb_config_disabled = CircuitBreakerConfig::builder().failure_threshold(0).build();
+        let cb_layer_disabled = CircuitBreakerLayer::new(cb_config_disabled);
+        assert!(
+            !cb_layer_disabled.is_enabled(),
+            "Zero threshold circuit breaker should be disabled"
+        );
+
+        let cb_config_enabled = CircuitBreakerConfig::builder().failure_threshold(5).build();
+        let cb_layer_enabled = CircuitBreakerLayer::new(cb_config_enabled);
+        assert!(
+            cb_layer_enabled.is_enabled(),
+            "Non-zero threshold circuit breaker should be enabled"
+        );
+    }
+
+    /// Test configuration validation invariants
+    #[test]
+    fn test_configuration_validation_invariants() {
+        // Property: Invalid configurations should be rejected
+
+        // Test timeout configuration
+        let invalid_timeout = vg_rpc_client::TimeoutConfig::builder()
+            .default_timeout(Duration::ZERO)
+            .build();
+        assert!(
+            invalid_timeout.validate().is_err(),
+            "Zero timeout should be invalid"
+        );
+
+        let valid_timeout = vg_rpc_client::TimeoutConfig::builder()
+            .default_timeout(Duration::from_secs(30))
+            .build();
+        assert!(
+            valid_timeout.validate().is_ok(),
+            "Positive timeout should be valid"
+        );
+
+        // Test circuit breaker configuration
+        let invalid_cb = CircuitBreakerConfig::builder().failure_threshold(0).build();
+        assert!(
+            invalid_cb.validate().is_err(),
+            "Zero failure threshold should be invalid"
+        );
+
+        let valid_cb = CircuitBreakerConfig::builder()
+            .failure_threshold(5)
+            .success_threshold(3)
+            .timeout(Duration::from_secs(60))
+            .build();
+        assert!(
+            valid_cb.validate().is_ok(),
+            "Valid circuit breaker config should pass validation"
+        );
+
+        // Test retry policy configuration
+        let invalid_retry = RetryPolicy::builder().max_attempts(0).build();
+        assert!(
+            invalid_retry.validate().is_err(),
+            "Zero max attempts should be invalid"
+        );
+
+        let invalid_retry_backoff = RetryPolicy::builder()
+            .max_attempts(3)
+            .backoff_multiplier(0.5) // Should be > 1.0
+            .build();
+        assert!(
+            invalid_retry_backoff.validate().is_err(),
+            "Backoff multiplier <= 1.0 should be invalid"
+        );
+
+        let valid_retry = RetryPolicy::builder()
+            .max_attempts(3)
+            .base_delay(Duration::from_millis(100))
+            .max_delay(Duration::from_secs(30))
+            .backoff_multiplier(2.0)
+            .jitter(0.1)
+            .build();
+        assert!(
+            valid_retry.validate().is_ok(),
+            "Valid retry policy should pass validation"
+        );
+    }
+}

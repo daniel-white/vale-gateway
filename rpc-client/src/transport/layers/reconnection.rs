@@ -179,6 +179,17 @@ impl WsClientLayer for ReconnectionLayer {
 
         client
     }
+
+    fn is_enabled(&self) -> bool {
+        // Reconnection layer is enabled if we have reconnection attempts configured
+        self.config
+            .max_reconnect_attempts
+            .map_or(true, |attempts| attempts > 0)
+    }
+
+    fn layer_name(&self) -> &'static str {
+        "reconnection"
+    }
 }
 
 /// Enhanced WebSocket client wrapper that integrates reconnection capabilities

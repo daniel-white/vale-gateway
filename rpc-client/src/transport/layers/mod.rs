@@ -18,10 +18,29 @@ use jsonrpsee::ws_client::WsClient;
 
 /// Trait for layers that can be applied during client creation.
 /// This approach focuses on configuring the client during build time rather than runtime wrapping.
+///
+/// Performance considerations:
+/// - Layers should be lightweight and avoid unnecessary allocations
+/// - Configuration should be done once during build time, not per-request
+/// - Layers should have minimal overhead when features are disabled
 pub trait WsClientLayer: Send + Sync + 'static {
     /// Configure or modify the client during creation
     /// This allows layers to set up middleware, configure timeouts, etc.
+    ///
+    /// Performance note: This method is called once during client creation,
+    /// so expensive setup operations are acceptable here.
     fn configure_client(&self, client: WsClient) -> WsClient;
+
+    /// Check if this layer is enabled/active
+    /// This allows for zero-cost abstraction when features are disabled
+    fn is_enabled(&self) -> bool {
+        true
+    }
+
+    /// Get the layer name for debugging and metrics
+    fn layer_name(&self) -> &'static str {
+        "unknown"
+    }
 }
 
 /// A client wrapper that can be configured with multiple layers during creation.
@@ -34,11 +53,42 @@ pub struct LayeredClient {
 
 impl LayeredClient {
     /// Create a new LayeredClient by applying configuration layers to the base WsClient
+    ///
+    /// Performance optimization: Only applies enabled layers to minimize overhead
     pub fn new(base_client: WsClient, layers: Vec<Box<dyn WsClientLayer>>) -> Self {
         let mut client = base_client;
 
         // Apply layers in order - each layer can configure the client
+        // Performance optimization: Skip disabled layers
         for layer in layers {
+            if layer.is_enabled() {
+                tracing::debug!("Applying layer: {}", layer.layer_name());
+                client = layer.configure_client(client);
+            } else {
+                tracing::debug!("Skipping disabled layer: {}", layer.layer_name());
+            }
+        }
+
+        Self { inner: client }
+    }
+
+    /// Create a LayeredClient with optimized layer application
+    /// This method pre-filters enabled layers for better performance
+    pub fn new_optimized(base_client: WsClient, layers: Vec<Box<dyn WsClientLayer>>) -> Self {
+        // Pre-filter enabled layers to avoid runtime checks
+        let enabled_layers: Vec<_> = layers
+            .into_iter()
+            .filter(|layer| layer.is_enabled())
+            .collect();
+
+        if enabled_layers.is_empty() {
+            tracing::debug!("No enabled layers, using client without modifications");
+            return Self::without_layers(base_client);
+        }
+
+        let mut client = base_client;
+        for layer in enabled_layers {
+            tracing::debug!("Applying enabled layer: {}", layer.layer_name());
             client = layer.configure_client(client);
         }
 
@@ -88,6 +138,14 @@ impl WsClientLayer for NoOpLayer {
     fn configure_client(&self, client: WsClient) -> WsClient {
         // No-op: return the client unchanged
         client
+    }
+
+    fn is_enabled(&self) -> bool {
+        false // No-op layer is always disabled for performance
+    }
+
+    fn layer_name(&self) -> &'static str {
+        "no-op"
     }
 }
 

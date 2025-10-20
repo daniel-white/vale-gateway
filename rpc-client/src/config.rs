@@ -125,6 +125,77 @@ impl RobustClientConfig {
             .instrumentation(InstrumentationConfig::default())
             .build()
     }
+
+    /// Create a minimal configuration optimized for performance
+    /// Disables most robustness features for maximum throughput
+    pub fn minimal() -> Self {
+        Self::builder()
+            .timeout(Some(
+                TimeoutConfig::builder()
+                    .default_timeout(Duration::from_secs(30))
+                    .build(),
+            ))
+            .circuit_breaker(None) // Disabled for performance
+            .retry(None) // Disabled for performance
+            .reconnection(None) // Disabled for performance
+            .instrumentation(
+                InstrumentationConfig::builder()
+                    .enable_metrics(false)
+                    .enable_tracing(false)
+                    .enable_logging(false)
+                    .enable_performance_monitoring(false)
+                    .build(),
+            )
+            .build()
+    }
+
+    /// Create a configuration optimized for high-performance scenarios
+    /// Enables only essential features with minimal overhead
+    pub fn high_performance() -> Self {
+        Self::builder()
+            .timeout(Some(
+                TimeoutConfig::builder()
+                    .default_timeout(Duration::from_secs(15))
+                    .build(),
+            ))
+            .circuit_breaker(Some(
+                CircuitBreakerConfig::builder()
+                    .failure_threshold(10) // Higher threshold to reduce overhead
+                    .success_threshold(5)
+                    .timeout(Duration::from_secs(30))
+                    .minimum_throughput(20) // Higher minimum to reduce false positives
+                    .build(),
+            ))
+            .retry(Some(
+                RetryPolicy::builder()
+                    .max_attempts(2) // Minimal retries for performance
+                    .base_delay(Duration::from_millis(50))
+                    .max_delay(Duration::from_secs(5))
+                    .backoff_multiplier(1.5)
+                    .jitter(0.05) // Reduced jitter for predictability
+                    .build(),
+            ))
+            .reconnection(Some(
+                ReconnectionConfig::builder()
+                    .enable_lazy_connection(false)
+                    .max_reconnect_attempts(Some(3)) // Limited reconnection attempts
+                    .reconnect_base_delay(Duration::from_millis(100))
+                    .reconnect_max_delay(Duration::from_secs(10))
+                    .queue_requests_during_reconnection(false) // Disabled for performance
+                    .max_queued_requests(10)
+                    .build(),
+            ))
+            .instrumentation(
+                InstrumentationConfig::builder()
+                    .enable_metrics(true)
+                    .enable_tracing(false) // Disabled for performance
+                    .enable_logging(false) // Disabled for performance
+                    .enable_performance_monitoring(true)
+                    .performance_sample_rate(0.01) // Low sample rate
+                    .build(),
+            )
+            .build()
+    }
 }
 
 impl Default for RobustClientConfig {
@@ -451,6 +522,14 @@ pub struct InstrumentationConfig {
     /// Metrics prefix for all client metrics
     #[builder(default = "rpc_client".to_string())]
     pub metrics_prefix: String,
+
+    /// Enable performance monitoring and profiling
+    #[builder(default = false)]
+    pub enable_performance_monitoring: bool,
+
+    /// Sample rate for performance monitoring (0.0 to 1.0)
+    #[builder(default = 0.1)]
+    pub performance_sample_rate: f64,
 }
 
 impl Default for InstrumentationConfig {
@@ -460,6 +539,8 @@ impl Default for InstrumentationConfig {
             enable_tracing: true,
             enable_logging: true,
             metrics_prefix: "rpc_client".to_string(),
+            enable_performance_monitoring: false,
+            performance_sample_rate: 0.1,
         }
     }
 }

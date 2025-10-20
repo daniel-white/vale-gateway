@@ -138,8 +138,8 @@ impl EnhancedWsClientBuilder {
             ConfigurationClientInitError::WsClientError
         })?;
 
-        // Create layered client with all configured layers
-        let layered_client = LayeredClient::new(base_client, self.layers);
+        // Performance optimization: Use optimized layer application
+        let layered_client = LayeredClient::new_optimized(base_client, self.layers);
 
         Ok(layered_client)
     }

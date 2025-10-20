@@ -85,6 +85,15 @@ impl WsClientLayer for RetryLayer {
 
         client
     }
+
+    fn is_enabled(&self) -> bool {
+        // Retry layer is enabled if max_attempts > 1
+        self.policy.max_attempts > 1
+    }
+
+    fn layer_name(&self) -> &'static str {
+        "retry"
+    }
 }
 
 /// Exponential backoff policy for tower-retry
