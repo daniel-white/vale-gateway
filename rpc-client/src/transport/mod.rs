@@ -17,12 +17,17 @@ use vg_rpc::{
     GetRouteRequest, GetSharedFilterRequest,
 };
 
+// Import core utilities for handles and broadcast channels
+use vg_core::sync::{broadcast, handles};
+
 use crate::transport::layers::{HealthCheckFactory, LayeredClient, MonitoringManager};
 use crate::{EnhancedWsClientBuilder, RobustClientConfig};
 
 pub mod layers;
+pub mod rpc;
 
 pub use layers::*;
+pub use rpc::*;
 
 /// Transport wrapper that can hold either a simple WsClient or a LayeredClient
 /// This maintains backward compatibility while supporting enhanced robustness features
