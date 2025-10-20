@@ -499,7 +499,7 @@ mod error_handling_validation_tests {
 mod error_propagation_integration_tests {
     use super::*;
 
-    use vg_rpc_client::layers::LayeredClient;
+    
     use vg_rpc_client::{NoOpLayer, WsClientLayer};
 
     // Mock layer for testing error propagation

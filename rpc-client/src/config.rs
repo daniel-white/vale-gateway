@@ -613,7 +613,7 @@ impl Default for StartupConfig {
 }
 
 /// Startup mode determines how the client handles connection failures during initialization
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
 pub enum StartupMode {
     /// Fail fast if initial connection fails (legacy behavior)
     /// This maintains backward compatibility for existing deployments
@@ -622,17 +622,12 @@ pub enum StartupMode {
     /// Allow startup to continue even if initial connection fails
     /// The client will attempt connection in the background and handle requests gracefully
     /// This is the recommended mode for production deployments
+    #[default]
     Graceful,
 
     /// Only attempt connection on first request (lazy initialization)
     /// This provides the fastest startup time and is suitable for development environments
     Lazy,
-}
-
-impl Default for StartupMode {
-    fn default() -> Self {
-        StartupMode::Graceful
-    }
 }
 
 /// Errors that can occur during configuration validation

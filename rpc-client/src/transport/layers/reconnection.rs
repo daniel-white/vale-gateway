@@ -184,7 +184,7 @@ impl WsClientLayer for ReconnectionLayer {
         // Reconnection layer is enabled if we have reconnection attempts configured
         self.config
             .max_reconnect_attempts
-            .map_or(true, |attempts| attempts > 0)
+            .is_none_or(|attempts| attempts > 0)
     }
 
     fn layer_name(&self) -> &'static str {
@@ -317,7 +317,7 @@ mod tests {
             .build();
 
         let layer = ReconnectionLayer::new(config.clone());
-        assert_eq!(layer.config().enable_lazy_connection, true);
+        assert!(layer.config().enable_lazy_connection);
         assert_eq!(layer.config().max_reconnect_attempts, Some(5));
         assert_eq!(layer.config().reconnect_base_delay, Duration::from_secs(1));
     }
@@ -330,7 +330,7 @@ mod tests {
             .build();
 
         let layer = ReconnectionLayer::from_config(&config);
-        assert_eq!(layer.config().queue_requests_during_reconnection, false);
+        assert!(!layer.config().queue_requests_during_reconnection);
         assert_eq!(layer.config().max_queued_requests, 50);
     }
 

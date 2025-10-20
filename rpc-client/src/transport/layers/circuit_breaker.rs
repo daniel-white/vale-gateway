@@ -4,7 +4,7 @@ use jsonrpsee::core::client::Error as JsonRpcError;
 use jsonrpsee::ws_client::WsClient;
 use opentelemetry::KeyValue;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tracing::{debug, info, warn};
 
 use super::WsClientLayer;
@@ -636,7 +636,7 @@ mod tests {
     #[test]
     fn test_circuit_breaker_with_metrics() {
         use crate::instrumentation::ClientMetrics;
-        use opentelemetry::metrics::Meter;
+        
 
         let config = CircuitBreakerConfig::default();
         let meter = opentelemetry::global::meter("test");

@@ -226,11 +226,11 @@ mod connection_management_tests {
 
         let layer = ReconnectionLayer::new(config.clone());
 
-        assert_eq!(layer.config().enable_lazy_connection, true);
+        assert!(layer.config().enable_lazy_connection);
         assert_eq!(layer.config().max_reconnect_attempts, Some(5));
         assert_eq!(layer.config().reconnect_base_delay, Duration::from_secs(2));
         assert_eq!(layer.config().reconnect_max_delay, Duration::from_secs(60));
-        assert_eq!(layer.config().queue_requests_during_reconnection, true);
+        assert!(layer.config().queue_requests_during_reconnection);
         assert_eq!(layer.config().max_queued_requests, 50);
     }
 

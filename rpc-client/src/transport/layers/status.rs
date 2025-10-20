@@ -81,7 +81,7 @@ impl ConnectionStatusReporter {
         if status_changed {
             self.record_status_change(&current_status);
             self.emit_status_metrics(&current_status);
-            self.log_status_change(&*last_status, &current_status);
+            self.log_status_change(&last_status, &current_status);
 
             *last_status = Some(current_status);
         }
@@ -234,11 +234,10 @@ impl ConnectionStatusReporter {
         }
 
         // If currently connected, add time since last connection
-        if let Some(connected_at) = last_connected {
-            if let Ok(duration) = SystemTime::now().duration_since(connected_at) {
+        if let Some(connected_at) = last_connected
+            && let Ok(duration) = SystemTime::now().duration_since(connected_at) {
                 uptime += duration;
             }
-        }
 
         uptime
     }
@@ -264,11 +263,10 @@ impl ConnectionStatusReporter {
         }
 
         // If currently disconnected, add time since last disconnection
-        if let Some(disconnected_at) = last_disconnected {
-            if let Ok(duration) = SystemTime::now().duration_since(disconnected_at) {
+        if let Some(disconnected_at) = last_disconnected
+            && let Ok(duration) = SystemTime::now().duration_since(disconnected_at) {
                 downtime += duration;
             }
-        }
 
         downtime
     }

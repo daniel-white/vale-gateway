@@ -78,9 +78,98 @@ impl ConfigurationEventsClient {
         Ok(Self::new(transport))
     }
 
-    /// Create a new ConfigurationEventsClient with basic connection (no robustness features)
-    /// This maintains backward compatibility
+    /// Create a robust, self-managing events client with comprehensive defaults
+    ///
+    /// This method creates an events client with production-ready robustness features:
+    /// - Graceful startup mode (won't fail if service is temporarily unavailable)
+    /// - Internal connection monitoring optimized for event streams
+    /// - Comprehensive logging for all connection and event processing
+    /// - Automatic reconnection with exponential backoff
+    /// - Circuit breaker protection
+    /// - Request retry with intelligent backoff
+    /// - Event stream optimization for high-throughput scenarios
+    ///
+    /// The client handles all transport concerns internally, requiring no external management.
+    /// This is the recommended method for production deployments.
     pub async fn connect(
+        listener_ref: impl Into<ListenerRef>,
+        address: impl Into<Uri>,
+    ) -> Result<Self, ConfigurationEventClientError> {
+        // Create robust configuration optimized for event streams
+        let robust_config = RobustClientConfig::builder()
+            .timeout(Some(
+                crate::TimeoutConfig::builder()
+                    .default_timeout(std::time::Duration::from_secs(45)) // Longer timeout for event streams
+                    .build(),
+            ))
+            .circuit_breaker(Some(
+                crate::CircuitBreakerConfig::builder()
+                    .failure_threshold(3) // More sensitive for event streams
+                    .success_threshold(2)
+                    .timeout(std::time::Duration::from_secs(30))
+                    .minimum_throughput(5)
+                    .build(),
+            ))
+            .retry(Some(
+                crate::RetryPolicy::builder()
+                    .max_attempts(5) // More retries for event streams
+                    .base_delay(std::time::Duration::from_millis(200))
+                    .max_delay(std::time::Duration::from_secs(60))
+                    .backoff_multiplier(1.5) // Gentler backoff for streams
+                    .jitter(0.1)
+                    .build(),
+            ))
+            .reconnection(Some(
+                crate::ReconnectionConfig::builder()
+                    .enable_lazy_connection(false)
+                    .max_reconnect_attempts(None) // Unlimited reconnection for event streams
+                    .reconnect_base_delay(std::time::Duration::from_secs(1)) // Faster reconnection
+                    .reconnect_max_delay(std::time::Duration::from_secs(120))
+                    .queue_requests_during_reconnection(true)
+                    .max_queued_requests(200) // Larger queue for events
+                    .build(),
+            ))
+            .instrumentation(
+                crate::InstrumentationConfig::builder()
+                    .enable_metrics(true)
+                    .enable_tracing(true)
+                    .enable_logging(true)
+                    .enable_performance_monitoring(false) // Disabled by default for performance
+                    .build(),
+            )
+            .startup(
+                crate::StartupConfig::builder()
+                    .mode(crate::StartupMode::Graceful) // Graceful startup - won't fail if service unavailable
+                    .initial_connection_timeout(std::time::Duration::from_secs(5))
+                    .validate_connectivity(true)
+                    .log_startup_attempts(true)
+                    .build(),
+            )
+            .build();
+
+        let options =
+            ConfigurationTransportOptions::with_robust_config(listener_ref, address, robust_config);
+
+        let transport = ConfigurationTransport::async_try_from(options)
+            .await
+            .map_err(|_| {
+                // In graceful startup mode, this should rarely fail
+                // If it does, it means there's a fundamental configuration issue
+                tracing::error!("Failed to create robust configuration events client - check configuration and network connectivity");
+                ConfigurationEventClientError::ConnectionFailed
+            })?;
+
+        tracing::info!(
+            "✓ Configuration events client created successfully with robust self-management features"
+        );
+        Ok(Self::new(transport))
+    }
+
+    /// Create a new ConfigurationEventsClient with basic connection (no robustness features)
+    ///
+    /// This method is provided for backward compatibility and testing scenarios.
+    /// For production use, prefer the `connect()` method which includes robustness features.
+    pub async fn connect_simple(
         listener_ref: impl Into<ListenerRef>,
         address: impl Into<Uri>,
     ) -> Result<Self, ConfigurationEventClientError> {

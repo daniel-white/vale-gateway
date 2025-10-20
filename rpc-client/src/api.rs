@@ -34,8 +34,100 @@ impl ConfigurationClient {
         ConfigurationClientBuilder::new()
     }
 
-    /// Create a client with basic connection parameters (no robustness features)
+    /// Create a robust, self-managing client with comprehensive defaults
+    ///
+    /// This method creates a client with production-ready robustness features:
+    /// - Graceful startup mode (won't fail if service is temporarily unavailable)
+    /// - Internal connection monitoring and health checks
+    /// - Comprehensive logging for all connection events
+    /// - Automatic reconnection with exponential backoff
+    /// - Circuit breaker protection
+    /// - Request retry with intelligent backoff
+    ///
+    /// The client handles all transport concerns internally, requiring no external management.
+    /// This is the recommended method for production deployments.
     pub async fn connect(
+        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
+        address: impl Into<http::Uri>,
+    ) -> Result<Self, ConfigurationClientError> {
+        // Create robust configuration with comprehensive defaults
+        let robust_config = crate::RobustClientConfig::builder()
+            .timeout(Some(
+                crate::TimeoutConfig::builder()
+                    .default_timeout(std::time::Duration::from_secs(30))
+                    .build(),
+            ))
+            .circuit_breaker(Some(
+                crate::CircuitBreakerConfig::builder()
+                    .failure_threshold(5)
+                    .success_threshold(3)
+                    .timeout(std::time::Duration::from_secs(60))
+                    .minimum_throughput(10)
+                    .build(),
+            ))
+            .retry(Some(
+                crate::RetryPolicy::builder()
+                    .max_attempts(3)
+                    .base_delay(std::time::Duration::from_millis(500))
+                    .max_delay(std::time::Duration::from_secs(30))
+                    .backoff_multiplier(2.0)
+                    .jitter(0.1)
+                    .build(),
+            ))
+            .reconnection(Some(
+                crate::ReconnectionConfig::builder()
+                    .enable_lazy_connection(false)
+                    .max_reconnect_attempts(None) // Unlimited reconnection attempts
+                    .reconnect_base_delay(std::time::Duration::from_secs(2))
+                    .reconnect_max_delay(std::time::Duration::from_secs(300))
+                    .queue_requests_during_reconnection(true)
+                    .max_queued_requests(100)
+                    .build(),
+            ))
+            .instrumentation(
+                crate::InstrumentationConfig::builder()
+                    .enable_metrics(true)
+                    .enable_tracing(true)
+                    .enable_logging(true)
+                    .enable_performance_monitoring(false) // Disabled by default for performance
+                    .build(),
+            )
+            .startup(
+                crate::StartupConfig::builder()
+                    .mode(crate::StartupMode::Graceful) // Graceful startup - won't fail if service unavailable
+                    .initial_connection_timeout(std::time::Duration::from_secs(5))
+                    .validate_connectivity(true)
+                    .log_startup_attempts(true)
+                    .build(),
+            )
+            .build();
+
+        let options = crate::ConfigurationTransportOptions::with_robust_config(
+            listener_ref,
+            address,
+            robust_config,
+        );
+
+        let transport = crate::ConfigurationTransport::async_try_from(options)
+            .await
+            .map_err(|_| {
+                // In graceful startup mode, this should rarely fail
+                // If it does, it means there's a fundamental configuration issue
+                tracing::error!("Failed to create robust configuration client - check configuration and network connectivity");
+                ConfigurationClientError::ConnectionUnavailable
+            })?;
+
+        tracing::info!(
+            "✓ Configuration client created successfully with robust self-management features"
+        );
+        Ok(Self::new(transport))
+    }
+
+    /// Create a client with basic connection parameters (no robustness features)
+    ///
+    /// This method is provided for backward compatibility and testing scenarios.
+    /// For production use, prefer the `connect()` method which includes robustness features.
+    pub async fn connect_simple(
         listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
         address: impl Into<http::Uri>,
     ) -> Result<Self, ConfigurationClientError> {
@@ -224,13 +316,26 @@ impl ConfigurationClientBuilder {
         Self
     }
 
-    /// Create a client with basic connection parameters (no robustness features)
+    /// Create a robust, self-managing client with comprehensive defaults
+    ///
+    /// This is the recommended method for production deployments.
     pub async fn connect(
         self,
         listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
         address: impl Into<http::Uri>,
     ) -> Result<ConfigurationClient, ConfigurationClientError> {
         ConfigurationClient::connect(listener_ref, address).await
+    }
+
+    /// Create a client with basic connection parameters (no robustness features)
+    ///
+    /// This method is provided for backward compatibility and testing scenarios.
+    pub async fn connect_simple(
+        self,
+        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
+        address: impl Into<http::Uri>,
+    ) -> Result<ConfigurationClient, ConfigurationClientError> {
+        ConfigurationClient::connect_simple(listener_ref, address).await
     }
 
     /// Create a client with production-ready robustness settings

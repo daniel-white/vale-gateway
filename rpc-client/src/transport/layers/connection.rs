@@ -104,7 +104,7 @@ impl ConnectionManager {
                     self.connection_logger.log_lazy_startup_mode(uri);
                 }
                 debug!("Lazy connection enabled, connection will be established on first request");
-                return Ok(());
+                Ok(())
             }
             StartupMode::FailFast => {
                 if self.startup_config.log_startup_attempts {
@@ -383,8 +383,8 @@ impl ConnectionManager {
             while let Some(command) = rx.recv().await {
                 match command {
                     ReconnectCommand::Attempt => {
-                        if let Some(max_attempts) = config.max_reconnect_attempts {
-                            if attempt >= max_attempts {
+                        if let Some(max_attempts) = config.max_reconnect_attempts
+                            && attempt >= max_attempts {
                                 warn!(
                                     attempt = attempt,
                                     max_attempts = max_attempts,
@@ -400,7 +400,6 @@ impl ConnectionManager {
                                 Self::reject_queued_requests(&request_queue).await;
                                 break;
                             }
-                        }
 
                         let delay = config.delay_for_reconnect_attempt(attempt);
                         debug!(
