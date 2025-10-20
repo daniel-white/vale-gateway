@@ -54,15 +54,20 @@ impl ConfigurationClient {
             .listener_ref(self.listener_ref().clone())
             .build();
 
-        let listener = self
-            .transport()
-            .client()
-            .listener(req)
-            .await
-            .map_err(|err| {
-                tracing::error!("Failed to get listener: {:?}", err);
-                ConfigurationClientError::from(err)
-            })?;
+        let client = self.transport().current_client().await;
+        let listener = client.listener(req).await.map_err(|err| {
+            tracing::error!("Failed to get listener: {:?}", err);
+            
+            // Check if this is a connection-related error that might indicate stale client
+            match &err {
+                ClientError::Transport(_) | ClientError::RequestTimeout => {
+                    tracing::warn!("Listener request failed with transport/timeout error, connection may be stale");
+                }
+                _ => {}
+            }
+            
+            ConfigurationClientError::from(err)
+        })?;
 
         Ok(Arc::new(listener))
     }
@@ -81,8 +86,18 @@ impl ConfigurationClient {
             .route_ref(route_ref.clone())
             .build();
 
-        let route = self.transport().client().route(req).await.map_err(|err| {
+        let client = self.transport().current_client().await;
+        let route = client.route(req).await.map_err(|err| {
             tracing::error!("Failed to get route: {:?}", err);
+            
+            // Check if this is a connection-related error that might indicate stale client
+            match &err {
+                ClientError::Transport(_) | ClientError::RequestTimeout => {
+                    tracing::warn!("Route request failed with transport/timeout error, connection may be stale");
+                }
+                _ => {}
+            }
+            
             ConfigurationClientError::from(err)
         })?;
 
@@ -103,15 +118,20 @@ impl ConfigurationClient {
             .backend_ref(backend_ref.clone())
             .build();
 
-        let backend = self
-            .transport()
-            .client()
-            .backend(req)
-            .await
-            .map_err(|err| {
-                tracing::error!("Failed to get backend: {:?}", err);
-                ConfigurationClientError::from(err)
-            })?;
+        let client = self.transport().current_client().await;
+        let backend = client.backend(req).await.map_err(|err| {
+            tracing::error!("Failed to get backend: {:?}", err);
+            
+            // Check if this is a connection-related error that might indicate stale client
+            match &err {
+                ClientError::Transport(_) | ClientError::RequestTimeout => {
+                    tracing::warn!("Backend request failed with transport/timeout error, connection may be stale");
+                }
+                _ => {}
+            }
+            
+            ConfigurationClientError::from(err)
+        })?;
 
         Ok(Arc::new(backend))
     }
@@ -130,15 +150,20 @@ impl ConfigurationClient {
             .filter_ref(filter_ref.clone())
             .build();
 
-        let filter = self
-            .transport()
-            .client()
-            .shared_filter(req)
-            .await
-            .map_err(|err| {
-                tracing::error!("Failed to get shared filter: {:?}", err);
-                ConfigurationClientError::from(err)
-            })?;
+        let client = self.transport().current_client().await;
+        let filter = client.shared_filter(req).await.map_err(|err| {
+            tracing::error!("Failed to get shared filter: {:?}", err);
+            
+            // Check if this is a connection-related error that might indicate stale client
+            match &err {
+                ClientError::Transport(_) | ClientError::RequestTimeout => {
+                    tracing::warn!("Shared filter request failed with transport/timeout error, connection may be stale");
+                }
+                _ => {}
+            }
+            
+            ConfigurationClientError::from(err)
+        })?;
 
         Ok(Arc::new(filter))
     }

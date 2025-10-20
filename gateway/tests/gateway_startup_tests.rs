@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use tokio::time::timeout;
 use vg_rpc_client::{
     ConfigurationClient, ConfigurationClientError, ConfigurationEventClientError,
-    ConfigurationEventsClient,
+    ConfigurationEventsClient, RobustClientConfig, RpcTransport,
 };
 
 /// Test helper to simulate different service availability scenarios
@@ -16,6 +16,29 @@ impl TestEnvironment {
         // Use port 1 which should be unavailable
         Self {
             server_uri: "ws://127.0.0.1:1".parse().unwrap(),
+        }
+    }
+
+    /// Helper function to create clients using the new RpcTransport pattern
+    async fn create_clients(
+        &self,
+        listener_ref: String,
+    ) -> (
+        Result<ConfigurationClient, ConfigurationClientError>,
+        Result<ConfigurationEventsClient, ConfigurationEventClientError>,
+    ) {
+        match RpcTransport::new(self.server_uri.clone(), RobustClientConfig::production()).await {
+            Ok(transport) => {
+                let client = ConfigurationClient::new(transport.clone(), listener_ref.clone());
+                let events = ConfigurationEventsClient::new(transport, listener_ref);
+                (Ok(client), Ok(events))
+            }
+            Err(_) => {
+                // Convert transport error to client errors for compatibility
+                let client_err = ConfigurationClientError::ConnectionUnavailable;
+                let events_err = ConfigurationEventClientError::ConnectionFailed;
+                (Err(client_err), Err(events_err))
+            }
         }
     }
 
@@ -47,12 +70,7 @@ async fn test_gateway_startup_with_unavailable_service() {
 
     // This should complete within the startup timeout even if service is unavailable
     let startup_result = timeout(Duration::from_secs(10), async {
-        let client_result =
-            ConfigurationClient::connect(listener_ref.clone(), server_uri.clone()).await;
-
-        let events_result = ConfigurationEventsClient::connect(listener_ref, server_uri).await;
-
-        (client_result, events_result)
+        env.create_clients(listener_ref).await
     })
     .await;
 

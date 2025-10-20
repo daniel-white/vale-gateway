@@ -1,6 +1,5 @@
-use crate::ConfigurationTransport;
-use async_from::AsyncTryFrom;
-use http::Uri;
+use crate::transport::rpc::RpcTransport;
+use getset::Getters;
 use jsonrpsee::core::ClientError;
 use opentelemetry::Context;
 use opentelemetry::context::FutureExt;
@@ -10,232 +9,80 @@ use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
 use vg_config::http::listener::ListenerRef;
 use vg_core::sync::broadcast::error::RecvError;
-use vg_core::sync::broadcast::{Receiver, Sender, Traced, channel};
+use vg_core::sync::broadcast::{Receiver, Sender, Traced};
 use vg_core::sync::handles::{Handle, handles};
-use vg_rpc::{ConfigurationApiError, RequestContext, SubscribeEventsRequest};
+use vg_rpc::{
+    ConfigurationApiClient, ConfigurationApiError, RequestContext, SubscribeEventsRequest,
+};
 
 use crate::instrumentation::TRACER;
-use crate::{ConfigurationTransportOptions, RobustClientConfig};
 pub use vg_rpc::ConfigurationEvent;
 
+/// Configuration events client that uses RPC transport
+/// Uses getset for clean field access and typed_builder for construction
+#[derive(Debug, Getters, TypedBuilder)]
 pub struct ConfigurationEventsClient {
-    transport: ConfigurationTransport,
-    tx: Sender<ConfigurationEvent>,
+    /// RPC transport instance
+    #[getset(get = "pub")]
+    transport: RpcTransport,
+
+    /// Listener reference for this client
+    #[getset(get = "pub")]
+    listener_ref: ListenerRef,
+
+    /// Event receiver using core broadcast channels
+    #[getset(get = "pub")]
+    event_receiver: Receiver<ConfigurationEvent>,
+
+    /// Subscription handle using core handles
+    #[getset(get = "pub")]
+    #[builder(default)]
+    subscription_handle: Option<Handle>,
 }
 
 impl ConfigurationEventsClient {
-    pub fn new(transport: ConfigurationTransport) -> Self {
-        let (tx, _) = channel(32);
-        Self { transport, tx }
-    }
+    /// Create a new ConfigurationEventsClient with RPC transport
+    /// This replaces the connect() method - transport is now passed in
+    pub fn new(transport: RpcTransport, listener_ref: impl Into<ListenerRef>) -> Self {
+        let listener_ref = listener_ref.into();
+        let event_receiver = transport.event_sender().subscribe();
 
-    /// Create a new ConfigurationEventsClient with connection parameters
-    /// This method creates the transport internally with production-ready robustness settings
-    /// This method will always succeed and create a client that can handle disconnected state
-    pub async fn connect_production(
-        listener_ref: impl Into<ListenerRef>,
-        address: impl Into<Uri>,
-    ) -> Result<Self, ConfigurationEventClientError> {
-        let options = ConfigurationTransportOptions::production(listener_ref, address);
-        let transport = ConfigurationTransport::async_try_from(options)
-            .await
-            .map_err(|_| ConfigurationEventClientError::ConnectionFailed)?;
-
-        Ok(Self::new(transport))
-    }
-
-    /// Create a new ConfigurationEventsClient with connection parameters
-    /// This method creates the transport internally with development-friendly robustness settings
-    pub async fn connect_development(
-        listener_ref: impl Into<ListenerRef>,
-        address: impl Into<Uri>,
-    ) -> Result<Self, ConfigurationEventClientError> {
-        let options = ConfigurationTransportOptions::development(listener_ref, address);
-        let transport = ConfigurationTransport::async_try_from(options)
-            .await
-            .map_err(|_| ConfigurationEventClientError::ConnectionFailed)?;
-
-        Ok(Self::new(transport))
-    }
-
-    /// Create a new ConfigurationEventsClient with custom robustness configuration
-    pub async fn connect_with_config(
-        listener_ref: impl Into<ListenerRef>,
-        address: impl Into<Uri>,
-        robust_config: RobustClientConfig,
-    ) -> Result<Self, ConfigurationEventClientError> {
-        // Validate configuration before proceeding
-        robust_config
-            .validate()
-            .map_err(|_| ConfigurationEventClientError::InvalidConfiguration)?;
-
-        let options =
-            ConfigurationTransportOptions::with_robust_config(listener_ref, address, robust_config);
-        let transport = ConfigurationTransport::async_try_from(options)
-            .await
-            .map_err(|_| ConfigurationEventClientError::ConnectionFailed)?;
-
-        Ok(Self::new(transport))
-    }
-
-    /// Create a robust, self-managing events client with comprehensive defaults
-    ///
-    /// This method creates an events client with production-ready robustness features:
-    /// - Graceful startup mode (won't fail if service is temporarily unavailable)
-    /// - Internal connection monitoring optimized for event streams
-    /// - Comprehensive logging for all connection and event processing
-    /// - Automatic reconnection with exponential backoff
-    /// - Circuit breaker protection
-    /// - Request retry with intelligent backoff
-    /// - Event stream optimization for high-throughput scenarios
-    ///
-    /// The client handles all transport concerns internally, requiring no external management.
-    /// This is the recommended method for production deployments.
-    pub async fn connect(
-        listener_ref: impl Into<ListenerRef>,
-        address: impl Into<Uri>,
-    ) -> Result<Self, ConfigurationEventClientError> {
-        // Create robust configuration optimized for event streams
-        let robust_config = RobustClientConfig::builder()
-            .timeout(Some(
-                crate::TimeoutConfig::builder()
-                    .default_timeout(std::time::Duration::from_secs(45)) // Longer timeout for event streams
-                    .build(),
-            ))
-            .circuit_breaker(Some(
-                crate::CircuitBreakerConfig::builder()
-                    .failure_threshold(3) // More sensitive for event streams
-                    .success_threshold(2)
-                    .timeout(std::time::Duration::from_secs(30))
-                    .minimum_throughput(5)
-                    .build(),
-            ))
-            .retry(Some(
-                crate::RetryPolicy::builder()
-                    .max_attempts(5) // More retries for event streams
-                    .base_delay(std::time::Duration::from_millis(200))
-                    .max_delay(std::time::Duration::from_secs(60))
-                    .backoff_multiplier(1.5) // Gentler backoff for streams
-                    .jitter(0.1)
-                    .build(),
-            ))
-            .reconnection(Some(
-                crate::ReconnectionConfig::builder()
-                    .enable_lazy_connection(false)
-                    .max_reconnect_attempts(None) // Unlimited reconnection for event streams
-                    .reconnect_base_delay(std::time::Duration::from_secs(1)) // Faster reconnection
-                    .reconnect_max_delay(std::time::Duration::from_secs(120))
-                    .queue_requests_during_reconnection(true)
-                    .max_queued_requests(200) // Larger queue for events
-                    .build(),
-            ))
-            .instrumentation(
-                crate::InstrumentationConfig::builder()
-                    .enable_metrics(true)
-                    .enable_tracing(true)
-                    .enable_logging(true)
-                    .enable_performance_monitoring(false) // Disabled by default for performance
-                    .build(),
-            )
-            .startup(
-                crate::StartupConfig::builder()
-                    .mode(crate::StartupMode::Graceful) // Graceful startup - won't fail if service unavailable
-                    .initial_connection_timeout(std::time::Duration::from_secs(5))
-                    .validate_connectivity(true)
-                    .log_startup_attempts(true)
-                    .build(),
-            )
-            .internal_monitoring(
-                crate::InternalMonitoringConfig::builder()
-                    .enabled(true)
-                    .check_interval(std::time::Duration::from_secs(20)) // More frequent checks for event streams
-                    .health_check_timeout(std::time::Duration::from_secs(3)) // Shorter timeout for responsiveness
-                    .critical_failure_threshold(6) // Lower threshold for event streams (2 minutes at 20s intervals)
-                    .log_heartbeat(false) // Reduce log noise for event streams
-                    .build(),
-            )
-            .startup_logging(
-                crate::StartupLoggingConfig::builder()
-                    .log_connection_attempts(true)
-                    .log_validation_results(true)
-                    .log_background_operations(false) // Reduce noise for event streams
-                    .startup_summary(true)
-                    .log_level(crate::transport::layers::StartupLogLevel::Info)
-                    .include_performance_metrics(false) // Reduce overhead for event streams
-                    .build(),
-            )
-            .build();
-
-        let options =
-            ConfigurationTransportOptions::with_robust_config(listener_ref, address, robust_config);
-
-        let transport = ConfigurationTransport::async_try_from(options)
-            .await
-            .map_err(|_| {
-                // In graceful startup mode, this should rarely fail
-                // If it does, it means there's a fundamental configuration issue
-                tracing::error!("Failed to create robust configuration events client - check configuration and network connectivity");
-                ConfigurationEventClientError::ConnectionFailed
-            })?;
-
-        tracing::info!(
-            "✓ Configuration events client created successfully with robust self-management features"
-        );
-
-        // The transport already handles internal monitoring setup during creation
-        // We just need to check if monitoring is available and create the appropriate client
-        if transport.monitoring_manager().is_some() {
-            tracing::info!(
-                "✓ Internal connection monitoring integrated successfully for events client"
-            );
-        }
-
-        Ok(Self::new(transport))
-    }
-
-    /// Create a new ConfigurationEventsClient with basic connection (no robustness features)
-    ///
-    /// This method is provided for backward compatibility and testing scenarios.
-    /// For production use, prefer the `connect()` method which includes robustness features.
-    pub async fn connect_simple(
-        listener_ref: impl Into<ListenerRef>,
-        address: impl Into<Uri>,
-    ) -> Result<Self, ConfigurationEventClientError> {
-        let options = ConfigurationTransportOptions::builder()
+        Self::builder()
+            .transport(transport)
             .listener_ref(listener_ref)
-            .address(address)
-            .build();
-        let transport = ConfigurationTransport::async_try_from(options)
-            .await
-            .map_err(|_| ConfigurationEventClientError::ConnectionFailed)?;
-
-        Ok(Self::new(transport))
+            .event_receiver(event_receiver)
+            .build()
     }
 
     pub fn events(&self) -> ConfigurationEventsReceiver {
         ConfigurationEventsReceiver::builder()
-            .tx(self.tx.clone())
-            .rx(self.tx.subscribe())
+            .tx(self.transport.event_sender().clone())
+            .rx(self.transport.event_sender().subscribe())
             .build()
     }
 
-    pub async fn start(self) -> Result<Handle, ConfigurationEventClientError> {
+    /// Start event subscription on RPC transport connection
+    /// Reuses existing subscription logic from events/client.rs
+    pub async fn start(&mut self) -> Result<Handle, ConfigurationEventClientError> {
+        // Reuse existing subscription request building
         let span = TRACER
             .span_builder("ConfigurationEventClient::events")
             .with_kind(SpanKind::Client)
             .start(&*TRACER);
+
         let req = SubscribeEventsRequest::builder()
             .context(RequestContext::new(span))
-            .listener_ref(self.transport.listener_ref().clone())
+            .listener_ref(self.listener_ref().clone())
             .build();
 
-        let mut subscription = self.transport.client().events(req).await?;
+        let mut subscription = (&**self.transport().client()).events(req).await?;
+
+        // Use core handles for task management
         let (handle, mut stop_handle) = handles();
 
+        // Event processing task (reused logic from existing events/client.rs)
+        let event_sender = self.transport().event_sender().clone();
         spawn(async move {
-            // Hold on to the transport to keep the connection alive
-            let transport = self.transport;
-
             loop {
                 select! {
                     event = subscription.next() => {
@@ -244,7 +91,7 @@ impl ConfigurationEventsClient {
                             let mut span = TRACER.span_builder("ConfigurationEventClient::recv")
                                 .with_kind(SpanKind::Consumer)
                                 .start_with_context(&*TRACER, &channel.into());
-                            let _ = self.tx.send(event.event());
+                            let _ = event_sender.send(event.event());
                             span.end();
                         } else {
                             break;
@@ -255,11 +102,9 @@ impl ConfigurationEventsClient {
                     }
                 }
             }
-
-            // We don't need the transport anymore
-            drop(transport);
         });
 
+        self.subscription_handle = Some(handle.clone());
         Ok(handle)
     }
 }
@@ -352,12 +197,105 @@ impl ConfigurationEventsClient {
     }
 
     /// Get monitoring status information for the events client
-    pub async fn monitoring_status(&self) -> Option<crate::transport::layers::MonitoringStatus> {
-        if let Some(monitoring_manager) = self.transport.monitoring_manager() {
-            let manager = monitoring_manager.lock().await;
-            Some(manager.status())
-        } else {
-            None
+    pub async fn monitoring_status(&self) -> crate::transport::layers::MonitoringStatus {
+        self.transport.monitoring_status().await
+    }
+
+    /// Start event subscription with resilient connection handling
+    /// This method implements graceful reconnection and event queuing during connection failures
+    pub async fn start_resilient(&mut self) -> Result<Handle, ConfigurationEventClientError> {
+        // Use existing reconnection layers from RpcTransport
+        // The RpcTransport already handles reconnection, so we just need to start normally
+        // but with additional error handling for initial connection failures
+        match self.start().await {
+            Ok(handle) => {
+                tracing::info!(
+                    "Events client started successfully with resilient connection handling"
+                );
+                Ok(handle)
+            }
+            Err(ConfigurationEventClientError::ConnectionFailed) => {
+                // Don't fail immediately on connection failure - the transport will handle reconnection
+                tracing::warn!(
+                    "Initial connection failed, but events client will continue attempting to reconnect"
+                );
+
+                // Create a handle that represents the ongoing connection attempts
+                let (handle, mut stop_handle) = handles();
+                let transport = self.transport.clone();
+                let listener_ref = self.listener_ref.clone();
+                let event_sender = transport.event_sender().clone();
+
+                spawn(async move {
+                    let mut retry_count = 0;
+                    let max_retries = 10; // Allow multiple retries before giving up
+
+                    loop {
+                        select! {
+                            _ = stop_handle.stopped() => {
+                                tracing::info!("Resilient events client stopped");
+                                break;
+                            }
+                            _ = tokio::time::sleep(std::time::Duration::from_secs(2)) => {
+                                retry_count += 1;
+                                if retry_count > max_retries {
+                                    tracing::error!("Events client failed to connect after {} retries", max_retries);
+                                    break;
+                                }
+
+                                // Try to establish subscription again
+                                let span = TRACER
+                                    .span_builder("ConfigurationEventClient::events_retry")
+                                    .with_kind(SpanKind::Client)
+                                    .start(&*TRACER);
+
+                                let req = SubscribeEventsRequest::builder()
+                                    .context(RequestContext::new(span))
+                                    .listener_ref(listener_ref.clone())
+                                    .build();
+
+                                match (&**transport.client()).events(req).await {
+                                    Ok(mut subscription) => {
+                                        tracing::info!("Events client reconnected successfully after {} retries", retry_count);
+                                        retry_count = 0; // Reset retry count on successful connection
+
+                                        // Start event processing loop
+                                        loop {
+                                            select! {
+                                                event = subscription.next() => {
+                                                    if let Some(Ok(event)) = event {
+                                                        let channel = event.context().propagation_channel();
+                                                        let mut span = TRACER.span_builder("ConfigurationEventClient::recv")
+                                                            .with_kind(SpanKind::Consumer)
+                                                            .start_with_context(&*TRACER, &channel.into());
+                                                        let _ = event_sender.send(event.event());
+                                                        span.end();
+                                                    } else {
+                                                        tracing::warn!("Event subscription ended, will retry connection");
+                                                        break; // Break inner loop to retry connection
+                                                    }
+                                                },
+                                                _ = stop_handle.stopped() => {
+                                                    tracing::info!("Resilient events client stopped during event processing");
+                                                    return; // Exit the entire task
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!("Failed to reconnect events client (attempt {}): {:?}", retry_count, e);
+                                        // Continue the loop to retry
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                self.subscription_handle = Some(handle.clone());
+                Ok(handle)
+            }
+            Err(e) => Err(e),
         }
     }
 

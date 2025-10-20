@@ -19,6 +19,10 @@ pub struct RpcTransport {
     #[getset(get = "pub")]
     client: Arc<LayeredClient>,
 
+    /// Mutable reference for connection replacement during reconnection
+    /// This is separate from the main client to avoid breaking existing API
+    client_replacer: Arc<tokio::sync::Mutex<Arc<LayeredClient>>>,
+
     /// Connection configuration (reused from existing)
     #[getset(get = "pub")]
     config: RpcTransportConfig,
@@ -75,8 +79,10 @@ impl RpcTransport {
             .event_buffer_size(1024)
             .build();
 
+        let client_arc = Arc::new(layered_client);
         let transport = Self::builder()
-            .client(Arc::new(layered_client))
+            .client(client_arc.clone())
+            .client_replacer(Arc::new(tokio::sync::Mutex::new(client_arc)))
             .config(config)
             .connection_handle(connection_handle)
             .event_sender(event_sender)
@@ -85,6 +91,9 @@ impl RpcTransport {
 
         // Start connection monitoring using existing MonitoringManager
         transport.start_connection_monitoring().await?;
+
+        // Start automatic reconnection handler
+        transport.start_automatic_reconnection();
 
         Ok(transport)
     }
@@ -115,7 +124,6 @@ impl RpcTransport {
         let monitoring_manager = self.monitoring_manager.clone();
         let client = self.client.clone();
 
-        // Create health check function using existing HealthCheckFactory
         let health_check_fn = crate::transport::layers::HealthCheckFactory::for_layered_client(
             client,
             // Use a default listener ref for health checks - this will be overridden by actual clients
@@ -162,6 +170,212 @@ impl RpcTransport {
     pub async fn monitoring_status(&self) -> crate::transport::layers::MonitoringStatus {
         let manager = self.monitoring_manager.lock().await;
         manager.status()
+    }
+
+    /// Get access to the current client for making RPC calls
+    /// This method provides access to the most recent connection (after any reconnections)
+    pub async fn current_client(&self) -> Arc<LayeredClient> {
+        let client_guard = self.client_replacer.lock().await;
+        client_guard.clone()
+    }
+
+    /// Start automatic reconnection handler
+    /// This runs in the background and automatically reconnects when the connection is lost
+    fn start_automatic_reconnection(&self) {
+        let address = self.config.address.clone();
+        let robust_config = self.config.robust_config.clone();
+        let _monitoring_manager = self.monitoring_manager.clone();
+        let client_replacer = self.client_replacer.clone();
+
+        // Spawn background reconnection task
+        tokio::spawn(async move {
+            tracing::info!(
+                "🔄 Started automatic reconnection handler for RPC transport to {}",
+                address
+            );
+
+            let mut reconnect_attempts = 0;
+            let mut delay = std::time::Duration::from_secs(2);
+            let max_delay = std::time::Duration::from_secs(30);
+            let mut last_failure_time = std::time::Instant::now();
+            let mut consecutive_health_failures = 0;
+
+            loop {
+                // Check connection health every 30 seconds (less aggressive)
+                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+
+                // Test connection health by attempting a quick connection
+                // This is more reliable than trying to interpret monitoring status
+                let connection_needs_repair = {
+                    let test_config = RobustClientConfig::minimal();
+                    let test_result = tokio::time::timeout(
+                        std::time::Duration::from_millis(5000), // Longer timeout to avoid false positives
+                        EnhancedWsClientBuilder::new()
+                            .with_robust_config(test_config)
+                            .build(address.to_string()),
+                    )
+                    .await;
+
+                    match test_result {
+                        Ok(Ok(_)) => {
+                            // Connection test succeeded
+                            if consecutive_health_failures > 0 {
+                                tracing::debug!(
+                                    "RPC transport connection to {} is healthy",
+                                    address
+                                );
+                                consecutive_health_failures = 0;
+                            }
+                            false
+                        }
+                        Ok(Err(_)) | Err(_) => {
+                            // Connection test failed
+                            consecutive_health_failures += 1;
+                            tracing::debug!(
+                                "RPC transport connection test failed for {} (failure #{})",
+                                address,
+                                consecutive_health_failures
+                            );
+                            consecutive_health_failures >= 3 // Require 3 consecutive failures to avoid false positives
+                        }
+                    }
+                };
+
+                if connection_needs_repair {
+                    let now = std::time::Instant::now();
+                    // Only attempt reconnection if enough time has passed since last attempt
+                    if now.duration_since(last_failure_time) >= delay {
+                        reconnect_attempts += 1;
+                        last_failure_time = now;
+
+                        tracing::info!(
+                            "🔄 RPC transport connection to {} needs repair, attempting reconnection #{}",
+                            address,
+                            reconnect_attempts
+                        );
+
+                        // Attempt to create a new connection and replace the broken one
+                        match RpcTransport::create_new_connection(&address, &robust_config).await {
+                            Ok(new_layered_client) => {
+                                // Replace the broken connection with the new one
+                                {
+                                    let mut client_guard = client_replacer.lock().await;
+                                    *client_guard = Arc::new(new_layered_client);
+                                }
+
+                                tracing::info!(
+                                    "🚀 RPC transport successfully reconnected to {} after {} attempts - connection replaced",
+                                    address,
+                                    reconnect_attempts
+                                );
+
+                                // Reset counters on successful reconnection
+                                reconnect_attempts = 0;
+                                consecutive_health_failures = 0;
+                                delay = std::time::Duration::from_secs(2);
+                            }
+                            Err(e) => {
+                                tracing::warn!(
+                                    "Reconnection attempt #{} to {} failed: {:?} - will retry in {:?}",
+                                    reconnect_attempts,
+                                    address,
+                                    e,
+                                    delay
+                                );
+
+                                // Exponential backoff
+                                delay = std::cmp::min(delay * 2, max_delay);
+                            }
+                        }
+                    }
+                } else {
+                    // Connection is healthy, reset counters
+                    if reconnect_attempts > 0 {
+                        reconnect_attempts = 0;
+                        delay = std::time::Duration::from_secs(2);
+                    }
+                }
+            }
+        });
+
+        tracing::info!(
+            "🔄 Automatic reconnection enabled for RPC transport to {}",
+            self.config.address
+        );
+    }
+
+    /// Create a new connection for reconnection attempts
+    async fn create_new_connection(
+        address: &Uri,
+        robust_config: &RobustClientConfig,
+    ) -> Result<LayeredClient, RpcTransportError> {
+        // Create a simplified config for reconnection attempts
+        let mut reconnect_config = robust_config.clone();
+        reconnect_config.startup.initial_connection_timeout = std::time::Duration::from_secs(5);
+        reconnect_config.internal_monitoring.enabled = false; // Avoid recursive monitoring
+
+        EnhancedWsClientBuilder::new()
+            .with_robust_config(reconnect_config)
+            .build(address.to_string())
+            .await
+            .map_err(RpcTransportError::InitializationFailed)
+    }
+
+    /// Quick health check for a client to detect stale connections
+    async fn is_client_healthy(&self, _client: &LayeredClient) -> bool {
+        // Try a very quick connection test with minimal timeout
+        // This is a lightweight check to see if the client is responsive
+        let test_config = RobustClientConfig::minimal();
+        let test_result = tokio::time::timeout(
+            std::time::Duration::from_millis(500), // Very short timeout
+            EnhancedWsClientBuilder::new()
+                .with_robust_config(test_config)
+                .build(self.config.address.to_string()),
+        )
+        .await;
+
+        match test_result {
+            Ok(Ok(_)) => {
+                tracing::trace!("Client health check passed for {}", self.config.address);
+                true
+            }
+            Ok(Err(_)) | Err(_) => {
+                tracing::debug!("Client health check failed for {}", self.config.address);
+                false
+            }
+        }
+    }
+
+    /// Trigger an immediate reconnection attempt (non-blocking)
+    async fn trigger_immediate_reconnection(&self) {
+        let address = self.config.address.clone();
+        let robust_config = self.config.robust_config.clone();
+        let client_replacer = self.client_replacer.clone();
+
+        tracing::info!("🔄 Triggering immediate reconnection for {}", address);
+
+        // Attempt to create a new connection immediately
+        match Self::create_new_connection(&address, &robust_config).await {
+            Ok(new_layered_client) => {
+                // Replace the broken connection with the new one
+                {
+                    let mut client_guard = client_replacer.lock().await;
+                    *client_guard = Arc::new(new_layered_client);
+                }
+
+                tracing::info!(
+                    "🚀 Immediate reconnection to {} successful - connection replaced",
+                    address
+                );
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "Immediate reconnection to {} failed: {:?} - background reconnection will continue",
+                    address,
+                    e
+                );
+            }
+        }
     }
 }
 

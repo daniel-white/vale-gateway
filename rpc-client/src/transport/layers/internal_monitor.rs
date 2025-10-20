@@ -269,7 +269,7 @@ pub struct MonitoringConfig {
 impl Default for MonitoringConfig {
     fn default() -> Self {
         Self {
-            check_interval: Duration::from_secs(30),
+            check_interval: Duration::from_secs(10),
             health_check_timeout: Duration::from_secs(5),
             critical_threshold: 10, // 5 minutes of failures at 30s intervals
             enable_heartbeat_logging: false, // Reduce log noise by default

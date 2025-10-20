@@ -44,26 +44,26 @@
     - Ensure monitoring works with shared connection
     - _Requirements: 5.1, 5.5_
 
-- [ ] 4. Update ConfigurationEventsClient to use RpcTransport
-  - [ ] 4.1 Modify ConfigurationEventsClient struct with getset and typed_builder
+- [x] 4. Update ConfigurationEventsClient to use RpcTransport
+  - [x] 4.1 Modify ConfigurationEventsClient struct with getset and typed_builder
     - Replace transport field with RpcTransport
     - Add listener_ref and event_receiver fields with getset accessors
     - Remove connect() methods, add new() constructor
     - _Requirements: 6.1, 6.4_
   
-  - [ ] 4.2 Implement event subscription using RpcTransport
+  - [x] 4.2 Implement event subscription using RpcTransport
     - Modify start() method to use transport.client() for subscription
     - Use core broadcast channels for event distribution from RpcTransport
     - Reuse existing event processing logic with core handles
     - _Requirements: 1.3, 2.2, 4.3_
   
-  - [ ] 4.3 Update events() method to use shared event distribution
+  - [x] 4.3 Update events() method to use shared event distribution
     - Modify events() method to return receiver from RpcTransport event_sender
     - Ensure ConfigurationEventsReceiver works with shared events
     - Maintain existing event receiver API and behavior
     - _Requirements: 2.3, 4.3, 6.2_
   
-  - [ ] 4.4 Add resilient connection handling for events
+  - [x] 4.4 Add resilient connection handling for events
     - Implement graceful reconnection using existing reconnection layers
     - Add event queuing during connection failures using core utilities
     - Ensure events client doesn't fail on initial connection failure
@@ -146,14 +146,14 @@
     - Verify startup time improvements from single connection establishment
     - _Requirements: 1.1, 1.2_
 
-- [ ] 9. Update gateway to use new RpcTransport pattern
-  - [ ] 9.1 Update gateway main.rs to use RpcTransport constructor pattern
+- [x] 9. Update gateway to use new RpcTransport pattern
+  - [x] 9.1 Update gateway main.rs to use RpcTransport constructor pattern
     - Replace ConfigurationClient::connect() with RpcTransport::new() + ConfigurationClient::new()
     - Replace ConfigurationEventsClient::connect() with ConfigurationEventsClient::new()
     - Share single RpcTransport instance between both clients
     - _Requirements: 1.1, 1.2, 6.1_
   
-  - [ ] 9.2 Update gateway error handling for new pattern
+  - [x] 9.2 Update gateway error handling for new pattern
     - Handle RpcTransportError in gateway startup
     - Ensure graceful handling of transport creation failures
     - Maintain existing gateway resilience behavior
