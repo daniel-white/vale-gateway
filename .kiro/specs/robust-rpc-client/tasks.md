@@ -168,3 +168,60 @@
     - Test circuit breaker properties under various failure patterns
     - Verify retry behavior with different error patterns and timing
     - _Requirements: 1.1, 2.1, 3.1_
+
+- [x] 14. Implement startup resilience and enhanced logging
+  - [x] 14.1 Create StartupConfig and StartupMode types
+    - Add StartupConfig struct with startup behavior configuration
+    - Implement StartupMode enum (Graceful, Lazy, FailFast)
+    - Add validation and default configurations for startup settings
+    - _Requirements: 8.1, 8.2, 8.3_
+  
+  - [x] 14.2 Implement ConnectionLogger for enhanced connection event logging
+    - Create ConnectionLogger struct with structured logging methods
+    - Add methods for connection loss, reconnection attempts, success, and failure logging
+    - Integrate with existing connection manager and reconnection layer
+    - _Requirements: 6.6, 6.7, 6.8, 6.9_
+  
+  - [x] 14.3 Add StartupPending state to ConnectionManager
+    - Extend ConnectionState enum with StartupPending state
+    - Update connection state transitions to handle graceful startup
+    - Add startup mode handling to connection manager
+    - _Requirements: 8.1, 8.2, 8.4_
+  
+  - [x] 14.4 Update ConfigurationClient connect methods for graceful startup
+    - Modify connect_production to use graceful startup mode by default
+    - Add timeout handling for initial connection attempts
+    - Implement background connection establishment for failed startup connections
+    - _Requirements: 8.1, 8.2, 8.3, 8.5_
+
+- [x] 15. Update gateway integration for startup resilience
+  - [x] 15.1 Modify gateway startup to handle connection failures gracefully
+    - Update gateway main.rs to not fail on initial connection errors
+    - Add proper error handling and logging for startup connection validation
+    - Ensure gateway continues startup even when configuration service is unavailable
+    - _Requirements: 4.6, 4.7, 8.1, 8.2_
+  
+  - [x] 15.2 Add connection status monitoring to gateway
+    - Implement connection status reporting in gateway logs
+    - Add periodic connection health checks if needed
+    - Ensure proper error handling for ongoing operations
+    - _Requirements: 4.4, 6.6, 6.7, 6.8_
+
+- [ ] 16. Add comprehensive testing for startup resilience
+  - [ ] 16.1 Create startup resilience integration tests
+    - Test graceful startup mode with unavailable configuration service
+    - Test lazy startup mode behavior
+    - Test fail-fast mode for backward compatibility
+    - _Requirements: 8.1, 8.2, 8.3_
+  
+  - [ ] 16.2 Add connection logging tests
+    - Test connection loss logging scenarios
+    - Test reconnection attempt logging with different delays
+    - Test startup connection failure and success logging
+    - _Requirements: 6.6, 6.7, 6.8, 6.9_
+  
+  - [ ] 16.3 Add gateway startup integration tests
+    - Test gateway startup with configuration service unavailable
+    - Test gateway behavior when service becomes available after startup
+    - Verify proper error handling and logging throughout startup process
+    - _Requirements: 4.6, 4.7, 8.4, 8.5_

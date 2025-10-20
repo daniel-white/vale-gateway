@@ -64,6 +64,8 @@ This feature enhances the configuration API client to be more robust and product
 3. WHEN configuration requests are made before connection is established, THE Configuration_Client SHALL return appropriate errors or queue requests based on configuration
 4. THE Configuration_Client SHALL provide connection status information to consumers
 5. WHERE lazy connection is enabled, THE Configuration_Client SHALL only attempt connection when first request is made
+6. WHEN initial connection fails during Gateway_Program startup, THE Configuration_Client SHALL log a warning but allow startup to continue
+7. THE Gateway_Program SHALL validate connection parameters at startup but SHALL NOT fail if the configuration service is temporarily unavailable
 
 ### Requirement 5
 
@@ -88,6 +90,10 @@ This feature enhances the configuration API client to be more robust and product
 3. THE Configuration_Client SHALL emit metrics for retry attempts and reconnection events
 4. THE Configuration_Client SHALL log important events like connection loss and circuit breaker state changes
 5. THE Configuration_Client SHALL include tracing spans for all middleware operations
+6. WHEN the WebSocket connection is lost, THE Configuration_Client SHALL log an error message with connection details
+7. WHEN reconnection attempts begin, THE Configuration_Client SHALL log the reconnection attempt number and delay
+8. WHEN reconnection succeeds, THE Configuration_Client SHALL log a success message with connection duration
+9. WHEN maximum reconnection attempts are reached, THE Configuration_Client SHALL log a critical error message
 
 ### Requirement 7
 
@@ -100,3 +106,15 @@ This feature enhances the configuration API client to be more robust and product
 3. WHEN robustness features are disabled, THE Configuration_Client SHALL behave like the original implementation
 4. THE Configuration_Client SHALL allow consumers to opt into specific robustness features through configuration
 5. WHERE backward compatibility is required, THE Configuration_Client SHALL support legacy configuration options
+
+### Requirement 8
+
+**User Story:** As a gateway operator, I want the gateway to handle configuration service unavailability gracefully at startup, so that temporary service outages don't prevent deployment.
+
+#### Acceptance Criteria
+
+1. WHEN the Gateway_Program calls connect_production and the configuration service is unavailable, THE Configuration_Client SHALL return a client instance that can handle requests gracefully
+2. THE Configuration_Client SHALL NOT block Gateway_Program startup when the configuration service is temporarily unavailable
+3. WHEN the configuration service becomes available after startup, THE Configuration_Client SHALL automatically establish connection and begin serving requests
+4. THE Configuration_Client SHALL log startup connection attempts with appropriate log levels (info for success, warn for initial failures, error only for persistent failures)
+5. WHEN connection validation fails during startup, THE Configuration_Client SHALL log a warning but continue with background reconnection attempts

@@ -148,6 +148,7 @@ impl ConnectionStatusReporter {
                 ConnectionStatus::Connecting => 1,
                 ConnectionStatus::Connected => 2,
                 ConnectionStatus::Reconnecting { .. } => 3,
+                ConnectionStatus::StartupPending => 4,
             };
 
             // Update connection status gauge
@@ -166,6 +167,7 @@ impl ConnectionStatusReporter {
                 ConnectionStatus::Connecting => "connecting",
                 ConnectionStatus::Connected => "connected",
                 ConnectionStatus::Reconnecting { .. } => "reconnecting",
+                ConnectionStatus::StartupPending => "startup_pending",
             };
 
             metrics.requests_total.add(
@@ -464,6 +466,10 @@ impl ConnectionStatusReporter {
                 } else {
                     HealthStatus::Unhealthy
                 }
+            }
+            ConnectionStatus::StartupPending => {
+                // During startup pending, we consider it degraded since we're still initializing
+                HealthStatus::Degraded
             }
             ConnectionStatus::Disconnected => {
                 if availability >= 0.50 {

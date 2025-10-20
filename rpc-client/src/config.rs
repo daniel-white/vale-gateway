@@ -24,6 +24,10 @@ pub struct RobustClientConfig {
     /// Instrumentation configuration
     #[builder(default = InstrumentationConfig::default())]
     pub instrumentation: InstrumentationConfig,
+
+    /// Startup configuration for handling connection failures during initialization
+    #[builder(default = StartupConfig::default())]
+    pub startup: StartupConfig,
 }
 
 impl RobustClientConfig {
@@ -44,6 +48,8 @@ impl RobustClientConfig {
         if let Some(reconnection) = &self.reconnection {
             reconnection.validate()?;
         }
+
+        self.startup.validate()?;
 
         Ok(())
     }
@@ -84,6 +90,14 @@ impl RobustClientConfig {
                     .build(),
             ))
             .instrumentation(InstrumentationConfig::default())
+            .startup(
+                StartupConfig::builder()
+                    .mode(StartupMode::Graceful)
+                    .initial_connection_timeout(Duration::from_secs(5))
+                    .validate_connectivity(true)
+                    .log_startup_attempts(true)
+                    .build(),
+            )
             .build()
     }
 
@@ -123,6 +137,14 @@ impl RobustClientConfig {
                     .build(),
             ))
             .instrumentation(InstrumentationConfig::default())
+            .startup(
+                StartupConfig::builder()
+                    .mode(StartupMode::Lazy)
+                    .initial_connection_timeout(Duration::from_secs(2))
+                    .validate_connectivity(false)
+                    .log_startup_attempts(true)
+                    .build(),
+            )
             .build()
     }
 
@@ -206,6 +228,7 @@ impl Default for RobustClientConfig {
             .retry(Some(RetryPolicy::default()))
             .reconnection(Some(ReconnectionConfig::default()))
             .instrumentation(InstrumentationConfig::default())
+            .startup(StartupConfig::default())
             .build()
     }
 }
@@ -545,6 +568,73 @@ impl Default for InstrumentationConfig {
     }
 }
 
+/// Configuration for startup behavior and connection handling during initialization
+#[derive(Debug, Clone, TypedBuilder)]
+pub struct StartupConfig {
+    /// How to handle connection failures during startup
+    #[builder(default = StartupMode::Graceful)]
+    pub mode: StartupMode,
+
+    /// Timeout for initial connection attempt during startup
+    #[builder(default = Duration::from_secs(5))]
+    pub initial_connection_timeout: Duration,
+
+    /// Whether to validate connectivity during startup (non-blocking)
+    #[builder(default = true)]
+    pub validate_connectivity: bool,
+
+    /// Whether to log startup connection attempts
+    #[builder(default = true)]
+    pub log_startup_attempts: bool,
+}
+
+impl StartupConfig {
+    /// Validate startup configuration
+    pub fn validate(&self) -> Result<(), ConfigValidationError> {
+        if self.initial_connection_timeout.is_zero() {
+            return Err(ConfigValidationError::InvalidStartup(
+                "Initial connection timeout must be positive".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+}
+
+impl Default for StartupConfig {
+    fn default() -> Self {
+        Self {
+            mode: StartupMode::Graceful,
+            initial_connection_timeout: Duration::from_secs(5),
+            validate_connectivity: true,
+            log_startup_attempts: true,
+        }
+    }
+}
+
+/// Startup mode determines how the client handles connection failures during initialization
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum StartupMode {
+    /// Fail fast if initial connection fails (legacy behavior)
+    /// This maintains backward compatibility for existing deployments
+    FailFast,
+
+    /// Allow startup to continue even if initial connection fails
+    /// The client will attempt connection in the background and handle requests gracefully
+    /// This is the recommended mode for production deployments
+    Graceful,
+
+    /// Only attempt connection on first request (lazy initialization)
+    /// This provides the fastest startup time and is suitable for development environments
+    Lazy,
+}
+
+impl Default for StartupMode {
+    fn default() -> Self {
+        StartupMode::Graceful
+    }
+}
+
 /// Errors that can occur during configuration validation
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum ConfigValidationError {
@@ -559,4 +649,7 @@ pub enum ConfigValidationError {
 
     #[error("Invalid reconnection configuration: {0}")]
     InvalidReconnection(String),
+
+    #[error("Invalid startup configuration: {0}")]
+    InvalidStartup(String),
 }

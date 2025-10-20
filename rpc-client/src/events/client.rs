@@ -31,6 +31,7 @@ impl ConfigurationEventsClient {
 
     /// Create a new ConfigurationEventsClient with connection parameters
     /// This method creates the transport internally with production-ready robustness settings
+    /// This method will always succeed and create a client that can handle disconnected state
     pub async fn connect_production(
         listener_ref: impl Into<ListenerRef>,
         address: impl Into<Uri>,

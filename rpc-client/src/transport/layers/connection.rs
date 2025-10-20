@@ -1,6 +1,7 @@
 use crate::api::{ConfigurationClientError, ConnectionError};
-use crate::config::ReconnectionConfig;
+use crate::config::{ReconnectionConfig, StartupConfig, StartupMode};
 use crate::instrumentation::ClientMetrics;
+use crate::transport::layers::ConnectionLogger;
 use async_trait::async_trait;
 use http::Uri;
 use jsonrpsee::ws_client::{PingConfig, WsClient, WsClientBuilder};
@@ -19,6 +20,10 @@ pub struct ConnectionManager {
     client_factory: Arc<dyn ClientFactory>,
     /// Reconnection configuration
     config: ReconnectionConfig,
+    /// Startup configuration for handling initial connection behavior
+    startup_config: StartupConfig,
+    /// Enhanced connection event logger
+    connection_logger: Arc<ConnectionLogger>,
     /// Metrics for tracking connection events
     metrics: Option<Arc<ClientMetrics>>,
     /// Channel for sending reconnection commands
@@ -34,6 +39,26 @@ impl ConnectionManager {
             state: Arc::new(RwLock::new(ConnectionState::Disconnected)),
             client_factory,
             config,
+            startup_config: StartupConfig::default(),
+            connection_logger: Arc::new(ConnectionLogger::new()),
+            metrics: None,
+            reconnect_tx: Arc::new(Mutex::new(None)),
+            request_queue: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+
+    /// Create a new connection manager with startup configuration
+    pub fn with_startup_config(
+        client_factory: Arc<dyn ClientFactory>,
+        config: ReconnectionConfig,
+        startup_config: StartupConfig,
+    ) -> Self {
+        Self {
+            state: Arc::new(RwLock::new(ConnectionState::Disconnected)),
+            client_factory,
+            config,
+            startup_config,
+            connection_logger: Arc::new(ConnectionLogger::new()),
             metrics: None,
             reconnect_tx: Arc::new(Mutex::new(None)),
             request_queue: Arc::new(Mutex::new(Vec::new())),
@@ -51,14 +76,114 @@ impl ConnectionManager {
         manager
     }
 
-    /// Initialize the connection (if not lazy) or prepare for lazy connection
-    pub async fn initialize(&self, uri: &Uri) -> Result<(), ConfigurationClientError> {
-        if self.config.enable_lazy_connection {
-            debug!("Lazy connection enabled, connection will be established on first request");
-            return Ok(());
+    /// Create a new connection manager with full configuration
+    pub fn with_full_config(
+        client_factory: Arc<dyn ClientFactory>,
+        config: ReconnectionConfig,
+        startup_config: StartupConfig,
+        connection_logger: Arc<ConnectionLogger>,
+        metrics: Option<Arc<ClientMetrics>>,
+    ) -> Self {
+        Self {
+            state: Arc::new(RwLock::new(ConnectionState::Disconnected)),
+            client_factory,
+            config,
+            startup_config,
+            connection_logger,
+            metrics,
+            reconnect_tx: Arc::new(Mutex::new(None)),
+            request_queue: Arc::new(Mutex::new(Vec::new())),
         }
+    }
 
-        self.connect(uri).await
+    /// Initialize the connection based on startup mode
+    pub async fn initialize(&self, uri: &Uri) -> Result<(), ConfigurationClientError> {
+        match self.startup_config.mode {
+            StartupMode::Lazy => {
+                if self.startup_config.log_startup_attempts {
+                    self.connection_logger.log_lazy_startup_mode(uri);
+                }
+                debug!("Lazy connection enabled, connection will be established on first request");
+                return Ok(());
+            }
+            StartupMode::FailFast => {
+                if self.startup_config.log_startup_attempts {
+                    self.connection_logger.log_startup_validation_begin(
+                        uri,
+                        self.startup_config.initial_connection_timeout,
+                    );
+                }
+                // Legacy behavior - fail if connection fails
+                self.connect(uri).await
+            }
+            StartupMode::Graceful => {
+                if self.startup_config.log_startup_attempts {
+                    self.connection_logger.log_startup_validation_begin(
+                        uri,
+                        self.startup_config.initial_connection_timeout,
+                    );
+                }
+
+                // Attempt initial connection with timeout
+                match tokio::time::timeout(
+                    self.startup_config.initial_connection_timeout,
+                    self.connect(uri),
+                )
+                .await
+                {
+                    Ok(Ok(())) => {
+                        if self.startup_config.log_startup_attempts {
+                            self.connection_logger.log_startup_connection_success(uri);
+                        }
+                        Ok(())
+                    }
+                    Ok(Err(err)) => {
+                        // Connection failed, enter graceful startup mode
+                        if self.startup_config.log_startup_attempts {
+                            self.connection_logger.log_startup_connection_failed(
+                                uri,
+                                &format!("Initial connection failed: {}", err),
+                            );
+                            self.connection_logger.log_graceful_startup_mode(uri);
+                        }
+
+                        // Set state to StartupPending and start background connection
+                        {
+                            let mut state = self.state.write().unwrap();
+                            *state = ConnectionState::StartupPending;
+                        }
+
+                        self.update_connection_metrics(ConnectionState::StartupPending);
+
+                        // Start background connection process
+                        self.start_background_connection(uri.clone()).await;
+
+                        Ok(()) // Return success to allow startup to continue
+                    }
+                    Err(_) => {
+                        // Timeout occurred, enter graceful startup mode
+                        if self.startup_config.log_startup_attempts {
+                            self.connection_logger
+                                .log_startup_connection_failed(uri, "Initial connection timeout");
+                            self.connection_logger.log_graceful_startup_mode(uri);
+                        }
+
+                        // Set state to StartupPending and start background connection
+                        {
+                            let mut state = self.state.write().unwrap();
+                            *state = ConnectionState::StartupPending;
+                        }
+
+                        self.update_connection_metrics(ConnectionState::StartupPending);
+
+                        // Start background connection process
+                        self.start_background_connection(uri.clone()).await;
+
+                        Ok(()) // Return success to allow startup to continue
+                    }
+                }
+            }
+        }
     }
 
     /// Establish connection to the server
@@ -124,6 +249,16 @@ impl ConnectionManager {
                     _ => Err(ConfigurationClientError::ConnectionUnavailable),
                 }
             }
+            ConnectionState::StartupPending => {
+                // During startup pending, we should queue requests or return unavailable
+                // depending on configuration
+                if self.config.queue_requests_during_reconnection {
+                    // For startup pending, we treat it similar to reconnecting
+                    Err(ConfigurationClientError::ConnectionUnavailable)
+                } else {
+                    Err(ConfigurationClientError::ConnectionUnavailable)
+                }
+            }
             ConnectionState::Disconnected | ConnectionState::Reconnecting { .. } => {
                 Err(ConfigurationClientError::ConnectionUnavailable)
             }
@@ -146,6 +281,85 @@ impl ConnectionManager {
         }
 
         self.start_reconnection_process(uri).await;
+    }
+
+    /// Start background connection process during graceful startup
+    async fn start_background_connection(&self, uri: Uri) {
+        let state = Arc::clone(&self.state);
+        let client_factory = Arc::clone(&self.client_factory);
+        let config = self.config.clone();
+        let startup_config = self.startup_config.clone();
+        let connection_logger = Arc::clone(&self.connection_logger);
+        let metrics = self.metrics.clone();
+        let request_queue = Arc::clone(&self.request_queue);
+
+        tokio::spawn(async move {
+            // Use reconnection logic but start from StartupPending state
+            let mut attempt = 0;
+            let max_attempts = config.max_reconnect_attempts.unwrap_or(u32::MAX);
+
+            while attempt < max_attempts {
+                let delay = if attempt == 0 {
+                    // First attempt should be immediate for startup
+                    Duration::from_millis(100)
+                } else {
+                    config.delay_for_reconnect_attempt(attempt - 1)
+                };
+
+                if startup_config.log_startup_attempts && attempt > 0 {
+                    connection_logger.log_reconnection_attempt(attempt, delay, &uri);
+                }
+
+                sleep(delay).await;
+
+                match client_factory.create_client(&uri).await {
+                    Ok(client) => {
+                        {
+                            let mut state_guard = state.write().unwrap();
+                            *state_guard = ConnectionState::Connected(Arc::new(client));
+                        }
+
+                        if startup_config.log_startup_attempts {
+                            connection_logger.log_startup_connection_success(&uri);
+                        }
+
+                        if let Some(metrics) = &metrics {
+                            metrics.active_connections.record(1, &[]);
+                        }
+
+                        // Process queued requests
+                        Self::process_queued_requests_static(&request_queue).await;
+                        return;
+                    }
+                    Err(err) => {
+                        attempt += 1;
+
+                        if startup_config.log_startup_attempts {
+                            connection_logger.log_startup_connection_failed(
+                                &uri,
+                                &format!(
+                                    "Background connection attempt {} failed: {}",
+                                    attempt, err
+                                ),
+                            );
+                        }
+
+                        if let Some(metrics) = &metrics {
+                            metrics.reconnection_attempts_total.add(1, &[]);
+                        }
+                    }
+                }
+            }
+
+            // All attempts exhausted
+            {
+                let mut state_guard = state.write().unwrap();
+                *state_guard = ConnectionState::Disconnected;
+            }
+
+            connection_logger.log_reconnection_exhausted(attempt, &uri);
+            Self::reject_queued_requests(&request_queue).await;
+        });
     }
 
     /// Start the reconnection process
@@ -343,6 +557,7 @@ impl ConnectionManager {
             ConnectionState::Reconnecting { attempts } => ConnectionStatus::Reconnecting {
                 attempts: *attempts,
             },
+            ConnectionState::StartupPending => ConnectionStatus::StartupPending,
         }
     }
 
@@ -406,6 +621,9 @@ pub enum ConnectionState {
     Connected(Arc<WsClient>),
     /// Attempting to reconnect after connection loss
     Reconnecting { attempts: u32 },
+    /// Startup is in progress, connection will be established in background
+    /// This state is used during graceful startup when initial connection fails
+    StartupPending,
 }
 
 /// Public connection status for monitoring
@@ -419,6 +637,8 @@ pub enum ConnectionStatus {
     Connected,
     /// Attempting to reconnect after connection loss
     Reconnecting { attempts: u32 },
+    /// Startup is in progress, connection will be established in background
+    StartupPending,
 }
 
 /// Commands for controlling reconnection process
@@ -640,6 +860,10 @@ mod tests {
         assert_ne!(
             ConnectionStatus::Reconnecting { attempts: 1 },
             ConnectionStatus::Reconnecting { attempts: 2 }
+        );
+        assert_eq!(
+            ConnectionStatus::StartupPending,
+            ConnectionStatus::StartupPending
         );
     }
 

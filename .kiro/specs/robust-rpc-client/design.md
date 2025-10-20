@@ -219,13 +219,15 @@ pub struct ReconnectionConfig {
 
 ### 5. Connection Manager
 
-Handles WebSocket connection lifecycle:
+Handles WebSocket connection lifecycle with enhanced startup resilience:
 
 ```rust
 pub struct ConnectionManager {
     state: Arc<RwLock<ConnectionState>>,
     client_factory: Arc<dyn ClientFactory>,
     config: ReconnectionConfig,
+    startup_mode: StartupMode,
+    connection_logger: Arc<ConnectionLogger>,
 }
 
 #[derive(Debug, Clone)]
@@ -233,18 +235,90 @@ pub enum ConnectionState {
     Disconnected,
     Connecting,
     Connected(Arc<WsClient>),
-    Reconnecting { attempts: u32 },
+    Reconnecting { attempts: u32, last_error: Option<String> },
+    StartupPending, // New state for graceful startup
+}
+
+#[derive(Debug, Clone)]
+pub enum StartupMode {
+    /// Fail fast if initial connection fails (legacy behavior)
+    FailFast,
+    /// Allow startup to continue even if initial connection fails
+    Graceful,
+    /// Only attempt connection on first request (lazy)
+    Lazy,
 }
 
 #[async_trait]
 pub trait ClientFactory: Send + Sync {
     async fn create_client(&self, uri: &Uri) -> Result<WsClient, ClientError>;
 }
+
+/// Enhanced logging for connection events
+pub struct ConnectionLogger {
+    logger: tracing::Span,
+}
+
+impl ConnectionLogger {
+    pub fn log_connection_lost(&self, uri: &Uri, error: &str) {
+        tracing::error!(
+            target: "rpc_client::connection",
+            uri = %uri,
+            error = error,
+            "WebSocket connection lost"
+        );
+    }
+
+    pub fn log_reconnection_attempt(&self, attempt: u32, delay: Duration, uri: &Uri) {
+        tracing::warn!(
+            target: "rpc_client::connection",
+            attempt = attempt,
+            delay_ms = delay.as_millis(),
+            uri = %uri,
+            "Attempting to reconnect to configuration service"
+        );
+    }
+
+    pub fn log_reconnection_success(&self, uri: &Uri, duration: Duration) {
+        tracing::info!(
+            target: "rpc_client::connection",
+            uri = %uri,
+            connection_duration_ms = duration.as_millis(),
+            "Successfully reconnected to configuration service"
+        );
+    }
+
+    pub fn log_reconnection_exhausted(&self, attempts: u32, uri: &Uri) {
+        tracing::error!(
+            target: "rpc_client::connection",
+            attempts = attempts,
+            uri = %uri,
+            "Maximum reconnection attempts reached, giving up"
+        );
+    }
+
+    pub fn log_startup_connection_failed(&self, uri: &Uri, error: &str) {
+        tracing::warn!(
+            target: "rpc_client::startup",
+            uri = %uri,
+            error = error,
+            "Initial connection failed during startup (will retry in background)"
+        );
+    }
+
+    pub fn log_startup_connection_success(&self, uri: &Uri) {
+        tracing::info!(
+            target: "rpc_client::startup",
+            uri = %uri,
+            "Successfully connected to configuration service during startup"
+        );
+    }
+}
 ```
 
 ### 6. Configuration
 
-Centralized configuration for all robustness features:
+Centralized configuration for all robustness features with startup resilience:
 
 ```rust
 #[derive(Debug, Clone, TypedBuilder)]
@@ -259,12 +333,69 @@ pub struct RobustClientConfig {
     pub reconnection: Option<ReconnectionConfig>,
     #[builder(default)]
     pub instrumentation: InstrumentationConfig,
+    #[builder(default)]
+    pub startup: StartupConfig,
 }
 
 #[derive(Debug, Clone)]
 pub struct TimeoutConfig {
     pub default_timeout: Duration,
     pub per_operation_timeouts: HashMap<String, Duration>,
+}
+
+#[derive(Debug, Clone, TypedBuilder)]
+pub struct StartupConfig {
+    /// How to handle connection failures during startup
+    #[builder(default = StartupMode::Graceful)]
+    pub mode: StartupMode,
+    
+    /// Timeout for initial connection attempt during startup
+    #[builder(default = Duration::from_secs(5))]
+    pub initial_connection_timeout: Duration,
+    
+    /// Whether to validate connectivity during startup (non-blocking)
+    #[builder(default = true)]
+    pub validate_connectivity: bool,
+    
+    /// Whether to log startup connection attempts
+    #[builder(default = true)]
+    pub log_startup_attempts: bool,
+}
+
+impl RobustClientConfig {
+    /// Create a production configuration with graceful startup
+    pub fn production() -> Self {
+        Self::builder()
+            .timeout(Some(TimeoutConfig::default()))
+            .circuit_breaker(Some(CircuitBreakerConfig::default()))
+            .retry(Some(RetryPolicy::default()))
+            .reconnection(Some(ReconnectionConfig::default()))
+            .instrumentation(InstrumentationConfig::default())
+            .startup(StartupConfig::builder()
+                .mode(StartupMode::Graceful)
+                .initial_connection_timeout(Duration::from_secs(5))
+                .validate_connectivity(true)
+                .log_startup_attempts(true)
+                .build())
+            .build()
+    }
+    
+    /// Create a development configuration with faster startup
+    pub fn development() -> Self {
+        Self::builder()
+            .timeout(Some(TimeoutConfig::development()))
+            .circuit_breaker(Some(CircuitBreakerConfig::development()))
+            .retry(Some(RetryPolicy::development()))
+            .reconnection(Some(ReconnectionConfig::development()))
+            .instrumentation(InstrumentationConfig::default())
+            .startup(StartupConfig::builder()
+                .mode(StartupMode::Lazy)
+                .initial_connection_timeout(Duration::from_secs(2))
+                .validate_connectivity(false)
+                .log_startup_attempts(true)
+                .build())
+            .build()
+    }
 }
 ```
 
@@ -340,6 +471,69 @@ impl ClientMetrics {
 }
 ```
 
+## Startup Resilience
+
+### Graceful Startup Handling
+
+The client supports multiple startup modes to handle configuration service unavailability:
+
+1. **Graceful Mode (Production Default)**: 
+   - Attempts initial connection with short timeout
+   - Logs warning if connection fails but continues startup
+   - Starts background reconnection process
+   - Returns functional client that queues/retries requests
+
+2. **Lazy Mode (Development Default)**:
+   - Defers connection until first request
+   - Fastest startup time
+   - Suitable for development environments
+
+3. **Fail-Fast Mode (Legacy)**:
+   - Fails startup if initial connection fails
+   - Maintains backward compatibility
+   - Only recommended for specific use cases
+
+### Startup Flow
+
+```rust
+impl ConfigurationClient {
+    pub async fn connect_production(
+        listener_ref: impl Into<ListenerRef>,
+        address: impl Into<Uri>,
+    ) -> Result<Self, ConfigurationClientError> {
+        let config = RobustClientConfig::production();
+        
+        match config.startup.mode {
+            StartupMode::Graceful => {
+                // Attempt connection with timeout
+                match timeout(
+                    config.startup.initial_connection_timeout,
+                    Self::try_connect(listener_ref, address, config.clone())
+                ).await {
+                    Ok(Ok(client)) => {
+                        tracing::info!("Successfully connected during startup");
+                        Ok(client)
+                    }
+                    Ok(Err(e)) | Err(_) => {
+                        tracing::warn!("Initial connection failed, starting with background reconnection: {}", e);
+                        // Return client that will handle reconnection
+                        Self::create_with_background_connection(listener_ref, address, config)
+                    }
+                }
+            }
+            StartupMode::Lazy => {
+                // Create client without connecting
+                Self::create_lazy(listener_ref, address, config)
+            }
+            StartupMode::FailFast => {
+                // Legacy behavior - fail if connection fails
+                Self::try_connect(listener_ref, address, config).await
+            }
+        }
+    }
+}
+```
+
 ## Error Handling
 
 ### Error Classification
@@ -349,6 +543,7 @@ Errors are classified into categories to determine appropriate handling:
 1. **Retryable Errors**: Network timeouts, connection errors, temporary service unavailability
 2. **Non-Retryable Errors**: Authentication failures, malformed requests, not found errors
 3. **Circuit Breaker Errors**: High failure rates, service completely unavailable
+4. **Startup Errors**: Connection failures during client initialization
 
 ### Error Propagation
 

@@ -20,7 +20,7 @@ pub fn init(name: &'static str) {
     let exporter = SpanExporter::default(); // Creates a default stdout exporter
 
     let tracer_provider = TracerProviderBuilder::default()
-        .with_simple_exporter(exporter)
+        //.with_simple_exporter(exporter)
         .with_sampler(AlwaysOn)
         .build();
 

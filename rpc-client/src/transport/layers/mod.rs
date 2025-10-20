@@ -1,5 +1,6 @@
 pub mod circuit_breaker;
 pub mod connection;
+pub mod connection_logger;
 #[cfg(test)]
 pub mod connection_tests;
 pub mod reconnection;
@@ -9,6 +10,7 @@ pub mod timeout;
 
 pub use circuit_breaker::*;
 pub use connection::*;
+pub use connection_logger::*;
 pub use reconnection::*;
 pub use retry::*;
 pub use status::*;

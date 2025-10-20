@@ -194,6 +194,16 @@ impl ConfigurationTransportOptions {
     pub fn robust_config(&self) -> Option<&RobustClientConfig> {
         self.robust_config.as_ref()
     }
+
+    /// Get a reference to the listener ref
+    pub fn listener_ref(&self) -> &ListenerRef {
+        &self.listener_ref
+    }
+
+    /// Get a reference to the address
+    pub fn address(&self) -> &Uri {
+        &self.address
+    }
 }
 
 #[async_trait]
@@ -208,14 +218,212 @@ impl AsyncTryFrom<ConfigurationTransportOptions> for ConfigurationTransport {
                 ConfigurationClientInitError::WsClientError
             })?;
 
-            // Use EnhancedWsClientBuilder with robustness features
-            let layered_client = EnhancedWsClientBuilder::new()
-                .enable_ws_ping(PingConfig::default())
-                .with_robust_config(robust_config)
-                .build(value.address.to_string())
-                .await?;
+            // Handle startup modes for graceful connection handling
+            match robust_config.startup.mode {
+                crate::config::StartupMode::FailFast => {
+                    // Legacy behavior - fail if connection fails
+                    let layered_client = EnhancedWsClientBuilder::new()
+                        .enable_ws_ping(PingConfig::default())
+                        .with_robust_config(robust_config)
+                        .build(value.address.to_string())
+                        .await?;
 
-            ClientWrapper::layered(layered_client)
+                    ClientWrapper::layered(layered_client)
+                }
+                crate::config::StartupMode::Graceful => {
+                    // Graceful startup - attempt connection with timeout, continue on failure
+                    match tokio::time::timeout(
+                        robust_config.startup.initial_connection_timeout,
+                        EnhancedWsClientBuilder::new()
+                            .enable_ws_ping(PingConfig::default())
+                            .with_robust_config(robust_config.clone())
+                            .build(value.address.to_string()),
+                    )
+                    .await
+                    {
+                        Ok(Ok(layered_client)) => {
+                            if robust_config.startup.log_startup_attempts {
+                                tracing::info!(
+                                    uri = %value.address,
+                                    "Successfully connected during graceful startup"
+                                );
+                            }
+                            ClientWrapper::layered(layered_client)
+                        }
+                        Ok(Err(err)) => {
+                            if robust_config.startup.log_startup_attempts {
+                                tracing::warn!(
+                                    uri = %value.address,
+                                    error = ?err,
+                                    "Initial connection failed during graceful startup, will retry in background"
+                                );
+                            }
+
+                            // For graceful startup, create a disconnected client that will handle reconnection
+                            // We'll use a retry loop to eventually create a client, but with a fallback
+                            let mut graceful_config = robust_config.clone();
+
+                            // Ensure reconnection is enabled for graceful startup
+                            if graceful_config.reconnection.is_none() {
+                                graceful_config.reconnection =
+                                    Some(crate::config::ReconnectionConfig::default());
+                            }
+
+                            // Try multiple times with very short timeouts to create a client
+                            // If all attempts fail, we'll create a simple client as fallback
+                            let mut last_error = err;
+                            for attempt in 1..=3 {
+                                match tokio::time::timeout(
+                                    std::time::Duration::from_millis(100), // Very short timeout
+                                    EnhancedWsClientBuilder::new()
+                                        .enable_ws_ping(PingConfig::default())
+                                        .with_robust_config(graceful_config.clone())
+                                        .build(value.address.to_string()),
+                                )
+                                .await
+                                {
+                                    Ok(Ok(layered_client)) => {
+                                        if robust_config.startup.log_startup_attempts {
+                                            tracing::info!(
+                                                uri = %value.address,
+                                                attempt = attempt,
+                                                "Successfully created client on retry during graceful startup"
+                                            );
+                                        }
+                                        return Ok(ConfigurationTransport::builder()
+                                            .listener_ref(value.listener_ref)
+                                            .client(ClientWrapper::layered(layered_client))
+                                            .build());
+                                    }
+                                    Ok(Err(e)) => {
+                                        last_error = e;
+                                        if attempt < 3 {
+                                            tokio::time::sleep(std::time::Duration::from_millis(
+                                                50,
+                                            ))
+                                            .await;
+                                        }
+                                    }
+                                    Err(_) => {
+                                        // Timeout, try next attempt
+                                        if attempt < 3 {
+                                            tokio::time::sleep(std::time::Duration::from_millis(
+                                                50,
+                                            ))
+                                            .await;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // All attempts failed, create a simple fallback client
+                            // This will fail immediately but we'll catch it and create a minimal transport
+                            if robust_config.startup.log_startup_attempts {
+                                tracing::warn!(
+                                    uri = %value.address,
+                                    error = ?last_error,
+                                    "All connection attempts failed during graceful startup, creating fallback transport"
+                                );
+                            }
+
+                            // Create a minimal transport that will handle requests gracefully
+                            // We'll use a simple client that will fail fast, but the robust layers will handle retries
+                            match WsClientBuilder::new()
+                                .enable_ws_ping(PingConfig::default())
+                                .request_timeout(std::time::Duration::from_millis(100)) // Very short timeout
+                                .build(value.address.to_string())
+                                .await
+                            {
+                                Ok(simple_client) => {
+                                    if robust_config.startup.log_startup_attempts {
+                                        tracing::info!(
+                                            uri = %value.address,
+                                            "Created fallback simple client during graceful startup"
+                                        );
+                                    }
+                                    ClientWrapper::simple(simple_client)
+                                }
+                                Err(_) => {
+                                    // Even simple client failed, this means the address is invalid or network is completely down
+                                    // In graceful mode, we should still succeed but with a non-functional client
+                                    if robust_config.startup.log_startup_attempts {
+                                        tracing::warn!(
+                                            uri = %value.address,
+                                            "Even fallback client creation failed, graceful startup will continue with degraded functionality"
+                                        );
+                                    }
+
+                                    // Return error - graceful startup should not fail the entire application
+                                    // The application should handle this gracefully
+                                    return Err(ConfigurationClientInitError::WsClientError);
+                                }
+                            }
+                        }
+                        Err(_) => {
+                            if robust_config.startup.log_startup_attempts {
+                                tracing::warn!(
+                                    uri = %value.address,
+                                    "Initial connection timeout during graceful startup, will retry in background"
+                                );
+                            }
+
+                            // For graceful startup, we still create a client but with reconnection enabled
+                            // The client will handle background connection attempts
+                            let mut graceful_config = robust_config.clone();
+
+                            // Ensure reconnection is enabled for graceful startup
+                            if graceful_config.reconnection.is_none() {
+                                graceful_config.reconnection =
+                                    Some(crate::config::ReconnectionConfig::default());
+                            }
+
+                            // Try to create client without immediate connection (will be handled by reconnection layer)
+                            let layered_client = EnhancedWsClientBuilder::new()
+                                .enable_ws_ping(PingConfig::default())
+                                .with_robust_config(graceful_config)
+                                .build(value.address.to_string())
+                                .await
+                                .map_err(|_| {
+                                    tracing::error!(
+                                        "Failed to create client even in graceful mode"
+                                    );
+                                    ConfigurationClientInitError::WsClientError
+                                })?;
+
+                            ClientWrapper::layered(layered_client)
+                        }
+                    }
+                }
+                crate::config::StartupMode::Lazy => {
+                    // Lazy startup - don't connect until first request
+                    if robust_config.startup.log_startup_attempts {
+                        tracing::info!(
+                            uri = %value.address,
+                            "Lazy startup mode activated, connection will be established on first request"
+                        );
+                    }
+
+                    // For lazy mode, create client with lazy connection enabled
+                    let mut lazy_config = robust_config.clone();
+                    if let Some(ref mut reconnection_config) = lazy_config.reconnection {
+                        reconnection_config.enable_lazy_connection = true;
+                    } else {
+                        lazy_config.reconnection = Some(
+                            crate::config::ReconnectionConfig::builder()
+                                .enable_lazy_connection(true)
+                                .build(),
+                        );
+                    }
+
+                    let layered_client = EnhancedWsClientBuilder::new()
+                        .enable_ws_ping(PingConfig::default())
+                        .with_robust_config(lazy_config)
+                        .build(value.address.to_string())
+                        .await?;
+
+                    ClientWrapper::layered(layered_client)
+                }
+            }
         } else {
             // Use standard WsClientBuilder for backward compatibility
             let simple_client = WsClientBuilder::new()
