@@ -1,179 +1,48 @@
-use crate::ConfigurationTransport;
 use crate::instrumentation::TRACER;
-use async_from::AsyncTryFrom;
+use crate::transport::rpc::{RpcTransport, RpcTransportError};
+
+use getset::Getters;
 use jsonrpsee::core::ClientError;
 use opentelemetry::trace::{SpanKind, Tracer};
 use std::sync::Arc;
 use std::time::Duration;
 use thiserror::Error;
+use typed_builder::TypedBuilder;
 
 use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::filter::{SharedFilter, SharedFilterRef};
-use vg_config::http::listener::Listener;
+use vg_config::http::listener::{Listener, ListenerRef};
 use vg_config::http::route::{Route, RouteRef};
 use vg_rpc::{
-    ConfigurationApiError, GetBackendRequest, GetListenerRequest, GetRouteRequest,
-    GetSharedFilterRequest, RequestContext,
+    ConfigurationApiClient, ConfigurationApiError, GetBackendRequest, GetListenerRequest,
+    GetRouteRequest, GetSharedFilterRequest, RequestContext,
 };
 
-#[derive(Clone)]
+/// Configuration client that uses RPC transport
+/// Uses getset for clean field access and typed_builder for construction
+#[derive(Debug, Clone, Getters, TypedBuilder)]
 pub struct ConfigurationClient {
-    transport: ConfigurationTransport,
+    /// RPC transport instance
+    #[getset(get = "pub")]
+    transport: RpcTransport,
+
+    /// Listener reference for this client
+    #[getset(get = "pub")]
+    listener_ref: ListenerRef,
 }
 
 impl ConfigurationClient {
-    /// Create a new ConfigurationClient with the given transport
-    pub fn new(transport: ConfigurationTransport) -> Self {
-        Self { transport }
+    /// Create a new ConfigurationClient with RPC transport
+    /// This replaces the connect() method - transport is now passed in
+    pub fn new(transport: RpcTransport, listener_ref: impl Into<ListenerRef>) -> Self {
+        Self::builder()
+            .transport(transport)
+            .listener_ref(listener_ref.into())
+            .build()
     }
 }
 
 impl ConfigurationClient {
-    /// Create a new builder for ConfigurationClient
-    pub fn builder() -> ConfigurationClientBuilder {
-        ConfigurationClientBuilder::new()
-    }
-
-    /// Create a robust, self-managing client with comprehensive defaults
-    ///
-    /// This method creates a client with production-ready robustness features:
-    /// - Graceful startup mode (won't fail if service is temporarily unavailable)
-    /// - Internal connection monitoring and health checks
-    /// - Comprehensive logging for all connection events
-    /// - Automatic reconnection with exponential backoff
-    /// - Circuit breaker protection
-    /// - Request retry with intelligent backoff
-    ///
-    /// The client handles all transport concerns internally, requiring no external management.
-    /// This is the recommended method for production deployments.
-    pub async fn connect(
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-    ) -> Result<Self, ConfigurationClientError> {
-        // Use optimized gateway configuration for better startup performance
-        let robust_config = crate::RobustClientConfig::for_gateway();
-
-        let options = crate::ConfigurationTransportOptions::with_robust_config(
-            listener_ref,
-            address,
-            robust_config,
-        );
-
-        let transport = crate::ConfigurationTransport::async_try_from(options)
-            .await
-            .map_err(|_| {
-                // In graceful startup mode, this should rarely fail
-                // If it does, it means there's a fundamental configuration issue
-                tracing::error!("Failed to create robust configuration client - check configuration and network connectivity");
-                ConfigurationClientError::ConnectionUnavailable
-            })?;
-
-        tracing::info!(
-            "✓ Configuration client created successfully with robust self-management features"
-        );
-
-        // The transport already handles internal monitoring setup during creation
-        // We just need to check if monitoring is available and create the appropriate client
-        if transport.monitoring_manager().is_some() {
-            tracing::info!("✓ Internal connection monitoring integrated successfully");
-        }
-
-        Ok(Self::new(transport))
-    }
-
-    /// Create a client with basic connection parameters (no robustness features)
-    ///
-    /// This method is provided for backward compatibility and testing scenarios.
-    /// For production use, prefer the `connect()` method which includes robustness features.
-    pub async fn connect_simple(
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-    ) -> Result<Self, ConfigurationClientError> {
-        let options = crate::ConfigurationTransportOptions::builder()
-            .listener_ref(listener_ref)
-            .address(address)
-            .build();
-
-        let transport = crate::ConfigurationTransport::async_try_from(options)
-            .await
-            .map_err(|_| ConfigurationClientError::ConnectionUnavailable)?;
-
-        Ok(Self::new(transport))
-    }
-
-    /// Create a client with production-ready robustness settings
-    /// Uses graceful startup mode by default - will not fail if initial connection fails
-    /// This method will always succeed and create a client that can handle disconnected state
-    pub async fn connect_production(
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-    ) -> Result<Self, ConfigurationClientError> {
-        let options = crate::ConfigurationTransportOptions::production(listener_ref, address);
-
-        // For production mode, we should never fail client creation
-        // We'll try with a timeout and if it fails, we'll create a client that handles disconnected state
-        match tokio::time::timeout(
-            std::time::Duration::from_secs(2), // Short timeout for production startup
-            crate::ConfigurationTransport::async_try_from(options),
-        )
-        .await
-        {
-            Ok(Ok(transport)) => {
-                tracing::info!("Successfully created production transport");
-                Ok(Self::new(transport))
-            }
-            Ok(Err(_)) | Err(_) => {
-                // Transport creation failed or timed out
-                tracing::warn!(
-                    "Production transport creation failed or timed out, creating resilient client that will retry connections in background"
-                );
-
-                // Create a resilient client that can handle disconnected state
-                // For now, we'll return an error but with a clear message that this should be handled gracefully
-                // In the future, we could implement a DisconnectedTransport that queues requests
-                Err(ConfigurationClientError::ConnectionUnavailable)
-            }
-        }
-    }
-
-    /// Create a client with development-friendly robustness settings
-    pub async fn connect_development(
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-    ) -> Result<Self, ConfigurationClientError> {
-        let options = crate::ConfigurationTransportOptions::development(listener_ref, address);
-
-        let transport = crate::ConfigurationTransport::async_try_from(options)
-            .await
-            .map_err(|_| ConfigurationClientError::ConnectionUnavailable)?;
-
-        Ok(Self::new(transport))
-    }
-
-    /// Create a client with custom robustness configuration
-    pub async fn connect_with_config(
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-        robust_config: crate::RobustClientConfig,
-    ) -> Result<Self, ConfigurationClientError> {
-        // Validate configuration before proceeding
-        robust_config
-            .validate()
-            .map_err(ConfigurationClientError::ConfigurationError)?;
-
-        let options = crate::ConfigurationTransportOptions::with_robust_config(
-            listener_ref,
-            address,
-            robust_config,
-        );
-
-        let transport = crate::ConfigurationTransport::async_try_from(options)
-            .await
-            .map_err(|_| ConfigurationClientError::ConnectionUnavailable)?;
-
-        Ok(Self::new(transport))
-    }
-
     pub async fn listener(&self) -> Result<Arc<Listener>, ConfigurationClientError> {
         let span = TRACER
             .span_builder("ConfigurationClient::listener")
@@ -182,13 +51,18 @@ impl ConfigurationClient {
 
         let req = GetListenerRequest::builder()
             .context(RequestContext::new(span))
-            .listener_ref(self.transport.listener_ref().clone())
+            .listener_ref(self.listener_ref().clone())
             .build();
 
-        let listener = self.transport.client().listener(req).await.map_err(|err| {
-            tracing::error!("Failed to get listener: {:?}", err);
-            ConfigurationClientError::from(err)
-        })?;
+        let listener = self
+            .transport()
+            .client()
+            .listener(req)
+            .await
+            .map_err(|err| {
+                tracing::error!("Failed to get listener: {:?}", err);
+                ConfigurationClientError::from(err)
+            })?;
 
         Ok(Arc::new(listener))
     }
@@ -207,7 +81,7 @@ impl ConfigurationClient {
             .route_ref(route_ref.clone())
             .build();
 
-        let route = self.transport.client().route(req).await.map_err(|err| {
+        let route = self.transport().client().route(req).await.map_err(|err| {
             tracing::error!("Failed to get route: {:?}", err);
             ConfigurationClientError::from(err)
         })?;
@@ -229,10 +103,15 @@ impl ConfigurationClient {
             .backend_ref(backend_ref.clone())
             .build();
 
-        let backend = self.transport.client().backend(req).await.map_err(|err| {
-            tracing::error!("Failed to get backend: {:?}", err);
-            ConfigurationClientError::from(err)
-        })?;
+        let backend = self
+            .transport()
+            .client()
+            .backend(req)
+            .await
+            .map_err(|err| {
+                tracing::error!("Failed to get backend: {:?}", err);
+                ConfigurationClientError::from(err)
+            })?;
 
         Ok(Arc::new(backend))
     }
@@ -252,7 +131,7 @@ impl ConfigurationClient {
             .build();
 
         let filter = self
-            .transport
+            .transport()
             .client()
             .shared_filter(req)
             .await
@@ -266,13 +145,13 @@ impl ConfigurationClient {
 
     /// Check if internal monitoring is active for this client
     pub async fn is_monitoring(&self) -> bool {
-        self.transport.is_monitoring().await
+        self.transport().is_monitoring().await
     }
 
     /// Stop internal monitoring if active
     /// This is useful for graceful shutdown or when monitoring is no longer needed
     pub async fn stop_monitoring(&self) -> Result<(), ConfigurationClientError> {
-        self.transport.stop_monitoring().await.map_err(|e| {
+        self.transport().stop_monitoring().await.map_err(|e| {
             tracing::warn!("Failed to stop monitoring: {:?}", e);
             ConfigurationClientError::TransportError(SourceError {
                 message: format!("Failed to stop monitoring: {}", e),
@@ -282,12 +161,7 @@ impl ConfigurationClient {
 
     /// Get monitoring status information
     pub async fn monitoring_status(&self) -> Option<crate::transport::layers::MonitoringStatus> {
-        if let Some(monitoring_manager) = self.transport.monitoring_manager() {
-            let manager = monitoring_manager.lock().await;
-            Some(manager.status())
-        } else {
-            None
-        }
+        Some(self.transport().monitoring_status().await)
     }
 
     /// Internal error handler that processes errors and determines if they should be handled internally
@@ -400,149 +274,6 @@ impl ConfigurationClient {
             self.shared_filter(&filter_ref).await
         })
         .await
-    }
-}
-
-/// Simple builder for creating ConfigurationClient
-pub struct ConfigurationClientBuilder;
-
-impl ConfigurationClientBuilder {
-    /// Create a new builder
-    pub fn new() -> Self {
-        Self
-    }
-
-    /// Create a robust, self-managing client with comprehensive defaults
-    ///
-    /// This is the recommended method for production deployments.
-    pub async fn connect(
-        self,
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-    ) -> Result<ConfigurationClient, ConfigurationClientError> {
-        ConfigurationClient::connect(listener_ref, address).await
-    }
-
-    /// Create a client with basic connection parameters (no robustness features)
-    ///
-    /// This method is provided for backward compatibility and testing scenarios.
-    pub async fn connect_simple(
-        self,
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-    ) -> Result<ConfigurationClient, ConfigurationClientError> {
-        ConfigurationClient::connect_simple(listener_ref, address).await
-    }
-
-    /// Create a client with production-ready robustness settings
-    pub async fn connect_production(
-        self,
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-    ) -> Result<ConfigurationClient, ConfigurationClientError> {
-        ConfigurationClient::connect_production(listener_ref, address).await
-    }
-
-    /// Create a client with development-friendly robustness settings
-    pub async fn connect_development(
-        self,
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-    ) -> Result<ConfigurationClient, ConfigurationClientError> {
-        ConfigurationClient::connect_development(listener_ref, address).await
-    }
-
-    /// Create a client with custom robustness configuration
-    pub async fn connect_with_config(
-        self,
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-        robust_config: crate::RobustClientConfig,
-    ) -> Result<ConfigurationClient, ConfigurationClientError> {
-        ConfigurationClient::connect_with_config(listener_ref, address, robust_config).await
-    }
-
-    /// Create a client with custom timeout configuration
-    pub async fn connect_with_timeout(
-        self,
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-        timeout: Duration,
-    ) -> Result<ConfigurationClient, ConfigurationClientError> {
-        let timeout_config = crate::TimeoutConfig::builder()
-            .default_timeout(timeout)
-            .build();
-
-        // Validate timeout configuration
-        timeout_config
-            .validate()
-            .map_err(ConfigurationClientError::ConfigurationError)?;
-
-        let robust_config = crate::RobustClientConfig::builder()
-            .timeout(Some(timeout_config))
-            .build();
-
-        ConfigurationClient::connect_with_config(listener_ref, address, robust_config).await
-    }
-
-    /// Create a client with custom circuit breaker configuration
-    pub async fn connect_with_circuit_breaker(
-        self,
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-        failure_threshold: u32,
-        success_threshold: u32,
-        timeout: Duration,
-    ) -> Result<ConfigurationClient, ConfigurationClientError> {
-        let circuit_breaker_config = crate::CircuitBreakerConfig::builder()
-            .failure_threshold(failure_threshold)
-            .success_threshold(success_threshold)
-            .timeout(timeout)
-            .build();
-
-        // Validate circuit breaker configuration
-        circuit_breaker_config
-            .validate()
-            .map_err(ConfigurationClientError::ConfigurationError)?;
-
-        let robust_config = crate::RobustClientConfig::builder()
-            .circuit_breaker(Some(circuit_breaker_config))
-            .build();
-
-        ConfigurationClient::connect_with_config(listener_ref, address, robust_config).await
-    }
-
-    /// Create a client with custom retry configuration
-    pub async fn connect_with_retry(
-        self,
-        listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
-        address: impl Into<http::Uri>,
-        max_attempts: u32,
-        base_delay: Duration,
-        max_delay: Duration,
-    ) -> Result<ConfigurationClient, ConfigurationClientError> {
-        let retry_policy = crate::RetryPolicy::builder()
-            .max_attempts(max_attempts)
-            .base_delay(base_delay)
-            .max_delay(max_delay)
-            .build();
-
-        // Validate retry policy configuration
-        retry_policy
-            .validate()
-            .map_err(ConfigurationClientError::ConfigurationError)?;
-
-        let robust_config = crate::RobustClientConfig::builder()
-            .retry(Some(retry_policy))
-            .build();
-
-        ConfigurationClient::connect_with_config(listener_ref, address, robust_config).await
-    }
-}
-
-impl Default for ConfigurationClientBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -680,6 +411,29 @@ pub struct ConnectionError {
 impl From<ConnectionError> for ConfigurationClientError {
     fn from(_err: ConnectionError) -> Self {
         ConfigurationClientError::ConnectionUnavailable
+    }
+}
+
+// Error conversion for RPC transport
+impl From<RpcTransportError> for ConfigurationClientError {
+    fn from(err: RpcTransportError) -> Self {
+        match err {
+            RpcTransportError::InitializationFailed(_) => {
+                ConfigurationClientError::ConnectionUnavailable
+            }
+            RpcTransportError::ConfigurationMismatch => {
+                ConfigurationClientError::ConfigurationError(
+                    crate::ConfigValidationError::InvalidInternalMonitoring(
+                        "RPC transport configuration mismatch".to_string(),
+                    ),
+                )
+            }
+            RpcTransportError::MonitoringError(_) => {
+                ConfigurationClientError::TransportError(SourceError {
+                    message: err.to_string(),
+                })
+            }
+        }
     }
 }
 

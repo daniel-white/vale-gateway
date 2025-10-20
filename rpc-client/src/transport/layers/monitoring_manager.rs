@@ -18,6 +18,7 @@ fn create_health_check_context() -> vg_rpc::RequestContext {
 
 /// Manages the lifecycle of internal connection monitoring
 /// This manager handles starting, stopping, and coordinating monitoring tasks
+#[derive(Debug)]
 pub struct MonitoringManager {
     /// Configuration for monitoring behavior
     config: MonitoringConfig,

@@ -6,39 +6,39 @@
   - Create basic RpcTransportError and RpcTransportConfig types
   - _Requirements: 4.1, 4.2_
 
-- [ ] 2. Implement RpcTransport core structure
-  - [ ] 2.1 Create RpcTransport struct with getset and typed_builder
+- [x] 2. Implement RpcTransport core structure
+  - [x] 2.1 Create RpcTransport struct with getset and typed_builder
     - Define RpcTransport with LayeredClient, config, handles, and event sender fields
     - Implement new() method that creates LayeredClient using existing EnhancedWsClientBuilder
     - Add core broadcast channel for event distribution
     - _Requirements: 1.1, 1.3, 4.2, 4.3_
   
-  - [ ] 2.2 Implement RpcTransportConfig with getset and typed_builder
+  - [x] 2.2 Implement RpcTransportConfig with getset and typed_builder
     - Create config struct with robust_config, address, and event_buffer_size fields
     - Add From<ConfigurationTransportOptions> implementation for compatibility
     - Add validation methods reusing existing config validation
     - _Requirements: 1.4, 6.3_
   
-  - [ ] 2.3 Add connection lifecycle management using core handles
+  - [x] 2.3 Add connection lifecycle management using core handles
     - Implement connection monitoring using existing MonitoringManager
     - Use core handles for task management and graceful shutdown
     - Add connection state tracking using core sync primitives
     - _Requirements: 1.4, 4.1, 4.5, 5.2_
 
-- [ ] 3. Update ConfigurationClient to use RpcTransport
-  - [ ] 3.1 Modify ConfigurationClient struct with getset and typed_builder
+- [x] 3. Update ConfigurationClient to use RpcTransport
+  - [x] 3.1 Modify ConfigurationClient struct with getset and typed_builder
     - Replace transport field with RpcTransport
     - Add listener_ref field with getset accessor
     - Remove connect() methods, add new() constructor
     - _Requirements: 6.1, 6.4_
   
-  - [ ] 3.2 Update client methods to use RpcTransport
+  - [x] 3.2 Update client methods to use RpcTransport
     - Modify listener(), route(), backend(), shared_filter() to use transport.client()
     - Reuse existing request building and tracing logic
     - Ensure error handling remains the same
     - _Requirements: 1.3, 6.2_
   
-  - [ ] 3.3 Add monitoring integration for ConfigurationClient
+  - [x] 3.3 Add monitoring integration for ConfigurationClient
     - Integrate with RpcTransport monitoring using existing monitoring_status() method
     - Reuse existing stop_monitoring() and is_monitoring() methods
     - Ensure monitoring works with shared connection

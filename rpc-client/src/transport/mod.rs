@@ -17,9 +17,6 @@ use vg_rpc::{
     GetRouteRequest, GetSharedFilterRequest,
 };
 
-// Import core utilities for handles and broadcast channels
-use vg_core::sync::{broadcast, handles};
-
 use crate::transport::layers::{HealthCheckFactory, LayeredClient, MonitoringManager};
 use crate::{EnhancedWsClientBuilder, RobustClientConfig};
 

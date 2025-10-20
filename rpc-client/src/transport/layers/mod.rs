@@ -56,6 +56,7 @@ pub trait WsClientLayer: Send + Sync + 'static {
 /// A client wrapper that can be configured with multiple layers during creation.
 /// This maintains full compatibility with the original WsClient while allowing
 /// middleware configuration during the build process.
+#[derive(Debug)]
 pub struct LayeredClient {
     /// The configured WsClient
     inner: WsClient,
