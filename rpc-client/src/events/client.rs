@@ -145,6 +145,25 @@ impl ConfigurationEventsClient {
                     .log_startup_attempts(true)
                     .build(),
             )
+            .internal_monitoring(
+                crate::InternalMonitoringConfig::builder()
+                    .enabled(true)
+                    .check_interval(std::time::Duration::from_secs(20)) // More frequent checks for event streams
+                    .health_check_timeout(std::time::Duration::from_secs(3)) // Shorter timeout for responsiveness
+                    .critical_failure_threshold(6) // Lower threshold for event streams (2 minutes at 20s intervals)
+                    .log_heartbeat(false) // Reduce log noise for event streams
+                    .build(),
+            )
+            .startup_logging(
+                crate::StartupLoggingConfig::builder()
+                    .log_connection_attempts(true)
+                    .log_validation_results(true)
+                    .log_background_operations(false) // Reduce noise for event streams
+                    .startup_summary(true)
+                    .log_level(crate::transport::layers::StartupLogLevel::Info)
+                    .include_performance_metrics(false) // Reduce overhead for event streams
+                    .build(),
+            )
             .build();
 
         let options =
@@ -162,6 +181,15 @@ impl ConfigurationEventsClient {
         tracing::info!(
             "✓ Configuration events client created successfully with robust self-management features"
         );
+
+        // The transport already handles internal monitoring setup during creation
+        // We just need to check if monitoring is available and create the appropriate client
+        if transport.monitoring_manager().is_some() {
+            tracing::info!(
+                "✓ Internal connection monitoring integrated successfully for events client"
+            );
+        }
+
         Ok(Self::new(transport))
     }
 
@@ -306,4 +334,124 @@ impl ConfigurationEventsReceiver {
     pub fn is_closed(&self) -> bool {
         self.rx.is_closed()
     }
+}
+
+impl ConfigurationEventsClient {
+    /// Check if internal monitoring is active for this events client
+    pub async fn is_monitoring(&self) -> bool {
+        self.transport.is_monitoring().await
+    }
+
+    /// Stop internal monitoring if active
+    /// This is useful for graceful shutdown or when monitoring is no longer needed
+    pub async fn stop_monitoring(&self) -> Result<(), ConfigurationEventClientError> {
+        self.transport.stop_monitoring().await.map_err(|e| {
+            tracing::warn!("Failed to stop events client monitoring: {:?}", e);
+            ConfigurationEventClientError::Unknown
+        })
+    }
+
+    /// Get monitoring status information for the events client
+    pub async fn monitoring_status(&self) -> Option<crate::transport::layers::MonitoringStatus> {
+        if let Some(monitoring_manager) = self.transport.monitoring_manager() {
+            let manager = monitoring_manager.lock().await;
+            Some(manager.status())
+        } else {
+            None
+        }
+    }
+
+    /// Internal error handler for events client
+    /// This method implements self-management behavior for event stream errors
+    fn handle_error_internally(&self, error: &ConfigurationEventClientError) -> bool {
+        let should_handle = match error {
+            // Transport-related errors should be handled internally
+            ConfigurationEventClientError::RequestTimeout => true,
+            ConfigurationEventClientError::ConnectionFailed => true,
+            ConfigurationEventClientError::InvalidConfiguration => false, // Application-level issue
+            ConfigurationEventClientError::NotFound => false,             // Application-level issue
+            ConfigurationEventClientError::Unknown => true,               // Assume transport issue
+        };
+
+        let severity = match error {
+            ConfigurationEventClientError::NotFound => "info",
+            ConfigurationEventClientError::RequestTimeout => "warning",
+            ConfigurationEventClientError::ConnectionFailed => "warning",
+            ConfigurationEventClientError::InvalidConfiguration => "error",
+            ConfigurationEventClientError::Unknown => "warning",
+        };
+
+        match severity {
+            "info" => {
+                tracing::debug!(
+                    target: "rpc_client::events::error_handling",
+                    error = %error,
+                    "Informational error in events client"
+                );
+            }
+            "warning" => {
+                tracing::warn!(
+                    target: "rpc_client::events::error_handling",
+                    error = %error,
+                    handled_internally = should_handle,
+                    "Warning-level error in events client"
+                );
+            }
+            "error" => {
+                tracing::error!(
+                    target: "rpc_client::events::error_handling",
+                    error = %error,
+                    handled_internally = should_handle,
+                    "Error-level issue in events client"
+                );
+            }
+            _ => {}
+        }
+
+        if should_handle {
+            tracing::debug!(
+                target: "rpc_client::events::error_handling",
+                error = %error,
+                "Events client error will be handled internally by robust layers"
+            );
+        }
+
+        should_handle
+    }
+
+    /// Convert events client errors to gateway-friendly format
+    pub fn to_gateway_error(
+        &self,
+        error: ConfigurationEventClientError,
+    ) -> GatewayEventClientError {
+        // Handle the error internally first
+        self.handle_error_internally(&error);
+
+        match error {
+            ConfigurationEventClientError::NotFound => GatewayEventClientError::ResourceNotFound,
+            ConfigurationEventClientError::InvalidConfiguration => {
+                GatewayEventClientError::ConfigurationError
+            }
+            // All transport-related errors are abstracted as service unavailable
+            ConfigurationEventClientError::RequestTimeout
+            | ConfigurationEventClientError::ConnectionFailed
+            | ConfigurationEventClientError::Unknown => {
+                GatewayEventClientError::ServiceTemporarilyUnavailable
+            }
+        }
+    }
+}
+
+/// Simplified error types for gateway consumption from events client
+/// This reduces the complexity of error handling at the gateway level
+#[derive(Debug, Clone, Error)]
+pub enum GatewayEventClientError {
+    #[error("Resource not found")]
+    ResourceNotFound,
+
+    #[error("Configuration error")]
+    ConfigurationError,
+
+    #[error("Event service temporarily unavailable")]
+    ServiceTemporarilyUnavailable,
 }

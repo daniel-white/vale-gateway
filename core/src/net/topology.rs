@@ -1,4 +1,4 @@
-use enumflags2::{BitFlag, BitFlags, bitflags};
+use enumflags2::{BitFlags, bitflags};
 use getset::Getters;
 use typed_builder::TypedBuilder;
 

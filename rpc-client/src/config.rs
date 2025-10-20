@@ -2,6 +2,9 @@ use std::collections::HashMap;
 use std::time::Duration;
 use typed_builder::TypedBuilder;
 
+// Import StartupLoggingConfig from the transport layers
+use crate::transport::layers::{StartupLogLevel, StartupLoggingConfig};
+
 /// Configuration for robust RPC client features
 #[derive(Debug, Clone, TypedBuilder)]
 pub struct RobustClientConfig {
@@ -28,6 +31,14 @@ pub struct RobustClientConfig {
     /// Startup configuration for handling connection failures during initialization
     #[builder(default = StartupConfig::default())]
     pub startup: StartupConfig,
+
+    /// Internal monitoring configuration for connection health checks
+    #[builder(default = InternalMonitoringConfig::default())]
+    pub internal_monitoring: InternalMonitoringConfig,
+
+    /// Startup logging configuration for comprehensive startup event logging
+    #[builder(default = StartupLoggingConfig::default())]
+    pub startup_logging: StartupLoggingConfig,
 }
 
 impl RobustClientConfig {
@@ -50,6 +61,8 @@ impl RobustClientConfig {
         }
 
         self.startup.validate()?;
+        self.internal_monitoring.validate()?;
+        self.startup_logging.validate()?;
 
         Ok(())
     }
@@ -98,6 +111,16 @@ impl RobustClientConfig {
                     .log_startup_attempts(true)
                     .build(),
             )
+            .internal_monitoring(
+                InternalMonitoringConfig::builder()
+                    .enabled(true)
+                    .check_interval(Duration::from_secs(30))
+                    .health_check_timeout(Duration::from_secs(5))
+                    .critical_failure_threshold(10)
+                    .log_heartbeat(false)
+                    .build(),
+            )
+            .startup_logging(StartupLoggingConfig::production())
             .build()
     }
 
@@ -145,6 +168,16 @@ impl RobustClientConfig {
                     .log_startup_attempts(true)
                     .build(),
             )
+            .internal_monitoring(
+                InternalMonitoringConfig::builder()
+                    .enabled(true)
+                    .check_interval(Duration::from_secs(10))
+                    .health_check_timeout(Duration::from_secs(3))
+                    .critical_failure_threshold(5)
+                    .log_heartbeat(true)
+                    .build(),
+            )
+            .startup_logging(StartupLoggingConfig::development())
             .build()
     }
 
@@ -168,6 +201,12 @@ impl RobustClientConfig {
                     .enable_performance_monitoring(false)
                     .build(),
             )
+            .internal_monitoring(
+                InternalMonitoringConfig::builder()
+                    .enabled(false) // Disabled for minimal configuration
+                    .build(),
+            )
+            .startup_logging(StartupLoggingConfig::minimal())
             .build()
     }
 
@@ -216,6 +255,16 @@ impl RobustClientConfig {
                     .performance_sample_rate(0.01) // Low sample rate
                     .build(),
             )
+            .internal_monitoring(
+                InternalMonitoringConfig::builder()
+                    .enabled(true)
+                    .check_interval(Duration::from_secs(60)) // Less frequent for performance
+                    .health_check_timeout(Duration::from_secs(3))
+                    .critical_failure_threshold(15) // Higher threshold to reduce noise
+                    .log_heartbeat(false)
+                    .build(),
+            )
+            .startup_logging(StartupLoggingConfig::production())
             .build()
     }
 }
@@ -229,6 +278,8 @@ impl Default for RobustClientConfig {
             .reconnection(Some(ReconnectionConfig::default()))
             .instrumentation(InstrumentationConfig::default())
             .startup(StartupConfig::default())
+            .internal_monitoring(InternalMonitoringConfig::default())
+            .startup_logging(StartupLoggingConfig::default())
             .build()
     }
 }
@@ -647,4 +698,251 @@ pub enum ConfigValidationError {
 
     #[error("Invalid startup configuration: {0}")]
     InvalidStartup(String),
+
+    #[error("Invalid internal monitoring configuration: {0}")]
+    InvalidInternalMonitoring(String),
+}
+/// Configuration for internal connection monitoring
+#[derive(Debug, Clone, TypedBuilder)]
+pub struct InternalMonitoringConfig {
+    /// Enable internal connection monitoring
+    #[builder(default = true)]
+    pub enabled: bool,
+
+    /// Interval between health checks
+    #[builder(default = Duration::from_secs(30))]
+    pub check_interval: Duration,
+
+    /// Timeout for individual health checks
+    #[builder(default = Duration::from_secs(5))]
+    pub health_check_timeout: Duration,
+
+    /// Number of consecutive failures before marking as critical
+    #[builder(default = 10)]
+    pub critical_failure_threshold: u32,
+
+    /// Whether to log periodic heartbeat messages
+    #[builder(default = false)]
+    pub log_heartbeat: bool,
+}
+
+impl Default for InternalMonitoringConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            check_interval: Duration::from_secs(30),
+            health_check_timeout: Duration::from_secs(5),
+            critical_failure_threshold: 10,
+            log_heartbeat: false,
+        }
+    }
+}
+
+impl InternalMonitoringConfig {
+    /// Create a configuration optimized for production environments
+    pub fn production() -> Self {
+        Self {
+            enabled: true,
+            check_interval: Duration::from_secs(30),
+            health_check_timeout: Duration::from_secs(5),
+            critical_failure_threshold: 10,
+            log_heartbeat: false,
+        }
+    }
+
+    /// Create a configuration optimized for development environments
+    pub fn development() -> Self {
+        Self {
+            enabled: true,
+            check_interval: Duration::from_secs(10),
+            health_check_timeout: Duration::from_secs(3),
+            critical_failure_threshold: 5,
+            log_heartbeat: true,
+        }
+    }
+
+    /// Create a disabled monitoring configuration
+    pub fn disabled() -> Self {
+        Self {
+            enabled: false,
+            check_interval: Duration::from_secs(30),
+            health_check_timeout: Duration::from_secs(5),
+            critical_failure_threshold: 10,
+            log_heartbeat: false,
+        }
+    }
+
+    /// Validate the internal monitoring configuration
+    pub fn validate(&self) -> Result<(), ConfigValidationError> {
+        if !self.enabled {
+            return Ok(()); // Skip validation if monitoring is disabled
+        }
+
+        if self.check_interval.is_zero() {
+            return Err(ConfigValidationError::InvalidInternalMonitoring(
+                "Check interval must be positive".to_string(),
+            ));
+        }
+
+        if self.health_check_timeout.is_zero() {
+            return Err(ConfigValidationError::InvalidInternalMonitoring(
+                "Health check timeout must be positive".to_string(),
+            ));
+        }
+
+        if self.health_check_timeout >= self.check_interval {
+            return Err(ConfigValidationError::InvalidInternalMonitoring(
+                "Health check timeout should be less than check interval".to_string(),
+            ));
+        }
+
+        if self.critical_failure_threshold == 0 {
+            return Err(ConfigValidationError::InvalidInternalMonitoring(
+                "Critical failure threshold must be positive".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Convert to MonitoringConfig for use with InternalConnectionMonitor
+    pub fn to_monitoring_config(&self) -> crate::transport::layers::MonitoringConfig {
+        crate::transport::layers::MonitoringConfig {
+            check_interval: self.check_interval,
+            health_check_timeout: self.health_check_timeout,
+            critical_threshold: self.critical_failure_threshold,
+            enable_heartbeat_logging: self.log_heartbeat,
+        }
+    }
+
+    /// Create InternalMonitoringConfig with custom settings
+    pub fn with_check_interval(mut self, interval: Duration) -> Self {
+        self.check_interval = interval;
+        self
+    }
+
+    /// Create InternalMonitoringConfig with custom health check timeout
+    pub fn with_health_check_timeout(mut self, timeout: Duration) -> Self {
+        self.health_check_timeout = timeout;
+        self
+    }
+
+    /// Create InternalMonitoringConfig with custom critical failure threshold
+    pub fn with_critical_failure_threshold(mut self, threshold: u32) -> Self {
+        self.critical_failure_threshold = threshold;
+        self
+    }
+
+    /// Create InternalMonitoringConfig with heartbeat logging enabled/disabled
+    pub fn with_heartbeat_logging(mut self, enabled: bool) -> Self {
+        self.log_heartbeat = enabled;
+        self
+    }
+
+    /// Enable or disable internal monitoring
+    pub fn with_enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
+    }
+}
+
+impl RobustClientConfig {
+    /// Create a configuration with custom startup logging
+    pub fn with_startup_logging(mut self, startup_logging: StartupLoggingConfig) -> Self {
+        self.startup_logging = startup_logging;
+        self
+    }
+
+    /// Enable comprehensive startup logging (development mode)
+    pub fn with_comprehensive_startup_logging(mut self) -> Self {
+        self.startup_logging = StartupLoggingConfig::development();
+        self
+    }
+
+    /// Enable minimal startup logging (production mode)
+    pub fn with_minimal_startup_logging(mut self) -> Self {
+        self.startup_logging = StartupLoggingConfig::production();
+        self
+    }
+
+    /// Disable startup logging entirely
+    pub fn with_no_startup_logging(mut self) -> Self {
+        self.startup_logging = StartupLoggingConfig::minimal();
+        self
+    }
+
+    /// Create a configuration optimized for gateway usage with fast startup
+    /// This combines robust defaults with appropriate logging for gateway scenarios
+    /// and optimizes for minimal startup overhead
+    pub fn for_gateway() -> Self {
+        Self::builder()
+            .timeout(Some(
+                TimeoutConfig::builder()
+                    .default_timeout(Duration::from_secs(30))
+                    .build(),
+            ))
+            .circuit_breaker(Some(
+                CircuitBreakerConfig::builder()
+                    .failure_threshold(5)
+                    .success_threshold(3)
+                    .timeout(Duration::from_secs(60))
+                    .minimum_throughput(10)
+                    .build(),
+            ))
+            .retry(Some(
+                RetryPolicy::builder()
+                    .max_attempts(3)
+                    .base_delay(Duration::from_millis(500))
+                    .max_delay(Duration::from_secs(30))
+                    .backoff_multiplier(2.0)
+                    .jitter(0.1)
+                    .build(),
+            ))
+            .reconnection(Some(
+                ReconnectionConfig::builder()
+                    .enable_lazy_connection(false)
+                    .max_reconnect_attempts(None) // Unlimited for gateway reliability
+                    .reconnect_base_delay(Duration::from_secs(2))
+                    .reconnect_max_delay(Duration::from_secs(300))
+                    .queue_requests_during_reconnection(true)
+                    .max_queued_requests(100)
+                    .build(),
+            ))
+            .instrumentation(
+                InstrumentationConfig::builder()
+                    .enable_metrics(true)
+                    .enable_tracing(true)
+                    .enable_logging(true)
+                    .enable_performance_monitoring(false) // Disabled for gateway performance
+                    .build(),
+            )
+            .startup(
+                StartupConfig::builder()
+                    .mode(StartupMode::Graceful) // Graceful startup for gateway reliability
+                    .initial_connection_timeout(Duration::from_secs(2)) // Faster timeout for gateway startup
+                    .validate_connectivity(false) // Skip validation for faster startup
+                    .log_startup_attempts(false) // Reduce logging overhead during startup
+                    .build(),
+            )
+            .internal_monitoring(
+                InternalMonitoringConfig::builder()
+                    .enabled(true)
+                    .check_interval(Duration::from_secs(60)) // Less frequent checks for better performance
+                    .health_check_timeout(Duration::from_secs(3)) // Faster timeout
+                    .critical_failure_threshold(15) // Higher threshold to reduce noise
+                    .log_heartbeat(false) // Reduce log noise in gateway
+                    .build(),
+            )
+            .startup_logging(
+                StartupLoggingConfig::builder()
+                    .log_connection_attempts(false) // Reduce startup logging overhead
+                    .log_validation_results(false) // Skip validation logging for performance
+                    .log_background_operations(false) // Reduce noise in gateway logs
+                    .startup_summary(true) // Keep summary for visibility
+                    .log_level(StartupLogLevel::Info)
+                    .include_performance_metrics(false) // Reduce overhead
+                    .build(),
+            )
+            .build()
+    }
 }

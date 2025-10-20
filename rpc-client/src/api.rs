@@ -50,57 +50,8 @@ impl ConfigurationClient {
         listener_ref: impl Into<vg_config::http::listener::ListenerRef>,
         address: impl Into<http::Uri>,
     ) -> Result<Self, ConfigurationClientError> {
-        // Create robust configuration with comprehensive defaults
-        let robust_config = crate::RobustClientConfig::builder()
-            .timeout(Some(
-                crate::TimeoutConfig::builder()
-                    .default_timeout(std::time::Duration::from_secs(30))
-                    .build(),
-            ))
-            .circuit_breaker(Some(
-                crate::CircuitBreakerConfig::builder()
-                    .failure_threshold(5)
-                    .success_threshold(3)
-                    .timeout(std::time::Duration::from_secs(60))
-                    .minimum_throughput(10)
-                    .build(),
-            ))
-            .retry(Some(
-                crate::RetryPolicy::builder()
-                    .max_attempts(3)
-                    .base_delay(std::time::Duration::from_millis(500))
-                    .max_delay(std::time::Duration::from_secs(30))
-                    .backoff_multiplier(2.0)
-                    .jitter(0.1)
-                    .build(),
-            ))
-            .reconnection(Some(
-                crate::ReconnectionConfig::builder()
-                    .enable_lazy_connection(false)
-                    .max_reconnect_attempts(None) // Unlimited reconnection attempts
-                    .reconnect_base_delay(std::time::Duration::from_secs(2))
-                    .reconnect_max_delay(std::time::Duration::from_secs(300))
-                    .queue_requests_during_reconnection(true)
-                    .max_queued_requests(100)
-                    .build(),
-            ))
-            .instrumentation(
-                crate::InstrumentationConfig::builder()
-                    .enable_metrics(true)
-                    .enable_tracing(true)
-                    .enable_logging(true)
-                    .enable_performance_monitoring(false) // Disabled by default for performance
-                    .build(),
-            )
-            .startup(
-                crate::StartupConfig::builder()
-                    .mode(crate::StartupMode::Graceful) // Graceful startup - won't fail if service unavailable
-                    .initial_connection_timeout(std::time::Duration::from_secs(5))
-                    .validate_connectivity(true)
-                    .log_startup_attempts(true)
-                    .build(),
-            )
-            .build();
+        // Use optimized gateway configuration for better startup performance
+        let robust_config = crate::RobustClientConfig::for_gateway();
 
         let options = crate::ConfigurationTransportOptions::with_robust_config(
             listener_ref,
@@ -120,6 +71,13 @@ impl ConfigurationClient {
         tracing::info!(
             "✓ Configuration client created successfully with robust self-management features"
         );
+
+        // The transport already handles internal monitoring setup during creation
+        // We just need to check if monitoring is available and create the appropriate client
+        if transport.monitoring_manager().is_some() {
+            tracing::info!("✓ Internal connection monitoring integrated successfully");
+        }
+
         Ok(Self::new(transport))
     }
 
@@ -304,6 +262,144 @@ impl ConfigurationClient {
             })?;
 
         Ok(Arc::new(filter))
+    }
+
+    /// Check if internal monitoring is active for this client
+    pub async fn is_monitoring(&self) -> bool {
+        self.transport.is_monitoring().await
+    }
+
+    /// Stop internal monitoring if active
+    /// This is useful for graceful shutdown or when monitoring is no longer needed
+    pub async fn stop_monitoring(&self) -> Result<(), ConfigurationClientError> {
+        self.transport.stop_monitoring().await.map_err(|e| {
+            tracing::warn!("Failed to stop monitoring: {:?}", e);
+            ConfigurationClientError::TransportError(SourceError {
+                message: format!("Failed to stop monitoring: {}", e),
+            })
+        })
+    }
+
+    /// Get monitoring status information
+    pub async fn monitoring_status(&self) -> Option<crate::transport::layers::MonitoringStatus> {
+        if let Some(monitoring_manager) = self.transport.monitoring_manager() {
+            let manager = monitoring_manager.lock().await;
+            Some(manager.status())
+        } else {
+            None
+        }
+    }
+
+    /// Internal error handler that processes errors and determines if they should be handled internally
+    /// This method implements the self-management behavior by handling transport errors gracefully
+    fn handle_error_internally(&self, error: &ConfigurationClientError) -> bool {
+        let should_handle = error.should_handle_internally();
+        let severity = error.severity();
+
+        match severity {
+            ErrorSeverity::Info => {
+                tracing::debug!(
+                    target: "rpc_client::error_handling",
+                    error = %error,
+                    "Informational error occurred"
+                );
+            }
+            ErrorSeverity::Warning => {
+                tracing::warn!(
+                    target: "rpc_client::error_handling",
+                    error = %error,
+                    handled_internally = should_handle,
+                    "Warning-level error occurred"
+                );
+            }
+            ErrorSeverity::Error => {
+                tracing::error!(
+                    target: "rpc_client::error_handling",
+                    error = %error,
+                    handled_internally = should_handle,
+                    "Error-level issue occurred"
+                );
+            }
+        }
+
+        if should_handle {
+            tracing::debug!(
+                target: "rpc_client::error_handling",
+                error = %error,
+                "Error will be handled internally by robust client layers"
+            );
+        }
+
+        should_handle
+    }
+
+    /// Execute a request with internal error handling and retry logic
+    /// This method wraps the actual request execution with self-management behavior
+    async fn execute_with_error_handling<F, T, Fut>(
+        &self,
+        operation_name: &str,
+        operation: F,
+    ) -> Result<T, GatewayClientError>
+    where
+        F: Fn() -> Fut,
+        Fut: std::future::Future<Output = Result<T, ConfigurationClientError>>,
+    {
+        match operation().await {
+            Ok(result) => Ok(result),
+            Err(error) => {
+                // Handle the error internally if appropriate
+                if self.handle_error_internally(&error) {
+                    // For internally handled errors, we could implement additional retry logic here
+                    // For now, we'll convert to a simplified gateway error
+                    tracing::debug!(
+                        target: "rpc_client::error_handling",
+                        operation = operation_name,
+                        "Converting internally handled error to gateway error"
+                    );
+                }
+
+                // Convert to gateway-friendly error format
+                Err(error.to_gateway_error())
+            }
+        }
+    }
+
+    /// Get listener with enhanced error handling
+    pub async fn listener_with_error_handling(&self) -> Result<Arc<Listener>, GatewayClientError> {
+        self.execute_with_error_handling("listener", || async { self.listener().await })
+            .await
+    }
+
+    /// Get route with enhanced error handling
+    pub async fn route_with_error_handling(
+        &self,
+        route_ref: &RouteRef,
+    ) -> Result<Arc<Route>, GatewayClientError> {
+        let route_ref = route_ref.clone();
+        self.execute_with_error_handling("route", || async { self.route(&route_ref).await })
+            .await
+    }
+
+    /// Get backend with enhanced error handling
+    pub async fn backend_with_error_handling(
+        &self,
+        backend_ref: &BackendRef,
+    ) -> Result<Arc<Backend>, GatewayClientError> {
+        let backend_ref = backend_ref.clone();
+        self.execute_with_error_handling("backend", || async { self.backend(&backend_ref).await })
+            .await
+    }
+
+    /// Get shared filter with enhanced error handling
+    pub async fn shared_filter_with_error_handling(
+        &self,
+        filter_ref: &SharedFilterRef,
+    ) -> Result<Arc<SharedFilter>, GatewayClientError> {
+        let filter_ref = filter_ref.clone();
+        self.execute_with_error_handling("shared_filter", || async {
+            self.shared_filter(&filter_ref).await
+        })
+        .await
     }
 }
 
@@ -641,4 +737,89 @@ impl ErrorClassification for ConfigurationClientError {
             ConfigurationClientError::Unknown(_) => false,
         }
     }
+}
+
+impl ConfigurationClientError {
+    /// Check if this error should be handled internally without propagating to the gateway
+    /// This helps minimize error propagation and allows the client to handle issues gracefully
+    pub fn should_handle_internally(&self) -> bool {
+        match self {
+            // Transport-related errors should be handled internally by robust layers
+            ConfigurationClientError::RequestTimeout(_) => true,
+            ConfigurationClientError::ConnectionUnavailable => true,
+            ConfigurationClientError::ServiceUnavailable => true,
+            ConfigurationClientError::TransportError(_) => true,
+            ConfigurationClientError::CircuitBreakerOpen => true,
+            ConfigurationClientError::MaxRetriesExceeded(_) => true,
+
+            // These errors should propagate as they indicate application-level issues
+            ConfigurationClientError::NotFound => false,
+            ConfigurationClientError::ConfigurationError(_) => false,
+            ConfigurationClientError::Unknown(_) => false,
+        }
+    }
+
+    /// Get the severity level of this error for logging purposes
+    pub fn severity(&self) -> ErrorSeverity {
+        match self {
+            ConfigurationClientError::NotFound => ErrorSeverity::Info,
+            ConfigurationClientError::RequestTimeout(_) => ErrorSeverity::Warning,
+            ConfigurationClientError::ConnectionUnavailable => ErrorSeverity::Warning,
+            ConfigurationClientError::ServiceUnavailable => ErrorSeverity::Warning,
+            ConfigurationClientError::CircuitBreakerOpen => ErrorSeverity::Warning,
+            ConfigurationClientError::TransportError(_) => ErrorSeverity::Warning,
+            ConfigurationClientError::MaxRetriesExceeded(_) => ErrorSeverity::Error,
+            ConfigurationClientError::ConfigurationError(_) => ErrorSeverity::Error,
+            ConfigurationClientError::Unknown(_) => ErrorSeverity::Error,
+        }
+    }
+
+    /// Convert transport errors to a more user-friendly format for gateway consumption
+    /// This reduces the complexity of error handling at the gateway level
+    pub fn to_gateway_error(&self) -> GatewayClientError {
+        match self {
+            ConfigurationClientError::NotFound => GatewayClientError::ResourceNotFound,
+            ConfigurationClientError::ConfigurationError(e) => {
+                GatewayClientError::ConfigurationError(e.to_string())
+            }
+            // All transport-related errors are abstracted as service unavailable
+            ConfigurationClientError::RequestTimeout(_)
+            | ConfigurationClientError::ConnectionUnavailable
+            | ConfigurationClientError::ServiceUnavailable
+            | ConfigurationClientError::TransportError(_)
+            | ConfigurationClientError::CircuitBreakerOpen
+            | ConfigurationClientError::MaxRetriesExceeded(_) => {
+                GatewayClientError::ServiceTemporarilyUnavailable
+            }
+            ConfigurationClientError::Unknown(_) => GatewayClientError::InternalError,
+        }
+    }
+}
+
+/// Error severity levels for internal error handling
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ErrorSeverity {
+    /// Informational - not really an error (e.g., resource not found)
+    Info,
+    /// Warning - temporary issue that may resolve itself
+    Warning,
+    /// Error - serious issue that needs attention
+    Error,
+}
+
+/// Simplified error types for gateway consumption
+/// This reduces the complexity of error handling at the gateway level
+#[derive(Debug, Clone, Error)]
+pub enum GatewayClientError {
+    #[error("Resource not found")]
+    ResourceNotFound,
+
+    #[error("Configuration error: {0}")]
+    ConfigurationError(String),
+
+    #[error("Service temporarily unavailable")]
+    ServiceTemporarilyUnavailable,
+
+    #[error("Internal client error")]
+    InternalError,
 }

@@ -3,16 +3,24 @@ pub mod connection;
 pub mod connection_logger;
 #[cfg(test)]
 pub mod connection_tests;
+pub mod internal_monitor;
+pub mod monitoring_manager;
 pub mod reconnection;
 pub mod retry;
+pub mod startup_logger;
+pub mod startup_manager;
 pub mod status;
 pub mod timeout;
 
 pub use circuit_breaker::*;
 pub use connection::*;
 pub use connection_logger::*;
+pub use internal_monitor::*;
+pub use monitoring_manager::*;
 pub use reconnection::*;
 pub use retry::*;
+pub use startup_logger::*;
+pub use startup_manager::*;
 pub use status::*;
 pub use timeout::*;
 

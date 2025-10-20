@@ -17,7 +17,7 @@ use vg_rpc::{
     GetRouteRequest, GetSharedFilterRequest,
 };
 
-use crate::transport::layers::LayeredClient;
+use crate::transport::layers::{HealthCheckFactory, LayeredClient, MonitoringManager};
 use crate::{EnhancedWsClientBuilder, RobustClientConfig};
 
 pub mod layers;
@@ -122,6 +122,9 @@ impl ClientWrapper {
 pub struct ConfigurationTransport {
     listener_ref: ListenerRef,
     client: ClientWrapper,
+    /// Optional monitoring manager for internal connection monitoring
+    #[builder(default)]
+    monitoring_manager: Option<Arc<tokio::sync::Mutex<MonitoringManager>>>,
 }
 
 impl ConfigurationTransport {
@@ -133,6 +136,51 @@ impl ConfigurationTransport {
     /// Get a reference to the underlying client wrapper
     pub fn client(&self) -> &ClientWrapper {
         &self.client
+    }
+
+    /// Get a reference to the monitoring manager if available
+    pub fn monitoring_manager(&self) -> Option<&Arc<tokio::sync::Mutex<MonitoringManager>>> {
+        self.monitoring_manager.as_ref()
+    }
+
+    /// Start internal monitoring if configured
+    pub async fn start_monitoring(&self) -> Result<(), crate::transport::layers::MonitoringError> {
+        if let Some(monitoring_manager) = &self.monitoring_manager {
+            let mut manager = monitoring_manager.lock().await;
+
+            // Create appropriate health check function based on client type
+            let health_check_fn = match &self.client {
+                ClientWrapper::Simple(client) => {
+                    HealthCheckFactory::for_ws_client(client.clone(), self.listener_ref.clone())
+                }
+                ClientWrapper::Layered(client) => HealthCheckFactory::for_layered_client(
+                    client.clone(),
+                    self.listener_ref.clone(),
+                ),
+            };
+
+            manager.start_monitoring(health_check_fn)?;
+        }
+        Ok(())
+    }
+
+    /// Stop internal monitoring if active
+    pub async fn stop_monitoring(&self) -> Result<(), crate::transport::layers::MonitoringError> {
+        if let Some(monitoring_manager) = &self.monitoring_manager {
+            let mut manager = monitoring_manager.lock().await;
+            manager.stop_monitoring().await?;
+        }
+        Ok(())
+    }
+
+    /// Check if monitoring is currently active
+    pub async fn is_monitoring(&self) -> bool {
+        if let Some(monitoring_manager) = &self.monitoring_manager {
+            let manager = monitoring_manager.lock().await;
+            manager.is_monitoring()
+        } else {
+            false
+        }
     }
 }
 
@@ -211,7 +259,7 @@ impl AsyncTryFrom<ConfigurationTransportOptions> for ConfigurationTransport {
     type Error = ConfigurationClientInitError;
 
     async fn async_try_from(value: ConfigurationTransportOptions) -> Result<Self, Self::Error> {
-        let client_wrapper = if let Some(robust_config) = value.robust_config {
+        let client_wrapper = if let Some(ref robust_config) = value.robust_config {
             // Validate configuration before proceeding
             robust_config.validate().map_err(|_| {
                 tracing::error!("Invalid robust client configuration");
@@ -224,7 +272,7 @@ impl AsyncTryFrom<ConfigurationTransportOptions> for ConfigurationTransport {
                     // Legacy behavior - fail if connection fails
                     let layered_client = EnhancedWsClientBuilder::new()
                         .enable_ws_ping(PingConfig::default())
-                        .with_robust_config(robust_config)
+                        .with_robust_config(robust_config.clone())
                         .build(value.address.to_string())
                         .await?;
 
@@ -438,10 +486,50 @@ impl AsyncTryFrom<ConfigurationTransportOptions> for ConfigurationTransport {
             ClientWrapper::simple(simple_client)
         };
 
+        // Create monitoring manager if internal monitoring is enabled
+        let monitoring_manager = if let Some(robust_config) = &value.robust_config {
+            if robust_config.internal_monitoring.enabled {
+                let monitoring_config = robust_config.internal_monitoring.to_monitoring_config();
+                let manager = MonitoringManager::new(monitoring_config, value.address.clone());
+                Some(Arc::new(tokio::sync::Mutex::new(manager)))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
         let transport = ConfigurationTransport::builder()
-            .listener_ref(value.listener_ref)
+            .listener_ref(value.listener_ref.clone())
             .client(client_wrapper)
+            .monitoring_manager(monitoring_manager)
             .build();
+
+        // Defer monitoring startup to improve initial connection performance
+        // Monitoring will be started asynchronously after client creation
+        if transport.monitoring_manager.is_some() {
+            let transport_clone = transport.clone();
+            let uri = value.address.clone();
+
+            // Start monitoring in background to avoid blocking client creation
+            tokio::spawn(async move {
+                // Small delay to allow client to fully initialize
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+
+                if let Err(e) = transport_clone.start_monitoring().await {
+                    tracing::warn!(
+                        uri = %uri,
+                        error = ?e,
+                        "Failed to start internal monitoring, continuing without monitoring"
+                    );
+                } else {
+                    tracing::debug!(
+                        uri = %uri,
+                        "Internal connection monitoring started successfully"
+                    );
+                }
+            });
+        }
 
         Ok(transport)
     }

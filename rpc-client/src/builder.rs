@@ -71,23 +71,12 @@ impl EnhancedWsClientBuilder {
     /// Apply robustness configuration by adding appropriate layers
     fn apply_robust_config(&mut self) {
         if let Some(config) = &self.robust_config {
-            // Add layers based on configuration
-            // Note: The actual layer implementations will be created in subsequent tasks
-
-            // Add instrumentation layer if configured
-            if config.instrumentation.enable_metrics || config.instrumentation.enable_tracing {
-                // TODO: Add instrumentation layer when implemented
-                tracing::debug!("Instrumentation layer would be added here");
-            }
+            // Add layers based on configuration in order of application
 
             // Add timeout layer if configured
             if let Some(timeout_config) = &config.timeout {
                 use crate::layers::TimeoutLayer;
 
-                // Note: We'll set the timeout when building the client
-                // The timeout layer will handle timeout configuration
-
-                // Add the timeout layer for additional configuration
                 let timeout_layer = TimeoutLayer::from_config(timeout_config);
                 self.layers.push(Box::new(timeout_layer));
 
@@ -98,21 +87,52 @@ impl EnhancedWsClientBuilder {
             }
 
             // Add circuit breaker layer if configured
-            if let Some(_circuit_breaker_config) = &config.circuit_breaker {
-                // TODO: Add circuit breaker layer when implemented
-                tracing::debug!("Circuit breaker layer would be added here");
+            if let Some(circuit_breaker_config) = &config.circuit_breaker {
+                use crate::layers::CircuitBreakerLayer;
+
+                let circuit_breaker_layer =
+                    CircuitBreakerLayer::new(circuit_breaker_config.clone());
+                self.layers.push(Box::new(circuit_breaker_layer));
+
+                tracing::debug!(
+                    "Circuit breaker layer added with failure threshold: {}",
+                    circuit_breaker_config.failure_threshold
+                );
             }
 
             // Add retry layer if configured
-            if let Some(_retry_config) = &config.retry {
-                // TODO: Add retry layer when implemented
-                tracing::debug!("Retry layer would be added here");
+            if let Some(retry_config) = &config.retry {
+                use crate::layers::RetryLayer;
+
+                let retry_layer = RetryLayer::from_config(retry_config);
+                self.layers.push(Box::new(retry_layer));
+
+                tracing::debug!(
+                    "Retry layer added with max attempts: {}",
+                    retry_config.max_attempts
+                );
             }
 
             // Add reconnection layer if configured
-            if let Some(_reconnection_config) = &config.reconnection {
-                // TODO: Add reconnection layer when implemented
-                tracing::debug!("Reconnection layer would be added here");
+            if let Some(reconnection_config) = &config.reconnection {
+                use crate::layers::ReconnectionLayer;
+
+                let reconnection_layer = ReconnectionLayer::new(reconnection_config.clone());
+                self.layers.push(Box::new(reconnection_layer));
+
+                tracing::debug!(
+                    "Reconnection layer added with max attempts: {:?}",
+                    reconnection_config.max_reconnect_attempts
+                );
+            }
+
+            // Add instrumentation layer if configured (should be last to capture all metrics)
+            if config.instrumentation.enable_metrics || config.instrumentation.enable_tracing {
+                // Note: Instrumentation is handled through tracing and metrics in other layers
+                // rather than a dedicated layer since ConnectionLogger doesn't implement WsClientLayer
+                tracing::debug!(
+                    "Instrumentation enabled - metrics and tracing will be handled by other layers"
+                );
             }
         }
     }

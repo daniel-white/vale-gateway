@@ -254,6 +254,60 @@ impl ConnectionLogger {
             "Request queue is full, rejecting requests"
         );
     }
+
+    /// Log when connection recovers after failures
+    ///
+    /// This method logs successful recovery from connection failures,
+    /// including timing information for troubleshooting.
+    ///
+    /// # Arguments
+    /// * `response_time` - Response time of the successful health check
+    /// * `consecutive_failures` - Number of consecutive failures before recovery
+    pub fn log_connection_recovered(&self, response_time: Duration, consecutive_failures: u32) {
+        info!(
+            target: "rpc_client::connection",
+            response_time_ms = response_time.as_millis(),
+            consecutive_failures = consecutive_failures,
+            event = "connection_recovered",
+            "Connection recovered after failures"
+        );
+    }
+
+    /// Log critical connection failure after extended downtime
+    ///
+    /// This method logs when connection failures reach critical thresholds,
+    /// indicating persistent connectivity issues requiring attention.
+    ///
+    /// # Arguments
+    /// * `downtime` - Duration since last successful connection
+    /// * `consecutive_failures` - Number of consecutive failures
+    pub fn log_critical_connection_failure(&self, downtime: Duration, consecutive_failures: u32) {
+        error!(
+            target: "rpc_client::connection",
+            downtime_ms = downtime.as_millis(),
+            consecutive_failures = consecutive_failures,
+            event = "critical_connection_failure",
+            "CRITICAL: Connection has been failing for extended period"
+        );
+    }
+
+    /// Log individual connection failure
+    ///
+    /// This method logs individual connection failures with context
+    /// for tracking connection reliability patterns.
+    ///
+    /// # Arguments
+    /// * `consecutive_failures` - Number of consecutive failures so far
+    /// * `error` - Error message describing the failure
+    pub fn log_connection_failure(&self, consecutive_failures: u32, error: &str) {
+        warn!(
+            target: "rpc_client::connection",
+            consecutive_failures = consecutive_failures,
+            error = error,
+            event = "connection_failure",
+            "Connection health check failed"
+        );
+    }
 }
 
 impl Default for ConnectionLogger {
