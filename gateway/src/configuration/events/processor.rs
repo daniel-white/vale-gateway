@@ -7,12 +7,12 @@ use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::filter::{SharedFilter, SharedFilterRef};
 use vg_config::http::route::{Route, RouteRef};
 use vg_core::sync::arc_watch::Sender;
-use vg_rpc_client::{Client, ClientError};
+use vg_rpc_client::{ApiClient, ClientError};
 use vg_rpc_client::events::Event;
 
 #[derive(TypedBuilder)]
 pub struct ConfigurationEventProcessor {
-    client: Client,
+    client: ApiClient,
     #[builder(default, setter(skip))]
     backends: TVar<SourceBackendConfiguration>,
     backends_tx: Sender<SourceBackendConfiguration>,

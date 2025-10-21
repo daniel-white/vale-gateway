@@ -1,38 +1,44 @@
+use std::ops::Deref;
 use crate::instrumentation::TRACER;
 use jsonrpsee::core::ClientError as JsonrpseeClientError;
 use opentelemetry::trace::{SpanKind, Tracer};
 use std::sync::Arc;
+use jsonrpsee::ws_client::WsClient;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
 use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::filter::{SharedFilter, SharedFilterRef};
-use vg_config::http::listener::Listener;
+use vg_config::http::listener::{Listener, ListenerRef};
 use vg_config::http::route::{Route, RouteRef};
 use vg_rpc::{
-    ApiClient, ApiError, GetBackendRequest, GetListenerRequest,
+    ApiClient as ApiClientTrait, ApiError, GetBackendRequest, GetListenerRequest,
     GetRouteRequest, GetSharedFilterRequest, RequestContext,
 };
-use crate::transport::Transport;
+use crate::transport::{Client, TransportClient};
 
 #[derive(Clone, TypedBuilder)]
-pub struct Client {
-    transport: Transport,
+pub struct ApiClient {
+    transport_client: TransportClient,
 }
 
-impl Client {
+impl ApiClient {
+    
     pub async fn listener(&self) -> Result<Arc<Listener>, ClientError> {
         let span = TRACER
             .span_builder("ConfigurationClient::listener")
             .with_kind(SpanKind::Client)
             .start(&*TRACER);
 
-        let client = self.transport.client();
+        let Client::Connected(transport_client) = self.transport_client.client() else  {
+            return Err(ClientError::ServiceUnavailable);
+        };
+        
         let req = GetListenerRequest::builder()
             .context(RequestContext::new(span))
-            .listener_ref(self.transport.listener_ref())
+            .listener_ref(self.transport_client.listener_ref())
             .build();
 
-        let listener = client.listener(req).await?;
+        let listener = transport_client.listener(req).await?;
 
         Ok(Arc::new(listener))
     }
@@ -45,13 +51,17 @@ impl Client {
             .span_builder("ConfigurationClient::route")
             .with_kind(SpanKind::Client)
             .start(&*TRACER);
-        let client = self.transport.client();
+        
+        let Client::Connected(transport_client) = self.transport_client.client() else  {
+            return Err(ClientError::ServiceUnavailable);
+        };
+        
         let req = GetRouteRequest::builder()
             .context(RequestContext::new(span))
             .route_ref(route_ref.clone())
             .build();
 
-        let route = client.route(req).await?;
+        let route = transport_client.route(req).await?;
 
         Ok(Arc::new(route))
     }
@@ -64,13 +74,17 @@ impl Client {
             .span_builder("ConfigurationClient::backend")
             .with_kind(SpanKind::Client)
             .start(&*TRACER);
-        let client = self.transport.client();
+        
+        let Client::Connected(transport_client) = self.transport_client.client() else  {
+            return Err(ClientError::ServiceUnavailable);
+        };
+        
         let req = GetBackendRequest::builder()
             .context(RequestContext::new(span))
             .backend_ref(backend_ref.clone())
             .build();
 
-        let backend = client.backend(req).await?;
+        let backend = transport_client.backend(req).await?;
 
         Ok(Arc::new(backend))
     }
@@ -83,13 +97,17 @@ impl Client {
             .span_builder("ConfigurationClient::shared_filter")
             .with_kind(SpanKind::Client)
             .start(&*TRACER);
-        let client = self.transport.client();
+
+        let Client::Connected(transport_client) = self.transport_client.client() else  {
+            return Err(ClientError::ServiceUnavailable);
+        };
+        
         let req = GetSharedFilterRequest::builder()
             .context(RequestContext::new(span))
             .filter_ref(filter_ref.clone())
             .build();
 
-        let filter = client.shared_filter(req).await?;
+        let filter = transport_client.shared_filter(req).await?;
 
         Ok(Arc::new(filter))
     }
@@ -97,6 +115,8 @@ impl Client {
 
 #[derive(Debug, Clone, Error)]
 pub enum ClientError {
+    #[error("Service unavailable")]
+    ServiceUnavailable,
     #[error("Listener not found")]
     NotFound,
     #[error("Request timeout")]

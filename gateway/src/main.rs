@@ -7,7 +7,6 @@ use crate::configuration::{SourceConfigurationRegistry, SourceConfigurationRegis
 use crate::http::backend::{BackendConfigurator, BackendConfiguratorOptions};
 use crate::http::filter::{SharedFilterHandlersManager, SharedFilterHandlersManagerOptions};
 use ::http::Uri;
-use async_from::AsyncTryInto;
 use std::error::Error;
 use std::sync::Arc;
 use tokio::select;
@@ -15,7 +14,7 @@ use tokio::task::JoinSet;
 use vg_core::instrumentation::init;
 use vg_core::net::topology::TopologyLocation;
 use vg_rpc_client::{
-    Client
+    ApiClient
 };
 use vg_rpc_client::events::EventClient;
 use vg_rpc_client::transport::{Transport, TransportOptions};
@@ -25,17 +24,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
     init("vg-gateway");
 
     let transport: Transport = TransportOptions::builder()
-        .address(Uri::from_static("ws://localhost:9000"))
+        .endpoint(Uri::from_static("ws://localhost:9000"))
         .listener_ref("example_listener".to_string())
         .build()
-        .async_try_into()
-        .await?;
+        .try_into()?;
 
-    let client = Client::builder()
-        .transport(transport.clone())
+    let api = ApiClient::builder()
+        .transport_client(transport.client())
         .build();
 
-    let events = EventClient::new(transport);
+    let events = EventClient::new(transport.client());
 
     let events_rx = events.events();
 
@@ -43,7 +41,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let source_configuration: SourceConfigurationRegistry =
         SourceConfigurationRegistryOptions::builder()
-            .client(client)
+            .client(api)
             .events(events_rx)
             .build()
             .into();
@@ -72,13 +70,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut brx = backends_configurator.backends();
     let mut sfhx = shared_filter_handlers.handlers();
 
+    let transport = transport.start();
     let shared_filter_handlers = shared_filter_handlers.start();
     let backends_configurator = backends_configurator.start();
     let source_configuration = source_configuration.start();
-    let event_client = events.start().await?;
+    let event_client = events.start();
 
     let mut js = JoinSet::new();
 
+    js.spawn(transport.stopped());
     js.spawn(shared_filter_handlers.stopped());
     js.spawn(backends_configurator.stopped());
     js.spawn(event_client.stopped());
