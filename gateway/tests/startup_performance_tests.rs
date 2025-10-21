@@ -1,15 +1,18 @@
 use http::Uri;
 use std::time::{Duration, Instant};
 use tokio::time::timeout;
-use vg_rpc_client::{ConfigurationClient, ConfigurationEventsClient};
+use vg_config::http::listener::ListenerRef;
+use vg_rpc_client::{ConfigurationClient, ConfigurationEventsClient, RpcTransport};
 
 /// Performance test environment for measuring startup times
 struct PerformanceTestEnvironment {
     server_uri: Uri,
+    #[allow(dead_code)]
     scenario: TestScenario,
 }
 
 #[derive(Clone)]
+#[allow(dead_code)]
 enum TestScenario {
     ServiceAvailable,
     ServiceUnavailable,
@@ -38,6 +41,7 @@ impl PerformanceTestEnvironment {
         self.server_uri.clone()
     }
 
+    #[allow(dead_code)]
     fn get_scenario(&self) -> TestScenario {
         self.scenario.clone()
     }
@@ -54,10 +58,21 @@ async fn test_startup_time_requirement_unavailable_service() {
     // Measure startup time with unavailable service
     let start_time = Instant::now();
 
-    let client_result =
-        ConfigurationClient::connect(listener_ref.clone(), server_uri.clone()).await;
+    let client_result = match RpcTransport::new(server_uri.clone()).await {
+        Ok(transport) => Ok(ConfigurationClient::new(
+            transport,
+            ListenerRef::from(listener_ref.clone()),
+        )),
+        Err(e) => Err(e),
+    };
 
-    let events_result = ConfigurationEventsClient::connect(listener_ref, server_uri).await;
+    let events_result = match RpcTransport::new(server_uri).await {
+        Ok(transport) => Ok(ConfigurationEventsClient::new(
+            transport,
+            ListenerRef::from(listener_ref),
+        )),
+        Err(e) => Err(e),
+    };
 
     let startup_time = start_time.elapsed();
 
@@ -96,10 +111,21 @@ async fn test_startup_time_with_dns_resolution() {
     // Measure startup time with DNS resolution failure
     let start_time = Instant::now();
 
-    let client_result =
-        ConfigurationClient::connect(listener_ref.clone(), server_uri.clone()).await;
+    let client_result = match RpcTransport::new(server_uri.clone()).await {
+        Ok(transport) => Ok(ConfigurationClient::new(
+            transport,
+            ListenerRef::from(listener_ref.clone()),
+        )),
+        Err(e) => Err(e),
+    };
 
-    let events_result = ConfigurationEventsClient::connect(listener_ref, server_uri).await;
+    let events_result = match RpcTransport::new(server_uri).await {
+        Ok(transport) => Ok(ConfigurationEventsClient::new(
+            transport,
+            ListenerRef::from(listener_ref),
+        )),
+        Err(e) => Err(e),
+    };
 
     let startup_time = start_time.elapsed();
 
@@ -144,11 +170,21 @@ async fn test_startup_time_consistency() {
 
         let start_time = Instant::now();
 
-        let _client_result =
-            ConfigurationClient::connect(listener_ref.clone(), server_uri.clone()).await;
+        let _client_result = match RpcTransport::new(server_uri.clone()).await {
+            Ok(transport) => Ok(ConfigurationClient::new(
+                transport,
+                ListenerRef::from(listener_ref.clone()),
+            )),
+            Err(e) => Err(e),
+        };
 
-        let _events_result =
-            ConfigurationEventsClient::connect(listener_ref, server_uri.clone()).await;
+        let _events_result = match RpcTransport::new(server_uri.clone()).await {
+            Ok(transport) => Ok(ConfigurationEventsClient::new(
+                transport,
+                ListenerRef::from(listener_ref),
+            )),
+            Err(e) => Err(e),
+        };
 
         let startup_time = start_time.elapsed();
         startup_times.push(startup_time);
@@ -201,21 +237,27 @@ async fn test_startup_memory_usage() {
     // Note: This is a basic test - in a real scenario you'd use more sophisticated memory profiling
 
     // Create multiple clients to test memory usage
-    let mut clients = Vec::new();
-    let mut events_clients = Vec::new();
+    let mut clients: Vec<ConfigurationClient> = Vec::new();
+    let mut events_clients: Vec<ConfigurationEventsClient> = Vec::new();
 
     let start_time = Instant::now();
 
     for i in 0..10 {
-        let client_result =
-            ConfigurationClient::connect(format!("{}-{}", listener_ref, i), server_uri.clone())
-                .await;
+        let client_result = match RpcTransport::new(server_uri.clone()).await {
+            Ok(transport) => Ok(ConfigurationClient::new(
+                transport,
+                ListenerRef::from(format!("{}-{}", listener_ref, i)),
+            )),
+            Err(e) => Err(e),
+        };
 
-        let events_result = ConfigurationEventsClient::connect(
-            format!("{}-events-{}", listener_ref, i),
-            server_uri.clone(),
-        )
-        .await;
+        let events_result = match RpcTransport::new(server_uri.clone()).await {
+            Ok(transport) => Ok(ConfigurationEventsClient::new(
+                transport,
+                ListenerRef::from(format!("{}-events-{}", listener_ref, i)),
+            )),
+            Err(e) => Err(e),
+        };
 
         // Store clients to prevent them from being dropped
         if let Ok(client) = client_result {
@@ -284,10 +326,21 @@ async fn test_concurrent_startup_performance() {
 
             let client_start = Instant::now();
 
-            let client_result =
-                ConfigurationClient::connect(listener_ref.clone(), uri.clone()).await;
+            let client_result = match RpcTransport::new(uri.clone()).await {
+                Ok(transport) => Ok(ConfigurationClient::new(
+                    transport,
+                    ListenerRef::from(listener_ref.clone()),
+                )),
+                Err(e) => Err(e),
+            };
 
-            let events_result = ConfigurationEventsClient::connect(listener_ref, uri).await;
+            let events_result = match RpcTransport::new(uri).await {
+                Ok(transport) => Ok(ConfigurationEventsClient::new(
+                    transport,
+                    ListenerRef::from(listener_ref),
+                )),
+                Err(e) => Err(e),
+            };
 
             let client_time = client_start.elapsed();
 
@@ -369,16 +422,26 @@ async fn test_startup_with_timeout_scenarios() {
 
     let start_time = Instant::now();
 
-    let client_result = timeout(
-        short_timeout,
-        ConfigurationClient::connect("timeout-test-client".to_string(), server_uri.clone()),
-    )
+    let client_result = timeout(short_timeout, async {
+        match RpcTransport::new(server_uri.clone()).await {
+            Ok(transport) => Ok(ConfigurationClient::new(
+                transport,
+                ListenerRef::from("timeout-test-client".to_string()),
+            )),
+            Err(e) => Err(e),
+        }
+    })
     .await;
 
-    let events_result = timeout(
-        short_timeout,
-        ConfigurationEventsClient::connect("timeout-test-events".to_string(), server_uri),
-    )
+    let events_result = timeout(short_timeout, async {
+        match RpcTransport::new(server_uri).await {
+            Ok(transport) => Ok(ConfigurationEventsClient::new(
+                transport,
+                ListenerRef::from("timeout-test-events".to_string()),
+            )),
+            Err(e) => Err(e),
+        }
+    })
     .await;
 
     let total_time = start_time.elapsed();
@@ -425,10 +488,21 @@ async fn test_startup_resource_consumption() {
     let start_time = Instant::now();
 
     // Create client and measure time
-    let client_result =
-        ConfigurationClient::connect(listener_ref.clone(), server_uri.clone()).await;
+    let client_result = match RpcTransport::new(server_uri.clone()).await {
+        Ok(transport) => Ok(ConfigurationClient::new(
+            transport,
+            ListenerRef::from(listener_ref.clone()),
+        )),
+        Err(e) => Err(e),
+    };
 
-    let events_result = ConfigurationEventsClient::connect(listener_ref, server_uri).await;
+    let events_result = match RpcTransport::new(server_uri).await {
+        Ok(transport) => Ok(ConfigurationEventsClient::new(
+            transport,
+            ListenerRef::from(listener_ref),
+        )),
+        Err(e) => Err(e),
+    };
 
     let startup_time = start_time.elapsed();
 
@@ -501,11 +575,21 @@ async fn test_startup_performance_benchmark() {
 
             let start_time = Instant::now();
 
-            let _client_result =
-                ConfigurationClient::connect(listener_ref.clone(), server_uri.clone()).await;
+            let _client_result = match RpcTransport::new(server_uri.clone()).await {
+                Ok(transport) => Ok(ConfigurationClient::new(
+                    transport,
+                    ListenerRef::from(listener_ref.clone()),
+                )),
+                Err(e) => Err(e),
+            };
 
-            let _events_result =
-                ConfigurationEventsClient::connect(listener_ref, server_uri.clone()).await;
+            let _events_result = match RpcTransport::new(server_uri.clone()).await {
+                Ok(transport) => Ok(ConfigurationEventsClient::new(
+                    transport,
+                    ListenerRef::from(listener_ref),
+                )),
+                Err(e) => Err(e),
+            };
 
             let startup_time = start_time.elapsed();
             times.push(startup_time);

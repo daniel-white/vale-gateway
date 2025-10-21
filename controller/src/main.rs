@@ -33,11 +33,11 @@ impl HttpConfigurationProvider for HttpConfigProvider {
         Some(l)
     }
 
-    async fn route(&self, route_ref: RouteRef) -> Option<Route> {
+    async fn route(&self, _route_ref: RouteRef) -> Option<Route> {
         None
     }
 
-    async fn backend(&self, backend_ref: BackendRef) -> Option<Backend> {
+    async fn backend(&self, _backend_ref: BackendRef) -> Option<Backend> {
         let ep1 = BackendEndpoint::builder()
             .addrs(Vec::new())
             .node(Some("a".to_string()))
@@ -58,7 +58,7 @@ impl HttpConfigurationProvider for HttpConfigProvider {
         Some(be)
     }
 
-    async fn shared_filter(&self, filter_ref: SharedFilterRef) -> Option<SharedFilter> {
+    async fn shared_filter(&self, _filter_ref: SharedFilterRef) -> Option<SharedFilter> {
         None
     }
 }

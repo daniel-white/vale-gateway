@@ -63,7 +63,7 @@ pub enum ConfigValidationError {
 }
 
 /// Startup mode for client connections (kept for compatibility)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum StartupMode {
     /// Fail immediately if connection cannot be established
     FailFast,
@@ -102,23 +102,25 @@ impl Default for StartupConfig {
 /// Reconnection configuration (kept for compatibility)
 #[derive(Debug, Clone)]
 pub struct ReconnectionConfig {
-    pub max_reconnect_attempts: Option<u32>,
+    pub max_reconnect_attempts: u32,
     pub queue_requests_during_reconnection: bool,
     pub max_queued_requests: usize,
     pub enable_lazy_connection: bool,
     pub reconnect_base_delay: std::time::Duration,
     pub reconnect_max_delay: std::time::Duration,
+    pub reconnect_backoff_multiplier: f64,
 }
 
 impl Default for ReconnectionConfig {
     fn default() -> Self {
         Self {
-            max_reconnect_attempts: Some(10),
+            max_reconnect_attempts: 10,
             queue_requests_during_reconnection: true,
             max_queued_requests: 100,
             enable_lazy_connection: false,
             reconnect_base_delay: std::time::Duration::from_millis(100),
             reconnect_max_delay: std::time::Duration::from_secs(30),
+            reconnect_backoff_multiplier: 2.0,
         }
     }
 }
@@ -152,7 +154,7 @@ impl ReconnectionConfigBuilder {
         ReconnectionConfig {
             max_reconnect_attempts: self
                 .max_reconnect_attempts
-                .or(default.max_reconnect_attempts),
+                .unwrap_or(default.max_reconnect_attempts),
             queue_requests_during_reconnection: default.queue_requests_during_reconnection,
             max_queued_requests: default.max_queued_requests,
             enable_lazy_connection: self
@@ -160,6 +162,7 @@ impl ReconnectionConfigBuilder {
                 .unwrap_or(default.enable_lazy_connection),
             reconnect_base_delay: default.reconnect_base_delay,
             reconnect_max_delay: default.reconnect_max_delay,
+            reconnect_backoff_multiplier: default.reconnect_backoff_multiplier,
         }
     }
 }

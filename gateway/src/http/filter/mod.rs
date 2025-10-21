@@ -12,6 +12,7 @@ use vg_http::filter::SharedFilterHandler;
 
 #[derive(TypedBuilder, Default, Clone, Debug, Getters, CloneGetters)]
 pub struct SharedFilterHandlers {
+    #[allow(dead_code)]
     handlers: HashMap<Arc<SharedFilterRef>, Arc<SharedFilterHandler>>,
 }
 
@@ -41,6 +42,7 @@ impl From<SharedFilterHandlersManagerOptions> for SharedFilterHandlersManager {
 }
 
 impl SharedFilterHandlersManager {
+    #[allow(dead_code)]
     pub fn handlers(&self) -> Receiver<SharedFilterHandlers> {
         self.handlers_tx.subscribe()
     }

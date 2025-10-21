@@ -20,6 +20,7 @@ use vg_rpc::{
 
 /// Configurable behavior for the mock server
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum ServerBehavior {
     /// Normal operation - responds successfully
     Normal,
@@ -40,6 +41,7 @@ pub enum ServerBehavior {
 
 /// Behavior for individual methods
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum MethodBehavior {
     Normal,
     Slow { delay: Duration },
@@ -129,16 +131,19 @@ impl MockConfigurationServer {
         data.listeners.insert(listener_ref, listener);
     }
 
+    #[allow(dead_code)]
     pub async fn add_route(&self, route_ref: RouteRef, route: Route) {
         let mut data = self.data.write().await;
         data.routes.insert(route_ref, route);
     }
 
+    #[allow(dead_code)]
     pub async fn add_backend(&self, backend_ref: BackendRef, backend: Backend) {
         let mut data = self.data.write().await;
         data.backends.insert(backend_ref, backend);
     }
 
+    #[allow(dead_code)]
     pub async fn add_shared_filter(&self, filter_ref: SharedFilterRef, filter: SharedFilter) {
         let mut data = self.data.write().await;
         data.shared_filters.insert(filter_ref, filter);
@@ -157,6 +162,7 @@ impl MockConfigurationServer {
     }
 
     /// Simulate network partition (server becomes unavailable)
+    #[allow(dead_code)]
     pub async fn simulate_network_partition(&self) {
         self.set_behavior(ServerBehavior::Unavailable).await;
     }

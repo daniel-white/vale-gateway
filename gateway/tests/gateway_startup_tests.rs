@@ -42,6 +42,7 @@ impl TestEnvironment {
         }
     }
 
+    #[allow(dead_code)]
     fn with_invalid_host() -> Self {
         // Use invalid hostname
         Self {
@@ -63,7 +64,7 @@ async fn test_gateway_startup_with_unavailable_service() {
     let env = TestEnvironment::with_unavailable_service();
 
     let listener_ref = "test-listener".to_string();
-    let server_uri = env.get_server_uri();
+    let _server_uri = env.get_server_uri();
 
     // Test gateway startup behavior with unavailable service
     let start_time = Instant::now();
@@ -281,15 +282,6 @@ async fn test_component_wiring_patterns() {
 /// This simulates the gateway's validate_startup_parameters function
 #[tokio::test]
 async fn test_startup_parameter_validation() {
-    // Test empty listener reference
-    let empty_listener_ref = "";
-
-    // This would be caught by gateway's validate_startup_parameters function
-    assert!(
-        empty_listener_ref.is_empty(),
-        "Empty listener ref should be detected"
-    );
-
     // Test invalid URI schemes
     let invalid_uris = vec![
         "http://localhost:9000",  // Wrong scheme

@@ -5,6 +5,7 @@ pub struct ResourcesWatcher<K: ResourceRef<R>, R: Resource, C: ResourceCollectio
 where
     R::DynamicType: 'static + Default,
 {
+    #[allow(dead_code)]
     resources: C,
     k_marker: std::marker::PhantomData<K>,
     r_marker: std::marker::PhantomData<R>,

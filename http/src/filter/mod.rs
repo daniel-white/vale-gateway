@@ -30,6 +30,7 @@ pub enum SharedFilterHandlerConversionError {
     // AccessControl(#[from] #[source]AccessControlFilterHandler)
 }
 
+#[allow(clippy::infallible_try_from)]
 impl TryFrom<&SharedFilter> for SharedFilterHandler {
     type Error = SharedFilterHandlerConversionError;
     fn try_from(value: &SharedFilter) -> Result<Self, Self::Error> {

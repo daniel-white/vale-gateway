@@ -71,7 +71,7 @@ impl<T: Clone> Sender<T> {
             .span_builder("broadcast::Sender::send")
             .with_kind(SpanKind::Producer)
             .start(&*TRACER);
-        let context = Context::current().with_span(span).attach();
+        let _context = Context::current().with_span(span).attach();
         self.0
             .send(value.into())
             .map_err(|err| SendError(err.0.value))

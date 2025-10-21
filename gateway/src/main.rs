@@ -1,25 +1,3 @@
-//! # Simplified Gateway Architecture
-//!
-//! This gateway implementation follows a simplified architecture where:
-//!
-//! ## Self-Managing Clients
-//! - Configuration clients handle all transport concerns internally
-//! - No external connection monitoring or health checking required
-//! - Automatic reconnection and error handling built-in
-//! - Graceful startup mode prevents failures due to service unavailability
-//!
-//! ## Focused Main Function
-//! - Under 100 lines as required by specification
-//! - Focuses solely on component wiring and coordination
-//! - No complex timeout handling or retry logic
-//! - No custom connection status monitoring
-//!
-//! ## Component Architecture
-//! - Clean separation of concerns
-//! - Helper functions for specific responsibilities
-//! - Minimal error handling (only critical startup errors)
-//! - All resilience concerns delegated to clients
-
 mod configuration;
 mod http;
 mod instrumentation;

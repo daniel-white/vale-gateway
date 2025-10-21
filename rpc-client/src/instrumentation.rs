@@ -60,16 +60,11 @@ impl ClientMetrics {
                 .build(),
         }
     }
-
-    /// Create a new ClientMetrics instance using the global meter
-    pub fn default() -> Self {
-        Self::new(&METER)
-    }
 }
 
 impl Default for ClientMetrics {
     fn default() -> Self {
-        Self::default()
+        Self::new(&METER)
     }
 }
 
@@ -84,17 +79,12 @@ impl InstrumentationLayer {
     pub fn new(metrics: Arc<ClientMetrics>) -> Self {
         Self { metrics }
     }
-
-    /// Create a new instrumentation layer using default metrics
-    pub fn default() -> Self {
-        let metrics = Arc::new(ClientMetrics::default());
-        Self { metrics }
-    }
 }
 
 impl Default for InstrumentationLayer {
     fn default() -> Self {
-        Self::default()
+        let metrics = Arc::new(ClientMetrics::default());
+        Self { metrics }
     }
 }
 

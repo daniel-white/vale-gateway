@@ -6,7 +6,7 @@ use vg_rpc_client::{
     CircuitBreakerConfig, CircuitBreakerError, CircuitBreakerLayer, ConfigValidationError,
     ConfigurationClientError, ConnectionError, ErrorClassification, ExponentialBackoffPolicy,
     ReconnectionConfig, ReconnectionLayer, RetryExhaustedError, RetryLayer, RetryPolicy,
-    RobustClientConfig, SourceError, TimeoutConfig, TimeoutLayer, WsClientLayer,
+    RpcClientConfig, SourceError, TimeoutConfig, TimeoutLayer, WsClientLayer,
 };
 
 /// Test comprehensive error handling validation
@@ -198,9 +198,8 @@ mod error_handling_validation_tests {
     #[test]
     fn test_configuration_validation_error_propagation() {
         // Test timeout validation error
-        let timeout_config = TimeoutConfig::builder()
-            .default_timeout(Duration::ZERO) // Invalid
-            .build();
+        let mut timeout_config = TimeoutConfig::default();
+        timeout_config.default_timeout = Duration::ZERO; // Invalid
 
         let validation_result = timeout_config.validate();
         assert!(validation_result.is_err());
@@ -213,25 +212,22 @@ mod error_handling_validation_tests {
         }
 
         // Test circuit breaker validation error
-        let cb_config = CircuitBreakerConfig::builder()
-            .failure_threshold(0) // Invalid
-            .build();
+        let mut cb_config = CircuitBreakerConfig::default();
+        cb_config.failure_threshold = 0; // Invalid
 
         let validation_result = cb_config.validate();
         assert!(validation_result.is_err());
 
         // Test retry policy validation error
-        let retry_config = RetryPolicy::builder()
-            .max_attempts(0) // Invalid
-            .build();
+        let mut retry_config = RetryPolicy::default();
+        retry_config.max_attempts = 0; // Invalid
 
         let validation_result = retry_config.validate();
         assert!(validation_result.is_err());
 
         // Test reconnection config validation error
-        let reconnect_config = ReconnectionConfig::builder()
-            .reconnect_base_delay(Duration::ZERO) // Invalid
-            .build();
+        let mut reconnect_config = ReconnectionConfig::default();
+        reconnect_config.reconnect_base_delay = Duration::ZERO; // Invalid
 
         let validation_result = reconnect_config.validate();
         assert!(validation_result.is_err());
@@ -244,9 +240,7 @@ mod error_handling_validation_tests {
             .default_timeout(Duration::ZERO) // Invalid
             .build();
 
-        let robust_config = RobustClientConfig::builder()
-            .timeout(Some(invalid_timeout_config))
-            .build();
+        let robust_config = RpcClientConfig::new().with_timeout(Duration::ZERO); // Invalid
 
         let validation_result = robust_config.validate();
         assert!(validation_result.is_err());
@@ -499,7 +493,6 @@ mod error_handling_validation_tests {
 mod error_propagation_integration_tests {
     use super::*;
 
-    
     use vg_rpc_client::{NoOpLayer, WsClientLayer};
 
     // Mock layer for testing error propagation
@@ -592,7 +585,8 @@ mod error_propagation_integration_tests {
     #[test]
     fn test_single_attempt_retry_layer_disabled() {
         // Test that retry layer with max_attempts = 1 is disabled
-        let retry_policy = RetryPolicy::builder().max_attempts(1).build();
+        let mut retry_policy = RetryPolicy::default();
+        retry_policy.max_attempts = 1;
         let retry_layer = RetryLayer::new(retry_policy);
         assert!(!retry_layer.is_enabled());
     }
@@ -600,7 +594,8 @@ mod error_propagation_integration_tests {
     #[test]
     fn test_zero_failure_threshold_circuit_breaker_disabled() {
         // Test that circuit breaker with zero failure threshold is disabled
-        let cb_config = CircuitBreakerConfig::builder().failure_threshold(0).build();
+        let mut cb_config = CircuitBreakerConfig::default();
+        cb_config.failure_threshold = 0;
         let cb_layer = CircuitBreakerLayer::new(cb_config);
         assert!(!cb_layer.is_enabled());
     }
@@ -609,7 +604,7 @@ mod error_propagation_integration_tests {
     fn test_zero_reconnect_attempts_layer_disabled() {
         // Test that reconnection layer with zero max attempts is disabled
         let reconnect_config = ReconnectionConfig::builder()
-            .max_reconnect_attempts(Some(0))
+            .max_reconnect_attempts(0)
             .build();
         let reconnect_layer = ReconnectionLayer::new(reconnect_config);
         assert!(!reconnect_layer.is_enabled());

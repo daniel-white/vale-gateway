@@ -1,6 +1,7 @@
 use std::time::Duration;
 use tokio::time::timeout;
-use vg_rpc_client::{ConfigurationClient, RobustClientConfig, RpcTransport};
+use vg_config::http::listener::ListenerRef;
+use vg_rpc_client::{ConfigurationClient, RpcClientConfig, RpcTransport};
 
 /// Test that verifies the connection handoff works correctly when the server becomes available
 #[tokio::test]
@@ -14,22 +15,17 @@ async fn test_connection_handoff_after_server_restart() {
     let server_uri = "ws://localhost:9000".parse().unwrap();
     let listener_ref = "test-listener".to_string();
 
-    // Create a robust client configuration with fast reconnection
-    let mut config = RobustClientConfig::development();
-
-    // Configure for fast reconnection testing
-    if let Some(ref mut reconnection) = config.reconnection {
-        reconnection.reconnect_base_delay = Duration::from_millis(100);
-        reconnection.reconnect_max_delay = Duration::from_secs(1);
-        reconnection.max_reconnect_attempts = Some(5);
-    }
+    // Create a client configuration with fast reconnection
+    let config = RpcClientConfig::new()
+        .with_timeout(Duration::from_secs(5))
+        .with_monitoring(true);
 
     // Create transport (this will fail if server is not running, but that's expected)
-    let transport_result = RpcTransport::new(server_uri, config).await;
+    let transport_result = RpcTransport::with_config(server_uri, config).await;
 
     match transport_result {
         Ok(transport) => {
-            let client = ConfigurationClient::new(transport, listener_ref);
+            let client = ConfigurationClient::new(transport, ListenerRef::from(listener_ref));
 
             // Try to make a request - this should work if server is running
             let result = timeout(Duration::from_secs(2), client.listener()).await;
@@ -73,9 +69,9 @@ async fn test_current_client_returns_fresh_connection() {
     let server_uri = "ws://localhost:9000".parse().unwrap();
 
     // Create a minimal config for testing
-    let config = RobustClientConfig::minimal();
+    let config = RpcClientConfig::new().with_monitoring(false);
 
-    let transport_result = RpcTransport::new(server_uri, config).await;
+    let transport_result = RpcTransport::with_config(server_uri, config).await;
 
     match transport_result {
         Ok(transport) => {
@@ -114,9 +110,9 @@ async fn test_current_client_returns_fresh_connection() {
 async fn test_connection_health_check() {
     let server_uri = "ws://localhost:9000".parse().unwrap();
 
-    let config = RobustClientConfig::minimal();
+    let config = RpcClientConfig::new().with_monitoring(false);
 
-    let transport_result = RpcTransport::new(server_uri, config).await;
+    let transport_result = RpcTransport::with_config(server_uri, config).await;
 
     match transport_result {
         Ok(transport) => {

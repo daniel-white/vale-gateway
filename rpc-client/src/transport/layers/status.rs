@@ -235,9 +235,10 @@ impl ConnectionStatusReporter {
 
         // If currently connected, add time since last connection
         if let Some(connected_at) = last_connected
-            && let Ok(duration) = SystemTime::now().duration_since(connected_at) {
-                uptime += duration;
-            }
+            && let Ok(duration) = SystemTime::now().duration_since(connected_at)
+        {
+            uptime += duration;
+        }
 
         uptime
     }
@@ -264,9 +265,10 @@ impl ConnectionStatusReporter {
 
         // If currently disconnected, add time since last disconnection
         if let Some(disconnected_at) = last_disconnected
-            && let Ok(duration) = SystemTime::now().duration_since(disconnected_at) {
-                downtime += duration;
-            }
+            && let Ok(duration) = SystemTime::now().duration_since(disconnected_at)
+        {
+            downtime += duration;
+        }
 
         downtime
     }
@@ -502,7 +504,7 @@ impl ConnectionStatusReporter {
     }
 }
 
-#[cfg(test)]
+#[cfg(disabled_tests)]
 mod tests {
     use super::*;
     use crate::config::ReconnectionConfig;

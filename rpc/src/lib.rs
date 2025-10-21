@@ -74,7 +74,7 @@ pub struct RequestContext {
 
 impl RequestContext {
     pub fn new(span: BoxedSpan) -> Self {
-        let guard = opentelemetry::Context::new().with_span(span).attach();
+        let _guard = opentelemetry::Context::new().with_span(span).attach();
         Self::builder()
             .propagation_channel(PropagationChannel::current())
             .build()

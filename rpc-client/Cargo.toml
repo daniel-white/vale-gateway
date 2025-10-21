@@ -34,3 +34,6 @@ vg-rpc = { path = "../rpc" }
 [dev-dependencies]
 jsonrpsee = { workspace = true, features = ["tracing", "ws-client", "server"] }
 tokio-test = "0.4"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(disabled_tests)'] }

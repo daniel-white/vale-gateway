@@ -89,7 +89,7 @@ mod connection_management_tests {
         let factory = Arc::new(TestClientFactory::new());
         let config = ReconnectionConfig::builder()
             .enable_lazy_connection(false)
-            .max_reconnect_attempts(Some(3))
+            .max_reconnect_attempts(3)
             .reconnect_base_delay(Duration::from_millis(10))
             .build();
 
@@ -217,7 +217,7 @@ mod connection_management_tests {
     async fn test_reconnection_layer_creation_and_config() {
         let config = ReconnectionConfig::builder()
             .enable_lazy_connection(true)
-            .max_reconnect_attempts(Some(5))
+            .max_reconnect_attempts(5)
             .reconnect_base_delay(Duration::from_secs(2))
             .reconnect_max_delay(Duration::from_secs(60))
             .queue_requests_during_reconnection(true)
@@ -227,7 +227,7 @@ mod connection_management_tests {
         let layer = ReconnectionLayer::new(config.clone());
 
         assert!(layer.config().enable_lazy_connection);
-        assert_eq!(layer.config().max_reconnect_attempts, Some(5));
+        assert_eq!(layer.config().max_reconnect_attempts, 5);
         assert_eq!(layer.config().reconnect_base_delay, Duration::from_secs(2));
         assert_eq!(layer.config().reconnect_max_delay, Duration::from_secs(60));
         assert!(layer.config().queue_requests_during_reconnection);
@@ -489,7 +489,7 @@ mod connection_management_tests {
         let factory = Arc::new(TestClientFactory::new());
         let config = ReconnectionConfig::builder()
             .enable_lazy_connection(false)
-            .max_reconnect_attempts(Some(2))
+            .max_reconnect_attempts(2)
             .reconnect_base_delay(Duration::from_millis(10))
             .build();
 

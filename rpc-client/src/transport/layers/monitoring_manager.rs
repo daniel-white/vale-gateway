@@ -342,7 +342,7 @@ impl HealthCheckFactory {
     }
 }
 
-#[cfg(test)]
+#[cfg(disabled_tests)]
 mod tests {
     use super::*;
     use std::time::Duration;

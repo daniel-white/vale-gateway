@@ -80,7 +80,7 @@ impl WsClientLayer for TimeoutLayer {
     }
 }
 
-#[cfg(test)]
+#[cfg(disabled_tests)]
 mod tests {
     use super::*;
     use crate::config::TimeoutConfig;

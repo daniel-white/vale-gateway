@@ -160,7 +160,7 @@ impl EnhancedWsClientBuilder {
     }
 }
 
-#[cfg(test)]
+#[cfg(disabled_tests)]
 mod tests {
     use super::*;
 

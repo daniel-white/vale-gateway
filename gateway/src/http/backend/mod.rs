@@ -16,12 +16,15 @@ use vg_core::sync::handles::{Handle, handles};
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
 pub struct BackendAddresses {
     #[getset(get_clone = "pub")]
+    #[allow(dead_code)]
     ref_: Arc<BackendRef>,
 
+    #[allow(dead_code)]
     endpoints: HashMap<BitFlags<TopologyLocationMatch>, HashSet<IpAddr>>,
 }
 
 impl BackendAddresses {
+    #[allow(dead_code)]
     pub fn endpoints_matching(&self, location_match: TopologyLocationMatch) -> HashSet<IpAddr> {
         self.endpoints
             .iter()
@@ -65,6 +68,7 @@ impl From<(&TopologyLocation, &BackendConfig)> for BackendAddresses {
 #[derive(Debug, Default, Clone, TypedBuilder)]
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
 pub struct BackendConfiguration {
+    #[allow(dead_code)]
     backends: HashMap<Arc<BackendRef>, Arc<BackendAddresses>>,
 }
 
@@ -112,6 +116,7 @@ impl From<BackendConfiguratorOptions> for BackendConfigurator {
 }
 
 impl BackendConfigurator {
+    #[allow(dead_code)]
     pub fn backends(&self) -> Receiver<BackendConfiguration> {
         self.configuration_tx.subscribe()
     }

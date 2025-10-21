@@ -17,6 +17,7 @@ use tracing_subscriber::fmt;
 use tracing_subscriber::layer::SubscriberExt;
 
 pub(crate) static TRACER: LazyLock<BoxedTracer> = LazyLock::new(|| tracer("vg-core"));
+#[allow(dead_code)]
 pub(crate) static METER: LazyLock<Meter> = LazyLock::new(|| meter("vg-core"));
 
 pub fn init(name: &'static str) {

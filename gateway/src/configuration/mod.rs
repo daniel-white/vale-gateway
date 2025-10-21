@@ -89,7 +89,7 @@ impl SourceConfigurationRegistry {
 
         spawn(async move {
             // Initial sync - continue even if it fails due to temporary transport errors
-            if let Err(_) = processor.init().await {
+            if (processor.init().await).is_err() {
                 tracing::debug!("Initial configuration sync failed, will retry on events");
             }
 
@@ -104,13 +104,13 @@ impl SourceConfigurationRegistry {
                                 let context = Context::current().with_span(span);
 
                                 // Handle event processing errors gracefully - don't stop the task
-                                if let Err(_) = processor.handle(event).with_context(context).await {
+                                if (processor.handle(event).with_context(context).await).is_err() {
                                     tracing::debug!("Configuration event processing failed, will continue processing");
                                 }
                             }
                             Err(ConfigurationEventRecvError::Lagged) => {
                                 tracing::debug!("Configuration events lagged, reinitializing");
-                                if let Err(_) = processor.init().await {
+                                if (processor.init().await).is_err() {
                                     tracing::debug!("Configuration reinitialization failed, will retry on next event");
                                 }
                             }

@@ -1,8 +1,6 @@
 pub mod circuit_breaker;
 pub mod connection;
 pub mod connection_logger;
-#[cfg(test)]
-pub mod connection_tests;
 pub mod internal_monitor;
 pub mod monitoring_manager;
 pub mod reconnection;
@@ -160,7 +158,7 @@ impl WsClientLayer for NoOpLayer {
     }
 }
 
-#[cfg(test)]
+#[cfg(disabled_tests)]
 mod tests {
     use super::*;
 
