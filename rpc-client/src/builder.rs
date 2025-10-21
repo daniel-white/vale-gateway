@@ -1,5 +1,5 @@
 use crate::transport::layers::{LayeredClient, WsClientLayer};
-use crate::{ConfigurationClientInitError, RobustClientConfig};
+use crate::{ConfigurationClientInitError, RpcClientConfig};
 use jsonrpsee::ws_client::{PingConfig, WsClient, WsClientBuilder};
 
 /// Enhanced WebSocket client builder that supports Tower middleware layers
@@ -9,8 +9,8 @@ pub struct EnhancedWsClientBuilder {
     builder: WsClientBuilder,
     /// Stack of middleware layers to apply to the client
     layers: Vec<Box<dyn WsClientLayer>>,
-    /// Optional robustness configuration
-    robust_config: Option<RobustClientConfig>,
+    /// Optional RPC client configuration
+    robust_config: Option<RpcClientConfig>,
 }
 
 impl EnhancedWsClientBuilder {
@@ -62,8 +62,8 @@ impl EnhancedWsClientBuilder {
         self
     }
 
-    /// Configure robustness features (timeouts, retries, circuit breaker, etc.)
-    pub fn with_robust_config(mut self, config: RobustClientConfig) -> Self {
+    /// Configure RPC client features (timeouts, monitoring, metrics)
+    pub fn with_robust_config(mut self, config: RpcClientConfig) -> Self {
         self.robust_config = Some(config);
         self
     }
@@ -71,69 +71,16 @@ impl EnhancedWsClientBuilder {
     /// Apply robustness configuration by adding appropriate layers
     fn apply_robust_config(&mut self) {
         if let Some(config) = &self.robust_config {
-            // Add layers based on configuration in order of application
+            // For the simplified config, we just set the request timeout on the builder
+            let builder = std::mem::take(&mut self.builder);
+            self.builder = builder.request_timeout(config.request_timeout);
 
-            // Add timeout layer if configured
-            if let Some(timeout_config) = &config.timeout {
-                use crate::layers::TimeoutLayer;
-
-                let timeout_layer = TimeoutLayer::from_config(timeout_config);
-                self.layers.push(Box::new(timeout_layer));
-
-                tracing::debug!(
-                    "Timeout layer added with default timeout: {:?}",
-                    timeout_config.default_timeout
-                );
-            }
-
-            // Add circuit breaker layer if configured
-            if let Some(circuit_breaker_config) = &config.circuit_breaker {
-                use crate::layers::CircuitBreakerLayer;
-
-                let circuit_breaker_layer =
-                    CircuitBreakerLayer::new(circuit_breaker_config.clone());
-                self.layers.push(Box::new(circuit_breaker_layer));
-
-                tracing::debug!(
-                    "Circuit breaker layer added with failure threshold: {}",
-                    circuit_breaker_config.failure_threshold
-                );
-            }
-
-            // Add retry layer if configured
-            if let Some(retry_config) = &config.retry {
-                use crate::layers::RetryLayer;
-
-                let retry_layer = RetryLayer::from_config(retry_config);
-                self.layers.push(Box::new(retry_layer));
-
-                tracing::debug!(
-                    "Retry layer added with max attempts: {}",
-                    retry_config.max_attempts
-                );
-            }
-
-            // Add reconnection layer if configured
-            if let Some(reconnection_config) = &config.reconnection {
-                use crate::layers::ReconnectionLayer;
-
-                let reconnection_layer = ReconnectionLayer::new(reconnection_config.clone());
-                self.layers.push(Box::new(reconnection_layer));
-
-                tracing::debug!(
-                    "Reconnection layer added with max attempts: {:?}",
-                    reconnection_config.max_reconnect_attempts
-                );
-            }
-
-            // Add instrumentation layer if configured (should be last to capture all metrics)
-            if config.instrumentation.enable_metrics || config.instrumentation.enable_tracing {
-                // Note: Instrumentation is handled through tracing and metrics in other layers
-                // rather than a dedicated layer since ConnectionLogger doesn't implement WsClientLayer
-                tracing::debug!(
-                    "Instrumentation enabled - metrics and tracing will be handled by other layers"
-                );
-            }
+            tracing::debug!(
+                "RPC client configured with timeout: {:?}, monitoring: {}, metrics: {}",
+                config.request_timeout,
+                config.enable_monitoring,
+                config.enable_metrics
+            );
         }
     }
 
@@ -142,14 +89,7 @@ impl EnhancedWsClientBuilder {
         mut self,
         uri: impl AsRef<str>,
     ) -> Result<LayeredClient, ConfigurationClientInitError> {
-        // Apply timeout configuration to the builder if configured
-        if let Some(config) = &self.robust_config
-            && let Some(timeout_config) = &config.timeout
-        {
-            self.builder = self.builder.request_timeout(timeout_config.default_timeout);
-        }
-
-        // Apply robustness configuration (add layers)
+        // Apply robustness configuration
         self.apply_robust_config();
 
         // Build the base WsClient
@@ -194,9 +134,9 @@ impl Default for EnhancedWsClientBuilder {
 
 /// Builder methods for creating common configurations
 impl EnhancedWsClientBuilder {
-    /// Create a builder with default robustness features enabled
-    pub fn with_default_robustness() -> Self {
-        Self::new().with_robust_config(RobustClientConfig::default())
+    /// Create a builder with default configuration enabled
+    pub fn with_default_config() -> Self {
+        Self::new().with_robust_config(RpcClientConfig::default())
     }
 
     /// Create a builder optimized for production use
@@ -205,7 +145,7 @@ impl EnhancedWsClientBuilder {
             .enable_ws_ping(PingConfig::default())
             .connection_timeout(std::time::Duration::from_secs(10))
             .request_timeout(std::time::Duration::from_secs(30))
-            .with_robust_config(RobustClientConfig::production())
+            .with_robust_config(RpcClientConfig::default())
     }
 
     /// Create a builder optimized for development/testing
@@ -214,7 +154,9 @@ impl EnhancedWsClientBuilder {
             .enable_ws_ping(PingConfig::default())
             .connection_timeout(std::time::Duration::from_secs(5))
             .request_timeout(std::time::Duration::from_secs(10))
-            .with_robust_config(RobustClientConfig::development())
+            .with_robust_config(
+                RpcClientConfig::new().with_timeout(std::time::Duration::from_secs(10)),
+            )
     }
 }
 
@@ -231,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_builder_with_robust_config() {
-        let config = RobustClientConfig::default();
+        let config = RpcClientConfig::default();
         let builder = EnhancedWsClientBuilder::new().with_robust_config(config);
         assert!(builder.has_robust_config());
     }
@@ -250,21 +192,15 @@ mod tests {
 
     #[test]
     fn test_default_robustness_builder() {
-        let builder = EnhancedWsClientBuilder::with_default_robustness();
+        let builder = EnhancedWsClientBuilder::with_default_config();
         assert!(builder.has_robust_config());
     }
 
     #[test]
     fn test_builder_with_timeout_config() {
-        use crate::config::{RobustClientConfig, TimeoutConfig};
+        use crate::config::RpcClientConfig;
 
-        let timeout_config = TimeoutConfig::builder()
-            .default_timeout(std::time::Duration::from_secs(45))
-            .build();
-
-        let robust_config = RobustClientConfig::builder()
-            .timeout(Some(timeout_config))
-            .build();
+        let robust_config = RpcClientConfig::new().with_timeout(std::time::Duration::from_secs(45));
 
         let builder = EnhancedWsClientBuilder::new().with_robust_config(robust_config);
 

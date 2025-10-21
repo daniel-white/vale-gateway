@@ -63,7 +63,7 @@ impl MonitoringManager {
             .map_err(MonitoringError::ConfigurationError)?;
 
         info!(
-            target: "rpc_client::monitoring",
+            target: "vg_rpc_client::monitoring",
             uri = %self.uri,
             "Starting connection monitoring manager"
         );
@@ -80,7 +80,7 @@ impl MonitoringManager {
         self.monitor_handle = Some(handle);
 
         info!(
-            target: "rpc_client::monitoring",
+            target: "vg_rpc_client::monitoring",
             uri = %self.uri,
             "Connection monitoring started successfully"
         );
@@ -92,7 +92,7 @@ impl MonitoringManager {
     pub async fn stop_monitoring(&mut self) -> Result<(), MonitoringError> {
         if let Some(handle) = self.monitor_handle.take() {
             info!(
-                target: "rpc_client::monitoring",
+                target: "vg_rpc_client::monitoring",
                 uri = %self.uri,
                 "Stopping connection monitoring"
             );
@@ -100,7 +100,7 @@ impl MonitoringManager {
             // Send shutdown signal
             if let Err(e) = self.shutdown_tx.send(true) {
                 warn!(
-                    target: "rpc_client::monitoring",
+                    target: "vg_rpc_client::monitoring",
                     uri = %self.uri,
                     error = ?e,
                     "Failed to send shutdown signal to monitor"
@@ -111,14 +111,14 @@ impl MonitoringManager {
             match tokio::time::timeout(Duration::from_secs(5), handle).await {
                 Ok(Ok(())) => {
                     info!(
-                        target: "rpc_client::monitoring",
+                        target: "vg_rpc_client::monitoring",
                         uri = %self.uri,
                         "Connection monitoring stopped successfully"
                     );
                 }
                 Ok(Err(e)) => {
                     error!(
-                        target: "rpc_client::monitoring",
+                        target: "vg_rpc_client::monitoring",
                         uri = %self.uri,
                         error = ?e,
                         "Monitor task panicked during shutdown"
@@ -129,7 +129,7 @@ impl MonitoringManager {
                 }
                 Err(_) => {
                     error!(
-                        target: "rpc_client::monitoring",
+                        target: "vg_rpc_client::monitoring",
                         uri = %self.uri,
                         "Monitor shutdown timed out"
                     );
@@ -142,7 +142,7 @@ impl MonitoringManager {
             // Reset shutdown signal for potential restart
             if let Err(e) = self.shutdown_tx.send(false) {
                 warn!(
-                    target: "rpc_client::monitoring",
+                    target: "vg_rpc_client::monitoring",
                     uri = %self.uri,
                     error = ?e,
                     "Failed to reset shutdown signal"
@@ -174,7 +174,7 @@ impl MonitoringManager {
 
         if was_monitoring {
             warn!(
-                target: "rpc_client::monitoring",
+                target: "vg_rpc_client::monitoring",
                 uri = %self.uri,
                 "Monitoring configuration updated - restart monitoring to apply changes"
             );
@@ -191,7 +191,7 @@ impl MonitoringManager {
         >,
     ) -> Result<(), MonitoringError> {
         info!(
-            target: "rpc_client::monitoring",
+            target: "vg_rpc_client::monitoring",
             uri = %self.uri,
             "Restarting connection monitoring"
         );
@@ -221,7 +221,7 @@ impl Drop for MonitoringManager {
     fn drop(&mut self) {
         if self.is_monitoring() {
             warn!(
-                target: "rpc_client::monitoring",
+                target: "vg_rpc_client::monitoring",
                 uri = %self.uri,
                 "MonitoringManager dropped while monitoring is active - sending shutdown signal"
             );

@@ -18,7 +18,7 @@ use vg_rpc::{
 };
 
 use crate::transport::layers::{HealthCheckFactory, LayeredClient, MonitoringManager};
-use crate::{EnhancedWsClientBuilder, RobustClientConfig};
+use crate::{EnhancedWsClientBuilder, RpcClientConfig};
 
 pub mod layers;
 pub mod rpc;
@@ -194,7 +194,7 @@ pub struct ConfigurationTransportOptions {
     address: Uri,
     /// Optional robustness configuration for enhanced client features
     #[builder(default)]
-    robust_config: Option<RobustClientConfig>,
+    robust_config: Option<RpcClientConfig>,
 }
 
 #[derive(Debug, Error)]
@@ -208,7 +208,7 @@ impl ConfigurationTransportOptions {
     pub fn with_robust_config(
         listener_ref: impl Into<ListenerRef>,
         address: impl Into<Uri>,
-        robust_config: RobustClientConfig,
+        robust_config: RpcClientConfig,
     ) -> Self {
         Self::builder()
             .listener_ref(listener_ref)
@@ -219,12 +219,16 @@ impl ConfigurationTransportOptions {
 
     /// Create transport options with production-ready robustness settings
     pub fn production(listener_ref: impl Into<ListenerRef>, address: impl Into<Uri>) -> Self {
-        Self::with_robust_config(listener_ref, address, RobustClientConfig::production())
+        Self::with_robust_config(listener_ref, address, RpcClientConfig::default())
     }
 
     /// Create transport options with development-friendly robustness settings
     pub fn development(listener_ref: impl Into<ListenerRef>, address: impl Into<Uri>) -> Self {
-        Self::with_robust_config(listener_ref, address, RobustClientConfig::development())
+        Self::with_robust_config(
+            listener_ref,
+            address,
+            RpcClientConfig::new().with_timeout(std::time::Duration::from_secs(10)),
+        )
     }
 
     /// Create transport options with default robustness settings
@@ -232,7 +236,7 @@ impl ConfigurationTransportOptions {
         listener_ref: impl Into<ListenerRef>,
         address: impl Into<Uri>,
     ) -> Self {
-        Self::with_robust_config(listener_ref, address, RobustClientConfig::default())
+        Self::with_robust_config(listener_ref, address, RpcClientConfig::default())
     }
 
     /// Check if robustness features are configured
@@ -241,7 +245,7 @@ impl ConfigurationTransportOptions {
     }
 
     /// Get a reference to the robust configuration if present
-    pub fn robust_config(&self) -> Option<&RobustClientConfig> {
+    pub fn robust_config(&self) -> Option<&RpcClientConfig> {
         self.robust_config.as_ref()
     }
 
@@ -261,222 +265,25 @@ impl AsyncTryFrom<ConfigurationTransportOptions> for ConfigurationTransport {
     type Error = ConfigurationClientInitError;
 
     async fn async_try_from(value: ConfigurationTransportOptions) -> Result<Self, Self::Error> {
+        // Simple implementation - just create a basic client
         let client_wrapper = if let Some(ref robust_config) = value.robust_config {
-            // Validate configuration before proceeding
+            // Validate configuration
             robust_config.validate().map_err(|_| {
-                tracing::error!("Invalid robust client configuration");
+                tracing::error!("Invalid RPC client configuration");
                 ConfigurationClientInitError::WsClientError
             })?;
 
-            // Handle startup modes for graceful connection handling
-            match robust_config.startup.mode {
-                crate::config::StartupMode::FailFast => {
-                    // Legacy behavior - fail if connection fails
-                    let layered_client = EnhancedWsClientBuilder::new()
-                        .enable_ws_ping(PingConfig::default())
-                        .with_robust_config(robust_config.clone())
-                        .build(value.address.to_string())
-                        .await?;
+            // Create client with the robust config
+            let layered_client = EnhancedWsClientBuilder::new()
+                .enable_ws_ping(PingConfig::default())
+                .with_robust_config(robust_config.clone())
+                .build(value.address.to_string())
+                .await?;
 
-                    ClientWrapper::layered(layered_client)
-                }
-                crate::config::StartupMode::Graceful => {
-                    // Graceful startup - attempt connection with timeout, continue on failure
-                    match tokio::time::timeout(
-                        robust_config.startup.initial_connection_timeout,
-                        EnhancedWsClientBuilder::new()
-                            .enable_ws_ping(PingConfig::default())
-                            .with_robust_config(robust_config.clone())
-                            .build(value.address.to_string()),
-                    )
-                    .await
-                    {
-                        Ok(Ok(layered_client)) => {
-                            if robust_config.startup.log_startup_attempts {
-                                tracing::info!(
-                                    uri = %value.address,
-                                    "Successfully connected during graceful startup"
-                                );
-                            }
-                            ClientWrapper::layered(layered_client)
-                        }
-                        Ok(Err(err)) => {
-                            if robust_config.startup.log_startup_attempts {
-                                tracing::warn!(
-                                    uri = %value.address,
-                                    error = ?err,
-                                    "Initial connection failed during graceful startup, will retry in background"
-                                );
-                            }
-
-                            // For graceful startup, create a disconnected client that will handle reconnection
-                            // We'll use a retry loop to eventually create a client, but with a fallback
-                            let mut graceful_config = robust_config.clone();
-
-                            // Ensure reconnection is enabled for graceful startup
-                            if graceful_config.reconnection.is_none() {
-                                graceful_config.reconnection =
-                                    Some(crate::config::ReconnectionConfig::default());
-                            }
-
-                            // Try multiple times with very short timeouts to create a client
-                            // If all attempts fail, we'll create a simple client as fallback
-                            let mut last_error = err;
-                            for attempt in 1..=3 {
-                                match tokio::time::timeout(
-                                    std::time::Duration::from_millis(100), // Very short timeout
-                                    EnhancedWsClientBuilder::new()
-                                        .enable_ws_ping(PingConfig::default())
-                                        .with_robust_config(graceful_config.clone())
-                                        .build(value.address.to_string()),
-                                )
-                                .await
-                                {
-                                    Ok(Ok(layered_client)) => {
-                                        if robust_config.startup.log_startup_attempts {
-                                            tracing::info!(
-                                                uri = %value.address,
-                                                attempt = attempt,
-                                                "Successfully created client on retry during graceful startup"
-                                            );
-                                        }
-                                        return Ok(ConfigurationTransport::builder()
-                                            .listener_ref(value.listener_ref)
-                                            .client(ClientWrapper::layered(layered_client))
-                                            .build());
-                                    }
-                                    Ok(Err(e)) => {
-                                        last_error = e;
-                                        if attempt < 3 {
-                                            tokio::time::sleep(std::time::Duration::from_millis(
-                                                50,
-                                            ))
-                                            .await;
-                                        }
-                                    }
-                                    Err(_) => {
-                                        // Timeout, try next attempt
-                                        if attempt < 3 {
-                                            tokio::time::sleep(std::time::Duration::from_millis(
-                                                50,
-                                            ))
-                                            .await;
-                                        }
-                                    }
-                                }
-                            }
-
-                            // All attempts failed, create a simple fallback client
-                            // This will fail immediately but we'll catch it and create a minimal transport
-                            if robust_config.startup.log_startup_attempts {
-                                tracing::warn!(
-                                    uri = %value.address,
-                                    error = ?last_error,
-                                    "All connection attempts failed during graceful startup, creating fallback transport"
-                                );
-                            }
-
-                            // Create a minimal transport that will handle requests gracefully
-                            // We'll use a simple client that will fail fast, but the robust layers will handle retries
-                            match WsClientBuilder::new()
-                                .enable_ws_ping(PingConfig::default())
-                                .request_timeout(std::time::Duration::from_millis(100)) // Very short timeout
-                                .build(value.address.to_string())
-                                .await
-                            {
-                                Ok(simple_client) => {
-                                    if robust_config.startup.log_startup_attempts {
-                                        tracing::info!(
-                                            uri = %value.address,
-                                            "Created fallback simple client during graceful startup"
-                                        );
-                                    }
-                                    ClientWrapper::simple(simple_client)
-                                }
-                                Err(_) => {
-                                    // Even simple client failed, this means the address is invalid or network is completely down
-                                    // In graceful mode, we should still succeed but with a non-functional client
-                                    if robust_config.startup.log_startup_attempts {
-                                        tracing::warn!(
-                                            uri = %value.address,
-                                            "Even fallback client creation failed, graceful startup will continue with degraded functionality"
-                                        );
-                                    }
-
-                                    // Return error - graceful startup should not fail the entire application
-                                    // The application should handle this gracefully
-                                    return Err(ConfigurationClientInitError::WsClientError);
-                                }
-                            }
-                        }
-                        Err(_) => {
-                            if robust_config.startup.log_startup_attempts {
-                                tracing::warn!(
-                                    uri = %value.address,
-                                    "Initial connection timeout during graceful startup, will retry in background"
-                                );
-                            }
-
-                            // For graceful startup, we still create a client but with reconnection enabled
-                            // The client will handle background connection attempts
-                            let mut graceful_config = robust_config.clone();
-
-                            // Ensure reconnection is enabled for graceful startup
-                            if graceful_config.reconnection.is_none() {
-                                graceful_config.reconnection =
-                                    Some(crate::config::ReconnectionConfig::default());
-                            }
-
-                            // Try to create client without immediate connection (will be handled by reconnection layer)
-                            let layered_client = EnhancedWsClientBuilder::new()
-                                .enable_ws_ping(PingConfig::default())
-                                .with_robust_config(graceful_config)
-                                .build(value.address.to_string())
-                                .await
-                                .map_err(|_| {
-                                    tracing::error!(
-                                        "Failed to create client even in graceful mode"
-                                    );
-                                    ConfigurationClientInitError::WsClientError
-                                })?;
-
-                            ClientWrapper::layered(layered_client)
-                        }
-                    }
-                }
-                crate::config::StartupMode::Lazy => {
-                    // Lazy startup - don't connect until first request
-                    if robust_config.startup.log_startup_attempts {
-                        tracing::info!(
-                            uri = %value.address,
-                            "Lazy startup mode activated, connection will be established on first request"
-                        );
-                    }
-
-                    // For lazy mode, create client with lazy connection enabled
-                    let mut lazy_config = robust_config.clone();
-                    if let Some(ref mut reconnection_config) = lazy_config.reconnection {
-                        reconnection_config.enable_lazy_connection = true;
-                    } else {
-                        lazy_config.reconnection = Some(
-                            crate::config::ReconnectionConfig::builder()
-                                .enable_lazy_connection(true)
-                                .build(),
-                        );
-                    }
-
-                    let layered_client = EnhancedWsClientBuilder::new()
-                        .enable_ws_ping(PingConfig::default())
-                        .with_robust_config(lazy_config)
-                        .build(value.address.to_string())
-                        .await?;
-
-                    ClientWrapper::layered(layered_client)
-                }
-            }
+            ClientWrapper::layered(layered_client)
         } else {
-            // Use standard WsClientBuilder for backward compatibility
-            let simple_client = WsClientBuilder::new()
+            // No config - use simple client
+            let client = WsClientBuilder::new()
                 .enable_ws_ping(PingConfig::default())
                 .build(value.address.to_string())
                 .await
@@ -485,13 +292,18 @@ impl AsyncTryFrom<ConfigurationTransportOptions> for ConfigurationTransport {
                     ConfigurationClientInitError::WsClientError
                 })?;
 
-            ClientWrapper::simple(simple_client)
+            ClientWrapper::simple(client)
         };
 
-        // Create monitoring manager if internal monitoring is enabled
-        let monitoring_manager = if let Some(robust_config) = &value.robust_config {
-            if robust_config.internal_monitoring.enabled {
-                let monitoring_config = robust_config.internal_monitoring.to_monitoring_config();
+        // Create monitoring manager if monitoring is enabled
+        let monitoring_manager = if let Some(ref robust_config) = value.robust_config {
+            if robust_config.enable_monitoring {
+                let monitoring_config = crate::transport::layers::MonitoringConfig {
+                    check_interval: std::time::Duration::from_secs(30),
+                    health_check_timeout: std::time::Duration::from_secs(5),
+                    critical_threshold: 10,
+                    enable_heartbeat_logging: true,
+                };
                 let manager = MonitoringManager::new(monitoring_config, value.address.clone());
                 Some(Arc::new(tokio::sync::Mutex::new(manager)))
             } else {
@@ -507,32 +319,6 @@ impl AsyncTryFrom<ConfigurationTransportOptions> for ConfigurationTransport {
             .monitoring_manager(monitoring_manager)
             .build();
 
-        // Defer monitoring startup to improve initial connection performance
-        // Monitoring will be started asynchronously after client creation
-        if transport.monitoring_manager.is_some() {
-            let transport_clone = transport.clone();
-            let uri = value.address.clone();
-
-            // Start monitoring in background to avoid blocking client creation
-            tokio::spawn(async move {
-                // Small delay to allow client to fully initialize
-                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-
-                if let Err(e) = transport_clone.start_monitoring().await {
-                    tracing::warn!(
-                        uri = %uri,
-                        error = ?e,
-                        "Failed to start internal monitoring, continuing without monitoring"
-                    );
-                } else {
-                    tracing::debug!(
-                        uri = %uri,
-                        "Internal connection monitoring started successfully"
-                    );
-                }
-            });
-        }
-
         Ok(transport)
     }
 }
@@ -547,7 +333,7 @@ fn client_error_to_api_error(error: ClientError) -> ConfigurationApiError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{RobustClientConfig, TimeoutConfig};
+    use crate::config::RpcClientConfig;
     use vg_config::http::listener::ListenerRef;
 
     #[test]
@@ -568,7 +354,7 @@ mod tests {
     fn test_configuration_transport_options_with_robust_config() {
         let listener_ref = ListenerRef::from("test-listener".to_string());
         let address: Uri = "ws://localhost:8080".parse().unwrap();
-        let robust_config = RobustClientConfig::default();
+        let robust_config = RpcClientConfig::default();
 
         let options = ConfigurationTransportOptions::with_robust_config(
             listener_ref.clone(),
@@ -618,31 +404,21 @@ mod tests {
         let listener_ref = ListenerRef::from("test-listener".to_string());
         let address: Uri = "ws://localhost:8080".parse().unwrap();
 
-        let timeout_config = TimeoutConfig::builder()
-            .default_timeout(std::time::Duration::from_secs(45))
-            .build();
-
-        let robust_config = RobustClientConfig::builder()
-            .timeout(Some(timeout_config))
-            .build();
+        let robust_config = RpcClientConfig::new().with_timeout(std::time::Duration::from_secs(45));
 
         let options =
             ConfigurationTransportOptions::with_robust_config(listener_ref, address, robust_config);
 
         assert!(options.has_robust_config());
         let config = options.robust_config().unwrap();
-        assert!(config.timeout.is_some());
-        assert_eq!(
-            config.timeout.as_ref().unwrap().default_timeout,
-            std::time::Duration::from_secs(45)
-        );
+        assert_eq!(config.request_timeout, std::time::Duration::from_secs(45));
     }
 
     #[test]
     fn test_configuration_transport_options_builder_pattern() {
         let listener_ref = ListenerRef::from("test-listener".to_string());
         let address: Uri = "ws://localhost:8080".parse().unwrap();
-        let robust_config = RobustClientConfig::default();
+        let robust_config = RpcClientConfig::default();
 
         let options = ConfigurationTransportOptions::builder()
             .listener_ref(listener_ref.clone())

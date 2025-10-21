@@ -7,7 +7,9 @@ use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::filter::{SharedFilter, SharedFilterRef};
 use vg_config::http::route::{Route, RouteRef};
 use vg_core::sync::arc_watch::Sender;
-use vg_rpc_client::{ConfigurationClient, ConfigurationClientError, ConfigurationEvent};
+use vg_rpc_client::{
+    ConfigurationClient, ConfigurationClientError, ConfigurationEvent, ErrorClassification,
+};
 
 #[derive(TypedBuilder)]
 pub struct ConfigurationEventProcessor {
@@ -21,29 +23,36 @@ pub struct ConfigurationEventProcessor {
 }
 
 impl ConfigurationEventProcessor {
-    pub async fn init(&self) {
-        let _ = self.sync_all().await;
+    pub async fn init(&self) -> Result<(), ()> {
+        self.sync_all().await
     }
 
-    pub async fn handle(&self, event: ConfigurationEvent) {
+    pub async fn handle(&self, event: ConfigurationEvent) -> Result<(), ()> {
         match event {
-            ConfigurationEvent::ListenerChanged => {
-                let _ = self.sync_all().await;
-            }
-            ConfigurationEvent::RouteChanged(route_ref) => {
-                let _ = self.sync_route(route_ref).await;
-            }
-            ConfigurationEvent::BackendChanged(backend_ref) => {
-                let _ = self.sync_backend(backend_ref).await;
-            }
+            ConfigurationEvent::ListenerChanged => self.sync_all().await,
+            ConfigurationEvent::RouteChanged(route_ref) => self.sync_route(route_ref).await,
+            ConfigurationEvent::BackendChanged(backend_ref) => self.sync_backend(backend_ref).await,
             ConfigurationEvent::SharedFilterChanged(filter_ref) => {
-                let _ = self.sync_shared_filter(filter_ref).await;
+                self.sync_shared_filter(filter_ref).await
             }
-        };
+        }
     }
 
     async fn sync_all(&self) -> Result<(), ()> {
-        let listener = self.client.listener().await.map_err(|_| ())?;
+        let listener = match self.client.listener().await {
+            Ok(listener) => listener,
+            Err(e) => {
+                // Use existing error classification to handle client errors gracefully
+                if e.is_temporary() {
+                    tracing::debug!("Temporary error fetching listener, will retry: {}", e);
+                    return Err(());
+                } else {
+                    tracing::error!("Unrecoverable error fetching listener: {}", e);
+                    return Err(());
+                }
+            }
+        };
+
         let routes = self.fetch_routes(listener.route_refs()).await;
         let shared_filters = self
             .fetch_shared_filters(listener.shared_filter_refs())
@@ -93,7 +102,35 @@ impl ConfigurationEventProcessor {
     }
 
     async fn sync_route(&self, route_ref: RouteRef) -> Result<(), ()> {
-        let route = self.client.route(&route_ref).await.map_err(|_| ())?;
+        let route = match self.client.route(&route_ref).await {
+            Ok(route) => route,
+            Err(e) => {
+                // Use existing error classification to handle client errors gracefully
+                if e.is_temporary() {
+                    tracing::debug!(
+                        "Temporary error fetching route {:?}, will retry: {}",
+                        route_ref,
+                        e
+                    );
+                    return Err(());
+                } else {
+                    // Log at appropriate level based on error type
+                    match &e {
+                        ConfigurationClientError::NotFound => {
+                            tracing::info!("Route {:?} not found: {}", route_ref, e);
+                        }
+                        _ => {
+                            tracing::error!(
+                                "Unrecoverable error fetching route {:?}: {}",
+                                route_ref,
+                                e
+                            );
+                        }
+                    }
+                    return Err(());
+                }
+            }
+        };
 
         let routing = atomically(|| {
             let routing = self.routing.read()?;
@@ -120,11 +157,27 @@ impl ConfigurationEventProcessor {
     }
 
     async fn sync_shared_filter(&self, filter_ref: SharedFilterRef) -> Result<(), ()> {
-        let shared_filter = self
-            .client
-            .shared_filter(&filter_ref)
-            .await
-            .map_err(|_| ())?;
+        let shared_filter = match self.client.shared_filter(&filter_ref).await {
+            Ok(filter) => filter,
+            Err(e) => {
+                // Use existing error classification to handle client errors gracefully
+                if e.is_temporary() {
+                    tracing::debug!(
+                        "Temporary error fetching shared filter {:?}, will retry: {}",
+                        filter_ref,
+                        e
+                    );
+                    return Err(());
+                } else {
+                    tracing::error!(
+                        "Unrecoverable error fetching shared filter {:?}: {}",
+                        filter_ref,
+                        e
+                    );
+                    return Err(());
+                }
+            }
+        };
 
         let routing = atomically(|| {
             let routing = self.routing.read()?;
@@ -150,7 +203,27 @@ impl ConfigurationEventProcessor {
     }
 
     async fn sync_backend(&self, backend_ref: BackendRef) -> Result<(), ()> {
-        let backend = self.client.backend(&backend_ref).await.map_err(|_| ())?;
+        let backend = match self.client.backend(&backend_ref).await {
+            Ok(backend) => backend,
+            Err(e) => {
+                // Use existing error classification to handle client errors gracefully
+                if e.is_temporary() {
+                    tracing::debug!(
+                        "Temporary error fetching backend {:?}, will retry: {}",
+                        backend_ref,
+                        e
+                    );
+                    return Err(());
+                } else {
+                    tracing::error!(
+                        "Unrecoverable error fetching backend {:?}: {}",
+                        backend_ref,
+                        e
+                    );
+                    return Err(());
+                }
+            }
+        };
 
         let backends = atomically(|| {
             let backends = self.backends.read()?;

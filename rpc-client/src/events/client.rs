@@ -62,43 +62,125 @@ impl ConfigurationEventsClient {
     }
 
     /// Start event subscription on RPC transport connection
-    /// Reuses existing subscription logic from events/client.rs
+    /// Relies entirely on the transport for connection management - no retry logic here
     pub async fn start(&mut self) -> Result<Handle, ConfigurationEventClientError> {
-        // Reuse existing subscription request building
-        let span = TRACER
-            .span_builder("ConfigurationEventClient::events")
-            .with_kind(SpanKind::Client)
-            .start(&*TRACER);
-
-        let req = SubscribeEventsRequest::builder()
-            .context(RequestContext::new(span))
-            .listener_ref(self.listener_ref().clone())
-            .build();
-
-        let mut subscription = (&**self.transport().client()).events(req).await?;
-
         // Use core handles for task management
         let (handle, mut stop_handle) = handles();
 
-        // Event processing task (reused logic from existing events/client.rs)
+        // Clone necessary data for the persistent task
+        let transport = self.transport().clone();
+        let listener_ref = self.listener_ref().clone();
         let event_sender = self.transport().event_sender().clone();
+        let mut connection_state_receiver = self.transport().connection_state_sender().subscribe();
+
+        // Persistent event processing task
         spawn(async move {
+            tracing::info!(
+                "ConfigurationEventsClient started - relying on transport for connection management"
+            );
+
             loop {
-                select! {
-                    event = subscription.next() => {
-                        if let Some(Ok(event)) = event {
-                            let channel = event.context().propagation_channel();
-                            let mut span = TRACER.span_builder("ConfigurationEventClient::recv")
-                                .with_kind(SpanKind::Consumer)
-                                .start_with_context(&*TRACER, &channel.into());
-                            let _ = event_sender.send(event.event());
-                            span.end();
-                        } else {
-                            break;
+                // Attempt to establish subscription using transport's current connection
+                let span = TRACER
+                    .span_builder("ConfigurationEventClient::events")
+                    .with_kind(SpanKind::Client)
+                    .start(&*TRACER);
+
+                let req = SubscribeEventsRequest::builder()
+                    .context(RequestContext::new(span))
+                    .listener_ref(listener_ref.clone())
+                    .build();
+
+                // Use current_client() to get the transport's current connection
+                let current_client = transport.current_client().await;
+                match (**current_client).events(req).await {
+                    Ok(mut subscription) => {
+                        tracing::debug!(
+                            "ConfigurationEventsClient subscription established successfully"
+                        );
+
+                        // Process events until connection fails or shutdown
+                        loop {
+                            select! {
+                                event = subscription.next() => {
+                                    if let Some(Ok(event)) = event {
+                                        let channel = event.context().propagation_channel();
+                                        let mut span = TRACER.span_builder("ConfigurationEventClient::recv")
+                                            .with_kind(SpanKind::Consumer)
+                                            .start_with_context(&*TRACER, &channel.into());
+                                        let _ = event_sender.send(event.event());
+                                        span.end();
+                                    } else {
+                                        // Subscription ended - let transport handle reconnection
+                                        tracing::debug!("ConfigurationEventsClient subscription ended, waiting for transport to reconnect");
+                                        break; // Break inner loop to wait for transport reconnection
+                                    }
+                                },
+                                connection_state = connection_state_receiver.recv() => {
+                                    if let Ok(traced_state) = connection_state {
+                                        match traced_state.value {
+                                            crate::transport::rpc::ConnectionState::Connected => {
+                                                tracing::debug!("ConfigurationEventsClient detected transport reconnected, will reestablish subscription");
+                                                break; // Break inner loop to immediately reestablish subscription
+                                            },
+                                            crate::transport::rpc::ConnectionState::Disconnected => {
+                                                tracing::debug!("ConfigurationEventsClient detected transport disconnected");
+                                                // Continue processing current subscription until it fails naturally
+                                            },
+                                            crate::transport::rpc::ConnectionState::Reconnecting => {
+                                                tracing::debug!("ConfigurationEventsClient detected transport reconnecting");
+                                                // Continue processing current subscription until it fails naturally
+                                            }
+                                        }
+                                    }
+                                },
+                                _ = stop_handle.stopped() => {
+                                    tracing::info!("ConfigurationEventsClient stopped during event processing");
+                                    return; // Exit the entire task
+                                }
+                            }
                         }
-                    },
-                    _ = stop_handle.stopped() => {
-                        break;
+                    }
+                    Err(e) => {
+                        // Subscription failed - trigger transport reconnection and wait for it to complete
+                        tracing::debug!(
+                            "ConfigurationEventsClient subscription failed: {:?}, triggering transport reconnection",
+                            e
+                        );
+
+                        // Trigger reconnection on the transport
+                        if let Err(reconnect_err) = transport.trigger_reconnection().await {
+                            tracing::warn!(
+                                "Failed to trigger transport reconnection: {:?}",
+                                reconnect_err
+                            );
+                        }
+
+                        // Wait for transport to signal it's connected before retrying
+                        loop {
+                            select! {
+                                connection_state = connection_state_receiver.recv() => {
+                                    if let Ok(traced_state) = connection_state {
+                                        match traced_state.value {
+                                            crate::transport::rpc::ConnectionState::Connected => {
+                                                tracing::debug!("ConfigurationEventsClient detected transport reconnected, will retry subscription");
+                                                break; // Break out of wait loop to retry subscription
+                                            },
+                                            crate::transport::rpc::ConnectionState::Disconnected => {
+                                                tracing::debug!("ConfigurationEventsClient detected transport disconnected, continuing to wait");
+                                            },
+                                            crate::transport::rpc::ConnectionState::Reconnecting => {
+                                                tracing::debug!("ConfigurationEventsClient detected transport reconnecting, continuing to wait");
+                                            }
+                                        }
+                                    }
+                                },
+                                _ = stop_handle.stopped() => {
+                                    tracing::info!("ConfigurationEventsClient stopped while waiting for transport reconnection");
+                                    return;
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -119,8 +201,41 @@ pub enum ConfigurationEventClientError {
     ConnectionFailed,
     #[error("Invalid configuration")]
     InvalidConfiguration,
+    #[error("Events not supported by server")]
+    EventsNotSupported,
     #[error("Unknown event")]
     Unknown,
+}
+
+impl ConfigurationEventClientError {
+    /// Determine if tasks should complete based on this error
+    /// Uses existing error classification to determine task continuation
+    /// Only complete tasks for truly unrecoverable errors (shutdown signals)
+    pub fn should_complete_task(&self) -> bool {
+        match self {
+            // Temporary errors - tasks should continue
+            ConfigurationEventClientError::RequestTimeout => false,
+            ConfigurationEventClientError::ConnectionFailed => false,
+            ConfigurationEventClientError::Unknown => false,
+
+            // Application-level errors - tasks should complete
+            ConfigurationEventClientError::NotFound => true,
+            ConfigurationEventClientError::InvalidConfiguration => true,
+            ConfigurationEventClientError::EventsNotSupported => true,
+        }
+    }
+
+    /// Returns true if the error indicates a temporary failure
+    pub fn is_temporary(&self) -> bool {
+        match self {
+            ConfigurationEventClientError::RequestTimeout => true,
+            ConfigurationEventClientError::ConnectionFailed => true,
+            ConfigurationEventClientError::Unknown => true,
+            ConfigurationEventClientError::NotFound => false,
+            ConfigurationEventClientError::InvalidConfiguration => false,
+            ConfigurationEventClientError::EventsNotSupported => false,
+        }
+    }
 }
 
 impl From<ClientError> for ConfigurationEventClientError {
@@ -131,6 +246,8 @@ impl From<ClientError> for ConfigurationEventClientError {
                 _ => ConfigurationEventClientError::Unknown,
             },
             ClientError::RequestTimeout => ConfigurationEventClientError::RequestTimeout,
+            ClientError::Transport(_) => ConfigurationEventClientError::ConnectionFailed,
+            ClientError::RestartNeeded(_) => ConfigurationEventClientError::ConnectionFailed,
             _ => ConfigurationEventClientError::Unknown,
         }
     }
@@ -202,101 +319,12 @@ impl ConfigurationEventsClient {
     }
 
     /// Start event subscription with resilient connection handling
-    /// This method implements graceful reconnection and event queuing during connection failures
+    /// This method is now identical to start() since all resilience is handled by the transport
     pub async fn start_resilient(&mut self) -> Result<Handle, ConfigurationEventClientError> {
-        // Use existing reconnection layers from RpcTransport
-        // The RpcTransport already handles reconnection, so we just need to start normally
-        // but with additional error handling for initial connection failures
-        match self.start().await {
-            Ok(handle) => {
-                tracing::info!(
-                    "Events client started successfully with resilient connection handling"
-                );
-                Ok(handle)
-            }
-            Err(ConfigurationEventClientError::ConnectionFailed) => {
-                // Don't fail immediately on connection failure - the transport will handle reconnection
-                tracing::warn!(
-                    "Initial connection failed, but events client will continue attempting to reconnect"
-                );
-
-                // Create a handle that represents the ongoing connection attempts
-                let (handle, mut stop_handle) = handles();
-                let transport = self.transport.clone();
-                let listener_ref = self.listener_ref.clone();
-                let event_sender = transport.event_sender().clone();
-
-                spawn(async move {
-                    let mut retry_count = 0;
-                    let max_retries = 10; // Allow multiple retries before giving up
-
-                    loop {
-                        select! {
-                            _ = stop_handle.stopped() => {
-                                tracing::info!("Resilient events client stopped");
-                                break;
-                            }
-                            _ = tokio::time::sleep(std::time::Duration::from_secs(2)) => {
-                                retry_count += 1;
-                                if retry_count > max_retries {
-                                    tracing::error!("Events client failed to connect after {} retries", max_retries);
-                                    break;
-                                }
-
-                                // Try to establish subscription again
-                                let span = TRACER
-                                    .span_builder("ConfigurationEventClient::events_retry")
-                                    .with_kind(SpanKind::Client)
-                                    .start(&*TRACER);
-
-                                let req = SubscribeEventsRequest::builder()
-                                    .context(RequestContext::new(span))
-                                    .listener_ref(listener_ref.clone())
-                                    .build();
-
-                                match (&**transport.client()).events(req).await {
-                                    Ok(mut subscription) => {
-                                        tracing::info!("Events client reconnected successfully after {} retries", retry_count);
-                                        retry_count = 0; // Reset retry count on successful connection
-
-                                        // Start event processing loop
-                                        loop {
-                                            select! {
-                                                event = subscription.next() => {
-                                                    if let Some(Ok(event)) = event {
-                                                        let channel = event.context().propagation_channel();
-                                                        let mut span = TRACER.span_builder("ConfigurationEventClient::recv")
-                                                            .with_kind(SpanKind::Consumer)
-                                                            .start_with_context(&*TRACER, &channel.into());
-                                                        let _ = event_sender.send(event.event());
-                                                        span.end();
-                                                    } else {
-                                                        tracing::warn!("Event subscription ended, will retry connection");
-                                                        break; // Break inner loop to retry connection
-                                                    }
-                                                },
-                                                _ = stop_handle.stopped() => {
-                                                    tracing::info!("Resilient events client stopped during event processing");
-                                                    return; // Exit the entire task
-                                                }
-                                            }
-                                        }
-                                    }
-                                    Err(e) => {
-                                        tracing::warn!("Failed to reconnect events client (attempt {}): {:?}", retry_count, e);
-                                        // Continue the loop to retry
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-
-                self.subscription_handle = Some(handle.clone());
-                Ok(handle)
-            }
-            Err(e) => Err(e),
-        }
+        tracing::info!(
+            "Starting resilient events client - all connection management delegated to transport"
+        );
+        self.start().await
     }
 
     /// Internal error handler for events client
@@ -309,6 +337,7 @@ impl ConfigurationEventsClient {
             ConfigurationEventClientError::InvalidConfiguration => false, // Application-level issue
             ConfigurationEventClientError::NotFound => false,             // Application-level issue
             ConfigurationEventClientError::Unknown => true,               // Assume transport issue
+            ConfigurationEventClientError::EventsNotSupported => false,   // Application-level issue
         };
 
         let severity = match error {
@@ -317,19 +346,20 @@ impl ConfigurationEventsClient {
             ConfigurationEventClientError::ConnectionFailed => "warning",
             ConfigurationEventClientError::InvalidConfiguration => "error",
             ConfigurationEventClientError::Unknown => "warning",
+            ConfigurationEventClientError::EventsNotSupported => "error",
         };
 
         match severity {
             "info" => {
                 tracing::debug!(
-                    target: "rpc_client::events::error_handling",
+                    target: "vg_rpc_client::events::error_handling",
                     error = %error,
                     "Informational error in events client"
                 );
             }
             "warning" => {
                 tracing::warn!(
-                    target: "rpc_client::events::error_handling",
+                    target: "vg_rpc_client::events::error_handling",
                     error = %error,
                     handled_internally = should_handle,
                     "Warning-level error in events client"
@@ -337,7 +367,7 @@ impl ConfigurationEventsClient {
             }
             "error" => {
                 tracing::error!(
-                    target: "rpc_client::events::error_handling",
+                    target: "vg_rpc_client::events::error_handling",
                     error = %error,
                     handled_internally = should_handle,
                     "Error-level issue in events client"
@@ -348,7 +378,7 @@ impl ConfigurationEventsClient {
 
         if should_handle {
             tracing::debug!(
-                target: "rpc_client::events::error_handling",
+                target: "vg_rpc_client::events::error_handling",
                 error = %error,
                 "Events client error will be handled internally by robust layers"
             );
@@ -368,6 +398,9 @@ impl ConfigurationEventsClient {
         match error {
             ConfigurationEventClientError::NotFound => GatewayEventClientError::ResourceNotFound,
             ConfigurationEventClientError::InvalidConfiguration => {
+                GatewayEventClientError::ConfigurationError
+            }
+            ConfigurationEventClientError::EventsNotSupported => {
                 GatewayEventClientError::ConfigurationError
             }
             // All transport-related errors are abstracted as service unavailable

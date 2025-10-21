@@ -56,7 +56,7 @@ impl InternalConnectionMonitor {
         let mut last_heartbeat = Instant::now();
 
         info!(
-            target: "rpc_client::monitor",
+            target: "vg_rpc_client::monitor",
             uri = %self.uri,
             check_interval_ms = self.config.check_interval.as_millis(),
             "Starting internal connection monitoring"
@@ -68,7 +68,7 @@ impl InternalConnectionMonitor {
                     // Check if we should shutdown
                     if *self.shutdown_rx.borrow() {
                         info!(
-                            target: "rpc_client::monitor",
+                            target: "vg_rpc_client::monitor",
                             uri = %self.uri,
                             "Shutting down connection monitor"
                         );
@@ -106,7 +106,7 @@ impl InternalConnectionMonitor {
                 _ = self.shutdown_rx.changed() => {
                     if *self.shutdown_rx.borrow() {
                         info!(
-                            target: "rpc_client::monitor",
+                            target: "vg_rpc_client::monitor",
                             uri = %self.uri,
                             "Received shutdown signal, stopping monitor"
                         );
@@ -117,7 +117,7 @@ impl InternalConnectionMonitor {
         }
 
         info!(
-            target: "rpc_client::monitor",
+            target: "vg_rpc_client::monitor",
             uri = %self.uri,
             "Connection monitor stopped"
         );
@@ -136,7 +136,7 @@ impl InternalConnectionMonitor {
                 Ok(health_result) => match health_result {
                     Ok(response_time) => {
                         debug!(
-                            target: "rpc_client::monitor",
+                            target: "vg_rpc_client::monitor",
                             uri = %self.uri,
                             response_time_ms = response_time.as_millis(),
                             "Health check successful"
@@ -145,7 +145,7 @@ impl InternalConnectionMonitor {
                     }
                     Err(error) => {
                         debug!(
-                            target: "rpc_client::monitor",
+                            target: "vg_rpc_client::monitor",
                             uri = %self.uri,
                             error = %error,
                             "Health check failed"
@@ -156,7 +156,7 @@ impl InternalConnectionMonitor {
                 Err(join_error) => {
                     let error = format!("Health check task failed: {}", join_error);
                     debug!(
-                        target: "rpc_client::monitor",
+                        target: "vg_rpc_client::monitor",
                         uri = %self.uri,
                         error = %error,
                         "Health check task panicked or was cancelled"
@@ -168,7 +168,7 @@ impl InternalConnectionMonitor {
                 let elapsed = start_time.elapsed();
                 let error = format!("Health check timed out after {:?}", elapsed);
                 debug!(
-                    target: "rpc_client::monitor",
+                    target: "vg_rpc_client::monitor",
                     uri = %self.uri,
                     timeout_ms = self.config.health_check_timeout.as_millis(),
                     elapsed_ms = elapsed.as_millis(),
@@ -190,7 +190,7 @@ impl InternalConnectionMonitor {
             self.logger
                 .log_connection_recovered(response_time, *consecutive_failures);
             info!(
-                target: "rpc_client::monitor",
+                target: "vg_rpc_client::monitor",
                 uri = %self.uri,
                 response_time_ms = response_time.as_millis(),
                 recovered_after_failures = *consecutive_failures,
@@ -213,7 +213,7 @@ impl InternalConnectionMonitor {
             self.logger
                 .log_critical_connection_failure(downtime, consecutive_failures);
             error!(
-                target: "rpc_client::monitor",
+                target: "vg_rpc_client::monitor",
                 uri = %self.uri,
                 consecutive_failures = consecutive_failures,
                 downtime_ms = downtime.as_millis(),
@@ -224,7 +224,7 @@ impl InternalConnectionMonitor {
             self.logger
                 .log_connection_failure(consecutive_failures, error);
             warn!(
-                target: "rpc_client::monitor",
+                target: "vg_rpc_client::monitor",
                 uri = %self.uri,
                 consecutive_failures = consecutive_failures,
                 error = error,
@@ -237,7 +237,7 @@ impl InternalConnectionMonitor {
     fn log_heartbeat(&self, consecutive_failures: u32, downtime: Duration) {
         if consecutive_failures > 0 {
             warn!(
-                target: "rpc_client::monitor",
+                target: "vg_rpc_client::monitor",
                 uri = %self.uri,
                 consecutive_failures = consecutive_failures,
                 downtime_ms = downtime.as_millis(),
@@ -245,7 +245,7 @@ impl InternalConnectionMonitor {
             );
         } else {
             info!(
-                target: "rpc_client::monitor",
+                target: "vg_rpc_client::monitor",
                 uri = %self.uri,
                 "Monitor heartbeat: Connection healthy"
             );

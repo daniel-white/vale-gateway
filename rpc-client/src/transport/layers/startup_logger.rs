@@ -144,7 +144,7 @@ impl StartupLogger {
         match self.config.log_level {
             StartupLogLevel::Debug => {
                 debug!(
-                    target: "rpc_client::startup",
+                    target: "vg_rpc_client::startup",
                     mode = ?startup_config.mode,
                     timeout_ms = startup_config.initial_connection_timeout.as_millis(),
                     validate_connectivity = startup_config.validate_connectivity,
@@ -153,7 +153,7 @@ impl StartupLogger {
             }
             StartupLogLevel::Info => {
                 info!(
-                    target: "rpc_client::startup",
+                    target: "vg_rpc_client::startup",
                     mode = ?startup_config.mode,
                     timeout_ms = startup_config.initial_connection_timeout.as_millis(),
                     "Initializing configuration client"
@@ -169,14 +169,14 @@ impl StartupLogger {
 
         if self.config.include_performance_metrics {
             info!(
-                target: "rpc_client::startup",
+                target: "vg_rpc_client::startup",
                 elapsed_ms = elapsed.as_millis(),
                 status = "success",
                 "✓ Configuration client connected successfully during startup"
             );
         } else {
             info!(
-                target: "rpc_client::startup",
+                target: "vg_rpc_client::startup",
                 status = "success",
                 "✓ Configuration client connected successfully"
             );
@@ -188,7 +188,7 @@ impl StartupLogger {
         let _enter = self.span.enter();
 
         warn!(
-            target: "rpc_client::startup",
+            target: "vg_rpc_client::startup",
             error = %error,
             elapsed_ms = elapsed.as_millis(),
             fallback_mode = "background_connection",
@@ -201,7 +201,7 @@ impl StartupLogger {
         let _enter = self.span.enter();
 
         warn!(
-            target: "rpc_client::startup",
+            target: "vg_rpc_client::startup",
             elapsed_ms = elapsed.as_millis(),
             reason = "timeout",
             "Configuration client startup timed out - falling back to background connection"
@@ -217,7 +217,7 @@ impl StartupLogger {
         let _enter = self.span.enter();
 
         info!(
-            target: "rpc_client::startup",
+            target: "vg_rpc_client::startup",
             elapsed_ms = elapsed.as_millis(),
             mode = "lazy",
             "Configuration client created in lazy mode - will connect on first request"
@@ -233,7 +233,7 @@ impl StartupLogger {
         let _enter = self.span.enter();
 
         info!(
-            target: "rpc_client::startup",
+            target: "vg_rpc_client::startup",
             mode = "fail_fast",
             "Attempting fail-fast startup - will fail immediately if connection unavailable"
         );
@@ -248,7 +248,7 @@ impl StartupLogger {
         let _enter = self.span.enter();
 
         error!(
-            target: "rpc_client::startup",
+            target: "vg_rpc_client::startup",
             error = %error,
             elapsed_ms = elapsed.as_millis(),
             mode = "fail_fast",
@@ -272,7 +272,7 @@ impl StartupLogger {
         if success {
             if let Some(response_time) = response_time {
                 info!(
-                    target: "rpc_client::startup::validation",
+                    target: "vg_rpc_client::startup::validation",
                     response_time_ms = response_time.as_millis(),
                     validation_status = "success",
                     details = details.unwrap_or(""),
@@ -280,7 +280,7 @@ impl StartupLogger {
                 );
             } else {
                 info!(
-                    target: "rpc_client::startup::validation",
+                    target: "vg_rpc_client::startup::validation",
                     validation_status = "success",
                     details = details.unwrap_or(""),
                     "✓ Connection validation successful"
@@ -288,7 +288,7 @@ impl StartupLogger {
             }
         } else {
             warn!(
-                target: "rpc_client::startup::validation",
+                target: "vg_rpc_client::startup::validation",
                 validation_status = "failed",
                 details = details.unwrap_or(""),
                 "✗ Connection validation failed - proceeding with degraded connectivity"
@@ -305,7 +305,7 @@ impl StartupLogger {
         let _enter = self.span.enter();
 
         info!(
-            target: "rpc_client::startup::background",
+            target: "vg_rpc_client::startup::background",
             operation = "connection_start",
             "Starting background connection establishment - client will handle requests once connected"
         );
@@ -320,7 +320,7 @@ impl StartupLogger {
         let _enter = self.span.enter();
 
         debug!(
-            target: "rpc_client::startup::background",
+            target: "vg_rpc_client::startup::background",
             attempt = attempt,
             next_retry_ms = next_retry_in.as_millis(),
             operation = "connection_retry",
@@ -337,7 +337,7 @@ impl StartupLogger {
         let _enter = self.span.enter();
 
         info!(
-            target: "rpc_client::startup::background",
+            target: "vg_rpc_client::startup::background",
             attempts = total_attempts,
             total_elapsed_ms = total_elapsed.as_millis(),
             operation = "connection_success",
@@ -355,7 +355,7 @@ impl StartupLogger {
         let _enter = self.span.enter();
 
         info!(
-            target: "rpc_client::startup::fallback",
+            target: "vg_rpc_client::startup::fallback",
             fallback_type = fallback_type,
             reason = reason,
             config_details = config_details.unwrap_or(""),
@@ -383,7 +383,7 @@ impl StartupLogger {
 
             if success {
                 info!(
-                    target: "rpc_client::startup::summary",
+                    target: "vg_rpc_client::startup::summary",
                     success = success,
                     total_elapsed_ms = total_elapsed.as_millis(),
                     connection_attempts = connection_attempts,
@@ -396,7 +396,7 @@ impl StartupLogger {
                 );
             } else {
                 warn!(
-                    target: "rpc_client::startup::summary",
+                    target: "vg_rpc_client::startup::summary",
                     success = success,
                     total_elapsed_ms = total_elapsed.as_millis(),
                     connection_attempts = connection_attempts,
@@ -407,7 +407,7 @@ impl StartupLogger {
         } else {
             if success {
                 info!(
-                    target: "rpc_client::startup::summary",
+                    target: "vg_rpc_client::startup::summary",
                     success = success,
                     total_elapsed_ms = total_elapsed.as_millis(),
                     connection_attempts = connection_attempts,
@@ -416,7 +416,7 @@ impl StartupLogger {
                 );
             } else {
                 warn!(
-                    target: "rpc_client::startup::summary",
+                    target: "vg_rpc_client::startup::summary",
                     success = success,
                     total_elapsed_ms = total_elapsed.as_millis(),
                     connection_attempts = connection_attempts,
@@ -436,7 +436,7 @@ impl StartupLogger {
         let _enter = self.span.enter();
 
         debug!(
-            target: "rpc_client::startup::integration",
+            target: "vg_rpc_client::startup::integration",
             connection_logger_enabled = connection_logger_enabled,
             "Integrating startup logging with existing ConnectionLogger infrastructure"
         );
@@ -546,9 +546,7 @@ mod tests {
         let logger = StartupLogger::new();
 
         // Test that logging operations don't panic
-        let config = crate::StartupConfig::builder()
-            .mode(StartupMode::Graceful)
-            .build();
+        let config = crate::StartupConfig::default();
 
         logger.log_startup_begin(&config);
         logger.log_startup_success(Duration::from_millis(100));

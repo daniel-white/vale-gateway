@@ -56,17 +56,28 @@ impl ConfigurationClient {
 
         let client = self.transport().current_client().await;
         let listener = client.listener(req).await.map_err(|err| {
-            tracing::error!("Failed to get listener: {:?}", err);
-            
-            // Check if this is a connection-related error that might indicate stale client
-            match &err {
-                ClientError::Transport(_) | ClientError::RequestTimeout => {
-                    tracing::warn!("Listener request failed with transport/timeout error, connection may be stale");
+            // Convert to our error type first to determine severity
+            let client_error = ConfigurationClientError::from(err);
+
+            // Log at appropriate level based on error type
+            match &client_error {
+                ConfigurationClientError::NotFound => {
+                    tracing::debug!("Failed to get listener: {:?}", client_error);
                 }
-                _ => {}
+                _ => match client_error.severity() {
+                    ErrorSeverity::Warning => {
+                        tracing::warn!("Failed to get listener: {:?}", client_error);
+                    }
+                    ErrorSeverity::Error => {
+                        tracing::error!("Failed to get listener: {:?}", client_error);
+                    }
+                    _ => {
+                        tracing::info!("Failed to get listener: {:?}", client_error);
+                    }
+                },
             }
-            
-            ConfigurationClientError::from(err)
+
+            client_error
         })?;
 
         Ok(Arc::new(listener))
@@ -88,17 +99,28 @@ impl ConfigurationClient {
 
         let client = self.transport().current_client().await;
         let route = client.route(req).await.map_err(|err| {
-            tracing::error!("Failed to get route: {:?}", err);
-            
-            // Check if this is a connection-related error that might indicate stale client
-            match &err {
-                ClientError::Transport(_) | ClientError::RequestTimeout => {
-                    tracing::warn!("Route request failed with transport/timeout error, connection may be stale");
+            // Convert to our error type first to determine severity
+            let client_error = ConfigurationClientError::from(err);
+
+            // Log at appropriate level based on error type
+            match &client_error {
+                ConfigurationClientError::NotFound => {
+                    tracing::debug!("Failed to get route: {:?}", client_error);
                 }
-                _ => {}
+                _ => match client_error.severity() {
+                    ErrorSeverity::Warning => {
+                        tracing::warn!("Failed to get route: {:?}", client_error);
+                    }
+                    ErrorSeverity::Error => {
+                        tracing::error!("Failed to get route: {:?}", client_error);
+                    }
+                    _ => {
+                        tracing::info!("Failed to get route: {:?}", client_error);
+                    }
+                },
             }
-            
-            ConfigurationClientError::from(err)
+
+            client_error
         })?;
 
         Ok(Arc::new(route))
@@ -120,17 +142,28 @@ impl ConfigurationClient {
 
         let client = self.transport().current_client().await;
         let backend = client.backend(req).await.map_err(|err| {
-            tracing::error!("Failed to get backend: {:?}", err);
-            
-            // Check if this is a connection-related error that might indicate stale client
-            match &err {
-                ClientError::Transport(_) | ClientError::RequestTimeout => {
-                    tracing::warn!("Backend request failed with transport/timeout error, connection may be stale");
+            // Convert to our error type first to determine severity
+            let client_error = ConfigurationClientError::from(err);
+
+            // Log at appropriate level based on error type
+            match &client_error {
+                ConfigurationClientError::NotFound => {
+                    tracing::debug!("Failed to get backend: {:?}", client_error);
                 }
-                _ => {}
+                _ => match client_error.severity() {
+                    ErrorSeverity::Warning => {
+                        tracing::warn!("Failed to get backend: {:?}", client_error);
+                    }
+                    ErrorSeverity::Error => {
+                        tracing::error!("Failed to get backend: {:?}", client_error);
+                    }
+                    _ => {
+                        tracing::info!("Failed to get backend: {:?}", client_error);
+                    }
+                },
             }
-            
-            ConfigurationClientError::from(err)
+
+            client_error
         })?;
 
         Ok(Arc::new(backend))
@@ -152,17 +185,28 @@ impl ConfigurationClient {
 
         let client = self.transport().current_client().await;
         let filter = client.shared_filter(req).await.map_err(|err| {
-            tracing::error!("Failed to get shared filter: {:?}", err);
-            
-            // Check if this is a connection-related error that might indicate stale client
-            match &err {
-                ClientError::Transport(_) | ClientError::RequestTimeout => {
-                    tracing::warn!("Shared filter request failed with transport/timeout error, connection may be stale");
+            // Convert to our error type first to determine severity
+            let client_error = ConfigurationClientError::from(err);
+
+            // Log at appropriate level based on error type
+            match &client_error {
+                ConfigurationClientError::NotFound => {
+                    tracing::debug!("Failed to get shared filter: {:?}", client_error);
                 }
-                _ => {}
+                _ => match client_error.severity() {
+                    ErrorSeverity::Warning => {
+                        tracing::warn!("Failed to get shared filter: {:?}", client_error);
+                    }
+                    ErrorSeverity::Error => {
+                        tracing::error!("Failed to get shared filter: {:?}", client_error);
+                    }
+                    _ => {
+                        tracing::info!("Failed to get shared filter: {:?}", client_error);
+                    }
+                },
             }
-            
-            ConfigurationClientError::from(err)
+
+            client_error
         })?;
 
         Ok(Arc::new(filter))
@@ -198,14 +242,14 @@ impl ConfigurationClient {
         match severity {
             ErrorSeverity::Info => {
                 tracing::debug!(
-                    target: "rpc_client::error_handling",
+                    target: "vg_rpc_client::error_handling",
                     error = %error,
                     "Informational error occurred"
                 );
             }
             ErrorSeverity::Warning => {
                 tracing::warn!(
-                    target: "rpc_client::error_handling",
+                    target: "vg_rpc_client::error_handling",
                     error = %error,
                     handled_internally = should_handle,
                     "Warning-level error occurred"
@@ -213,7 +257,7 @@ impl ConfigurationClient {
             }
             ErrorSeverity::Error => {
                 tracing::error!(
-                    target: "rpc_client::error_handling",
+                    target: "vg_rpc_client::error_handling",
                     error = %error,
                     handled_internally = should_handle,
                     "Error-level issue occurred"
@@ -223,7 +267,7 @@ impl ConfigurationClient {
 
         if should_handle {
             tracing::debug!(
-                target: "rpc_client::error_handling",
+                target: "vg_rpc_client::error_handling",
                 error = %error,
                 "Error will be handled internally by robust client layers"
             );
@@ -251,7 +295,7 @@ impl ConfigurationClient {
                     // For internally handled errors, we could implement additional retry logic here
                     // For now, we'll convert to a simplified gateway error
                     tracing::debug!(
-                        target: "rpc_client::error_handling",
+                        target: "vg_rpc_client::error_handling",
                         operation = operation_name,
                         "Converting internally handled error to gateway error"
                     );
@@ -536,6 +580,14 @@ impl ConfigurationClientError {
             ConfigurationClientError::ConfigurationError(_) => false,
             ConfigurationClientError::Unknown(_) => false,
         }
+    }
+
+    /// Determine if tasks should complete based on this error
+    /// Uses existing error classification to determine task continuation
+    /// Only complete tasks for truly unrecoverable errors (shutdown signals)
+    pub fn should_complete_task(&self) -> bool {
+        // Use existing is_temporary() method - if error is temporary, task should continue
+        !self.is_temporary()
     }
 
     /// Get the severity level of this error for logging purposes

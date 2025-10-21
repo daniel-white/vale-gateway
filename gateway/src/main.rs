@@ -35,10 +35,10 @@ use std::sync::Arc;
 use tokio::task::JoinSet;
 use vg_core::instrumentation::init;
 use vg_core::net::topology::TopologyLocation;
-use vg_rpc_client::{
-    ConfigurationClient, ConfigurationEventsClient, RobustClientConfig, RpcTransport,
-    RpcTransportError,
-};
+use vg_rpc_client::{ConfigurationClient, ConfigurationEventsClient, RpcTransport};
+
+#[cfg(not(unix))]
+use tokio::signal;
 
 struct GatewayComponents {
     source_configuration: SourceConfigurationRegistry,
@@ -80,152 +80,70 @@ fn validate_startup_parameters(listener_ref: &str, server_uri: &Uri) -> Result<(
     }
 }
 
-/// Handle RPC transport creation with resilient startup
+/// Determine if an error is related to graceful shutdown
 ///
-/// This function implements resilient startup that logs connection failures
-/// but never panics or exits unexpectedly. If the initial connection fails,
-/// it will keep retrying with exponential backoff until the server becomes available.
-async fn create_rpc_transport_resilient(server_uri: Uri) -> RpcTransport {
-    // Create transport config that relies on transport-level connection management
-    let mut transport_config = RobustClientConfig::production();
-    transport_config.internal_monitoring.enabled = true; // Keep monitoring for transport health
+/// This function analyzes error messages to distinguish between expected shutdown
+/// scenarios and unexpected failures, enabling appropriate logging levels.
+fn is_shutdown_related_error(error_msg: &str) -> bool {
+    let shutdown_indicators = [
+        "cancelled",
+        "shutdown",
+        "stopped",
+        "terminated",
+        "closed",
+        "aborted",
+        "interrupted",
+    ];
 
-    // Enable transport-level reconnection with aggressive settings
-    if let Some(ref mut reconnection) = transport_config.reconnection {
-        reconnection.enable_lazy_connection = false; // We want immediate reconnection
-        reconnection.max_reconnect_attempts = None; // Unlimited reconnection attempts
-        reconnection.reconnect_base_delay = std::time::Duration::from_secs(1);
-        reconnection.reconnect_max_delay = std::time::Duration::from_secs(30);
-        reconnection.queue_requests_during_reconnection = true;
-        reconnection.max_queued_requests = 1000; // Large queue for resilience
-    }
+    let error_lower = error_msg.to_lowercase();
+    shutdown_indicators
+        .iter()
+        .any(|indicator| error_lower.contains(indicator))
+}
 
-    // Keep circuit breaker but with lenient settings
-    if let Some(ref mut circuit_breaker) = transport_config.circuit_breaker {
-        circuit_breaker.failure_threshold = 10; // Allow more failures before opening
-        circuit_breaker.timeout = std::time::Duration::from_secs(120); // Longer timeout
-    }
+/// Setup shutdown signal handling for graceful termination
+///
+/// This function sets up handlers for SIGTERM and SIGINT signals to enable
+/// graceful shutdown of gateway components when requested.
+#[allow(dead_code)]
+async fn setup_shutdown_signal() -> Result<(), Box<dyn Error + Send + Sync>> {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{SignalKind, signal};
 
-    // First, try to connect immediately
-    match RpcTransport::new(server_uri.clone(), transport_config.clone()).await {
-        Ok(transport) => {
-            tracing::info!("🚀 RPC transport initialized successfully on first attempt");
-            return transport;
-        }
-        Err(RpcTransportError::InitializationFailed(init_error)) => {
-            tracing::warn!(
-                "Initial RPC transport connection to {} failed: {:?} - will continue with resilient startup",
-                server_uri,
-                init_error
-            );
-        }
-        Err(RpcTransportError::ConfigurationMismatch) => {
-            tracing::error!(
-                "RPC transport configuration mismatch for {} - this should not happen during initial startup",
-                server_uri
-            );
-        }
-        Err(RpcTransportError::MonitoringError(monitoring_error)) => {
-            tracing::warn!(
-                "RPC transport monitoring failed for {}: {:?} - trying without monitoring",
-                server_uri,
-                monitoring_error
-            );
+        let mut sigterm = signal(SignalKind::terminate())?;
+        let mut sigint = signal(SignalKind::interrupt())?;
 
-            // Try again with monitoring disabled
-            let mut config = RobustClientConfig::production();
-            config.internal_monitoring.enabled = false;
-
-            match RpcTransport::new(server_uri.clone(), config).await {
-                Ok(transport) => {
-                    tracing::info!(
-                        "🚀 RPC transport initialized successfully (monitoring disabled)"
-                    );
-                    return transport;
-                }
-                Err(e) => {
-                    tracing::warn!(
-                        "RPC transport failed even with monitoring disabled: {:?} - will continue with resilient startup",
-                        e
-                    );
-                }
-            }
-        }
-    }
-
-    // If we get here, initial connection failed - use a configuration that allows lazy connection
-    tracing::info!("🔄 Starting resilient RPC transport with lazy connection mode");
-
-    // Use the same transport config for retry attempts
-    let _resilient_config = transport_config.clone();
-
-    // The current RpcTransport implementation requires an immediate connection
-    // Since the server is unavailable, we need to handle this gracefully
-    tracing::error!(
-        "RPC server at {} is not available during gateway startup. \
-        The gateway requires an active RPC connection to function properly.",
-        server_uri
-    );
-
-    tracing::info!(
-        "🔄 Starting connection retry loop - gateway will start once server is available"
-    );
-
-    // Keep trying to connect with exponential backoff
-    let mut retry_count = 0;
-    let mut delay = std::time::Duration::from_secs(1);
-
-    loop {
-        retry_count += 1;
-
-        tracing::info!(
-            "Attempting to connect to RPC server {} (attempt #{})",
-            server_uri,
-            retry_count
-        );
-
-        match RpcTransport::new(server_uri.clone(), transport_config.clone()).await {
-            Ok(transport) => {
+        tokio::select! {
+            _ = sigterm.recv() => {
                 tracing::info!(
-                    "🚀 Successfully connected to RPC server {} after {} attempts - gateway starting",
-                    server_uri,
-                    retry_count
-                );
-                return transport;
-            }
-            Err(RpcTransportError::InitializationFailed(_)) => {
-                tracing::debug!(
-                    "Connection attempt #{} to {} failed - server not available, retrying in {:?}",
-                    retry_count,
-                    server_uri,
-                    delay
+                    target: "vg_gateway::shutdown",
+                    signal = "SIGTERM",
+                    "Received SIGTERM signal, initiating graceful shutdown"
                 );
             }
-            Err(e) => {
-                tracing::warn!(
-                    "Connection attempt #{} to {} failed with unexpected error: {:?} - retrying in {:?}",
-                    retry_count,
-                    server_uri,
-                    e,
-                    delay
+            _ = sigint.recv() => {
+                tracing::info!(
+                    target: "vg_gateway::shutdown",
+                    signal = "SIGINT",
+                    "Received SIGINT signal, initiating graceful shutdown"
                 );
             }
-        }
-
-        tokio::time::sleep(delay).await;
-
-        // Exponential backoff with max delay of 30 seconds
-        delay = std::cmp::min(delay * 2, std::time::Duration::from_secs(30));
-
-        // Log progress every 10 attempts
-        if retry_count % 10 == 0 {
-            tracing::info!(
-                "Still waiting for RPC server at {} to become available (attempt #{})",
-                server_uri,
-                retry_count
-            );
         }
     }
+
+    #[cfg(not(unix))]
+    {
+        // On non-Unix systems, only handle Ctrl+C
+        signal::ctrl_c().await?;
+        tracing::info!(
+            target: "vg_gateway::shutdown",
+            signal = "CTRL_C",
+            "Received Ctrl+C signal, initiating graceful shutdown"
+        );
+    }
+
+    Ok(())
 }
 
 /// Create and wire gateway components
@@ -306,14 +224,6 @@ async fn start_gateway_components(
     Ok(GatewayHandles { tasks })
 }
 
-/// Main gateway execution function
-///
-/// This function implements the simplified gateway architecture where:
-/// - Clients are fully self-managing (handle all transport concerns internally)
-/// - No custom connection monitoring or health checking
-/// - No complex timeout handling or retry logic
-/// - No restart loops - components run indefinitely with robust transport
-/// - Focus on component wiring and coordination only
 async fn run_gateway() -> Result<(), Box<dyn Error>> {
     let listener_ref = "example_listener".to_string();
     let server_uri = Uri::from_static("ws://localhost:9000");
@@ -321,9 +231,11 @@ async fn run_gateway() -> Result<(), Box<dyn Error>> {
     // Validate basic parameters
     validate_startup_parameters(&listener_ref, &server_uri)?;
 
-    // Create shared RPC transport with resilient startup that never fails
+    // Create shared RPC transport with simple configuration
     // This single transport is shared between both configuration and events clients
-    let transport = create_rpc_transport_resilient(server_uri.clone()).await;
+    let transport = RpcTransport::new(server_uri.clone())
+        .await
+        .expect("Failed to create RPC transport");
 
     // Create clients using the shared transport
     let client = ConfigurationClient::new(transport.clone(), listener_ref.clone());
@@ -339,20 +251,111 @@ async fn run_gateway() -> Result<(), Box<dyn Error>> {
 
     tracing::info!("🚀 Gateway startup complete - all components running");
 
-    // Wait for all components to complete (they should run indefinitely)
+    // Setup shutdown signal handling
+    let mut shutdown_signal = tokio::spawn(setup_shutdown_signal());
+
+    // Wait for either component completion or shutdown signal
     // The robust transport handles all reconnection internally
-    while let Some(result) = handles.tasks.join_next().await {
-        match result {
-            Ok(_) => {
-                tracing::warn!("Gateway component completed unexpectedly");
+    loop {
+        tokio::select! {
+            // Handle component completion/failure
+            result = handles.tasks.join_next() => {
+                match result {
+                    Some(Ok(_)) => {
+                        // Component completed normally - this should only happen during graceful shutdown
+                        tracing::info!(
+                            target: "vg_gateway::lifecycle",
+                            event = "component_completed",
+                            reason = "normal_completion",
+                            "Gateway component completed normally during shutdown"
+                        );
+                    }
+                    Some(Err(e)) => {
+                        // Component failed with an error - determine if this is expected or unexpected
+                        let error_msg = e.to_string();
+
+                        // Check if this is a shutdown-related error (expected)
+                        if is_shutdown_related_error(&error_msg) {
+                            tracing::info!(
+                                target: "vg_gateway::lifecycle",
+                                event = "component_completed",
+                                reason = "graceful_shutdown",
+                                error = %e,
+                                "Gateway component stopped during graceful shutdown"
+                            );
+                        } else {
+                            // This is an unexpected failure
+                            tracing::error!(
+                                target: "vg_gateway::lifecycle",
+                                event = "component_failed",
+                                reason = "unexpected_error",
+                                error = %e,
+                                "Gateway component failed unexpectedly"
+                            );
+                            return Err(e.into());
+                        }
+                    }
+                    None => {
+                        // All tasks have completed
+                        tracing::info!(
+                            target: "vg_gateway::lifecycle",
+                            event = "all_components_completed",
+                            "All gateway components have completed"
+                        );
+                        break;
+                    }
+                }
             }
-            Err(e) => {
-                tracing::error!("Gateway component failed: {}", e);
-                return Err(e.into());
+            // Handle shutdown signal
+            shutdown_result = &mut shutdown_signal => {
+                match shutdown_result {
+                    Ok(Ok(())) => {
+                        tracing::info!(
+                            target: "vg_gateway::lifecycle",
+                            event = "shutdown_signal_received",
+                            "Shutdown signal received, stopping all components"
+                        );
+
+                        // Abort all tasks for graceful shutdown
+                        handles.tasks.abort_all();
+
+                        // Wait a brief moment for tasks to clean up
+                        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+                        tracing::info!(
+                            target: "vg_gateway::lifecycle",
+                            event = "graceful_shutdown_initiated",
+                            "All components signaled to stop"
+                        );
+                        break;
+                    }
+                    Ok(Err(e)) => {
+                        tracing::warn!(
+                            target: "vg_gateway::lifecycle",
+                            event = "shutdown_signal_error",
+                            error = %e,
+                            "Error setting up shutdown signal handler, continuing without signal handling"
+                        );
+                        // Continue without signal handling
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            target: "vg_gateway::lifecycle",
+                            event = "shutdown_task_error",
+                            error = %e,
+                            "Shutdown signal task failed, continuing without signal handling"
+                        );
+                        // Continue without signal handling
+                    }
+                }
             }
         }
     }
 
-    tracing::info!("All gateway components have stopped");
+    tracing::info!(
+        target: "vg_gateway::lifecycle",
+        event = "gateway_shutdown",
+        "All gateway components have stopped - shutdown complete"
+    );
     Ok(())
 }

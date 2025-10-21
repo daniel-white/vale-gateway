@@ -15,7 +15,7 @@ impl ConnectionLogger {
     /// Create a new connection logger with default target
     pub fn new() -> Self {
         Self {
-            target: "rpc_client::connection",
+            target: "vg_rpc_client::connection",
         }
     }
 
@@ -34,7 +34,7 @@ impl ConnectionLogger {
     /// * `error` - Error message describing the connection loss
     pub fn log_connection_lost(&self, uri: &Uri, error: &str) {
         error!(
-            target: "rpc_client::connection",
+            target: "vg_rpc_client::connection",
             uri = %uri,
             error = error,
             event = "connection_lost",
@@ -53,7 +53,7 @@ impl ConnectionLogger {
     /// * `uri` - The URI being reconnected to
     pub fn log_reconnection_attempt(&self, attempt: u32, delay: Duration, uri: &Uri) {
         warn!(
-            target: "rpc_client::connection",
+            target: "vg_rpc_client::connection",
             attempt = attempt,
             delay_ms = delay.as_millis(),
             uri = %uri,
@@ -72,7 +72,7 @@ impl ConnectionLogger {
     /// * `duration` - How long the reconnection process took
     pub fn log_reconnection_success(&self, uri: &Uri, duration: Duration) {
         info!(
-            target: "rpc_client::connection",
+            target: "vg_rpc_client::connection",
             uri = %uri,
             connection_duration_ms = duration.as_millis(),
             event = "reconnection_success",
@@ -90,7 +90,7 @@ impl ConnectionLogger {
     /// * `uri` - The URI that could not be reconnected to
     pub fn log_reconnection_exhausted(&self, attempts: u32, uri: &Uri) {
         error!(
-            target: "rpc_client::connection",
+            target: "vg_rpc_client::connection",
             attempts = attempts,
             uri = %uri,
             event = "reconnection_exhausted",
@@ -109,7 +109,7 @@ impl ConnectionLogger {
     /// * `error` - Error message describing the connection failure
     pub fn log_startup_connection_failed(&self, uri: &Uri, error: &str) {
         warn!(
-            target: "rpc_client::startup",
+            target: "vg_rpc_client::startup",
             uri = %uri,
             error = error,
             event = "startup_connection_failed",
@@ -126,7 +126,7 @@ impl ConnectionLogger {
     /// * `uri` - The URI that was successfully connected to during startup
     pub fn log_startup_connection_success(&self, uri: &Uri) {
         info!(
-            target: "rpc_client::startup",
+            target: "vg_rpc_client::startup",
             uri = %uri,
             event = "startup_connection_success",
             "Successfully connected to configuration service during startup"
@@ -143,7 +143,7 @@ impl ConnectionLogger {
     /// * `timeout` - The timeout for the validation attempt
     pub fn log_startup_validation_begin(&self, uri: &Uri, timeout: Duration) {
         info!(
-            target: "rpc_client::startup",
+            target: "vg_rpc_client::startup",
             uri = %uri,
             timeout_ms = timeout.as_millis(),
             event = "startup_validation_begin",
@@ -160,7 +160,7 @@ impl ConnectionLogger {
     /// * `uri` - The URI that will be connected to in background
     pub fn log_graceful_startup_mode(&self, uri: &Uri) {
         info!(
-            target: "rpc_client::startup",
+            target: "vg_rpc_client::startup",
             uri = %uri,
             event = "graceful_startup_mode",
             "Entering graceful startup mode, connection will be established in background"
@@ -176,7 +176,7 @@ impl ConnectionLogger {
     /// * `uri` - The URI that will be connected to on first request
     pub fn log_lazy_startup_mode(&self, uri: &Uri) {
         info!(
-            target: "rpc_client::startup",
+            target: "vg_rpc_client::startup",
             uri = %uri,
             event = "lazy_startup_mode",
             "Lazy startup mode activated, connection will be established on first request"
@@ -194,7 +194,7 @@ impl ConnectionLogger {
     /// * `uri` - The URI associated with the connection
     pub fn log_state_transition(&self, from_state: &str, to_state: &str, uri: &Uri) {
         info!(
-            target: "rpc_client::connection",
+            target: "vg_rpc_client::connection",
             from_state = from_state,
             to_state = to_state,
             uri = %uri,
@@ -213,7 +213,7 @@ impl ConnectionLogger {
     /// * `max_queue_size` - Maximum allowed queue size
     pub fn log_request_queued(&self, queue_size: usize, max_queue_size: usize) {
         warn!(
-            target: "rpc_client::connection",
+            target: "vg_rpc_client::connection",
             queue_size = queue_size,
             max_queue_size = max_queue_size,
             event = "request_queued",
@@ -230,7 +230,7 @@ impl ConnectionLogger {
     /// * `processed_count` - Number of requests processed from queue
     pub fn log_queue_processed(&self, processed_count: usize) {
         info!(
-            target: "rpc_client::connection",
+            target: "vg_rpc_client::connection",
             processed_count = processed_count,
             event = "queue_processed",
             "Processing queued requests after reconnection"
@@ -247,7 +247,7 @@ impl ConnectionLogger {
     /// * `rejected_count` - Number of requests rejected due to full queue
     pub fn log_queue_full(&self, queue_size: usize, rejected_count: u32) {
         error!(
-            target: "rpc_client::connection",
+            target: "vg_rpc_client::connection",
             queue_size = queue_size,
             rejected_count = rejected_count,
             event = "queue_full",
@@ -265,7 +265,7 @@ impl ConnectionLogger {
     /// * `consecutive_failures` - Number of consecutive failures before recovery
     pub fn log_connection_recovered(&self, response_time: Duration, consecutive_failures: u32) {
         info!(
-            target: "rpc_client::connection",
+            target: "vg_rpc_client::connection",
             response_time_ms = response_time.as_millis(),
             consecutive_failures = consecutive_failures,
             event = "connection_recovered",
@@ -283,7 +283,7 @@ impl ConnectionLogger {
     /// * `consecutive_failures` - Number of consecutive failures
     pub fn log_critical_connection_failure(&self, downtime: Duration, consecutive_failures: u32) {
         error!(
-            target: "rpc_client::connection",
+            target: "vg_rpc_client::connection",
             downtime_ms = downtime.as_millis(),
             consecutive_failures = consecutive_failures,
             event = "critical_connection_failure",
@@ -301,7 +301,7 @@ impl ConnectionLogger {
     /// * `error` - Error message describing the failure
     pub fn log_connection_failure(&self, consecutive_failures: u32, error: &str) {
         warn!(
-            target: "rpc_client::connection",
+            target: "vg_rpc_client::connection",
             consecutive_failures = consecutive_failures,
             error = error,
             event = "connection_failure",
@@ -324,7 +324,7 @@ mod tests {
     #[test]
     fn test_connection_logger_creation() {
         let logger = ConnectionLogger::new();
-        assert_eq!(logger.target, "rpc_client::connection");
+        assert_eq!(logger.target, "vg_rpc_client::connection");
 
         let custom_logger = ConnectionLogger::with_target("custom::target");
         assert_eq!(custom_logger.target, "custom::target");
@@ -333,7 +333,7 @@ mod tests {
     #[test]
     fn test_connection_logger_default() {
         let logger = ConnectionLogger::default();
-        assert_eq!(logger.target, "rpc_client::connection");
+        assert_eq!(logger.target, "vg_rpc_client::connection");
     }
 
     #[test]

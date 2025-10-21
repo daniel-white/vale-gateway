@@ -88,7 +88,11 @@ impl SourceConfigurationRegistry {
             .build();
 
         spawn(async move {
-            processor.init().await;
+            // Initial sync - continue even if it fails due to temporary transport errors
+            if let Err(_) = processor.init().await {
+                tracing::debug!("Initial configuration sync failed, will retry on events");
+            }
+
             loop {
                 select! {
                     value = events.recv() => {
@@ -98,21 +102,32 @@ impl SourceConfigurationRegistry {
                                 .with_kind(SpanKind::Consumer)
                                 .start_with_context(&*TRACER, &context);
                                 let context = Context::current().with_span(span);
-                                processor.handle(event).with_context(context).await;
+
+                                // Handle event processing errors gracefully - don't stop the task
+                                if let Err(_) = processor.handle(event).with_context(context).await {
+                                    tracing::debug!("Configuration event processing failed, will continue processing");
+                                }
                             }
                             Err(ConfigurationEventRecvError::Lagged) => {
-                                processor.init().await;
+                                tracing::debug!("Configuration events lagged, reinitializing");
+                                if let Err(_) = processor.init().await {
+                                    tracing::debug!("Configuration reinitialization failed, will retry on next event");
+                                }
                             }
-                            _ => {
-                                continue;
+                            Err(ConfigurationEventRecvError::Closed) => {
+                                tracing::warn!("Configuration event channel closed, stopping configuration task");
+                                break;
                             }
                         }
                     },
                     _ = stop_handle.stopped() => {
+                        tracing::info!("SourceConfigurationRegistry received shutdown signal");
                         break;
                     }
                 }
             }
+
+            tracing::info!("SourceConfigurationRegistry task completed");
         });
 
         handle
