@@ -1,8 +1,6 @@
 mod api;
-mod events;
+pub mod events;
 mod instrumentation;
-mod transport;
+pub  mod transport;
 
 pub use api::*;
-pub use events::*;
-pub use transport::*;

@@ -13,7 +13,7 @@ use vg_config::http::listener::{Listener, ListenerRef};
 use vg_config::http::provider::HttpConfigurationProvider;
 use vg_config::http::route::{Route, RouteRef};
 use vg_core::instrumentation::init;
-use vg_rpc_server::{ConfigurationEvent, ConfigurationEventServer, ConfigurationServerOptions};
+use vg_rpc_server::{Event, ConfigurationEventServer, ApiServerOptions};
 
 pub struct HttpConfigProvider;
 
@@ -71,7 +71,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let http_config = Box::from(HttpConfigProvider);
     let event_server = ConfigurationEventServer::new();
-    let options = ConfigurationServerOptions::builder()
+    let options = ApiServerOptions::builder()
         .binding(SocketAddr::from_str("0.0.0.0:9000").unwrap())
         .event_sinks(event_server.sinks())
         .http_configuration(http_config)
@@ -93,7 +93,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 sender
                     .send(
                         "example_listener".to_string().into(),
-                        ConfigurationEvent::ListenerChanged,
+                        Event::ListenerChanged,
                     )
                     .with_context(context)
                     .await;
@@ -108,7 +108,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 sender
                     .send(
                         "example_listener".to_string().into(),
-                        ConfigurationEvent::RouteChanged(RouteRef::from("a route".to_string())),
+                        Event::RouteChanged(RouteRef::from("a route".to_string())),
                     )
                     .with_context(context)
                     .await;

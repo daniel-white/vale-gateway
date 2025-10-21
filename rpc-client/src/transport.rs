@@ -9,7 +9,7 @@ use typed_builder::TypedBuilder;
 use vg_config::http::listener::ListenerRef;
 
 #[derive(Clone, CloneGetters, TypedBuilder)]
-pub struct ConfigurationTransport {
+pub struct Transport {
     #[getset(get_clone = "pub(crate)")]
     listener_ref: ListenerRef,
     #[getset(get_clone = "pub(crate)")]
@@ -17,7 +17,7 @@ pub struct ConfigurationTransport {
 }
 
 #[derive(Debug, TypedBuilder)]
-pub struct ConfigurationTransportOptions {
+pub struct TransportOptions {
     #[builder(setter(into))]
     listener_ref: ListenerRef,
     #[builder(setter(into))]
@@ -31,10 +31,10 @@ pub enum ConfigurationClientInitError {
 }
 
 #[async_trait]
-impl AsyncTryFrom<ConfigurationTransportOptions> for ConfigurationTransport {
+impl AsyncTryFrom<TransportOptions> for Transport {
     type Error = ConfigurationClientInitError;
 
-    async fn async_try_from(value: ConfigurationTransportOptions) -> Result<Self, Self::Error> {
+    async fn async_try_from(value: TransportOptions) -> Result<Self, Self::Error> {
         let client = WsClientBuilder::new()
             .enable_ws_ping(PingConfig::default())
             .build(value.address.to_string())
@@ -44,7 +44,7 @@ impl AsyncTryFrom<ConfigurationTransportOptions> for ConfigurationTransport {
                 ConfigurationClientInitError::WsClientError
             })?;
 
-        let transport = ConfigurationTransport::builder()
+        let transport = Transport::builder()
             .listener_ref(value.listener_ref)
             .client(Arc::new(client))
             .build();

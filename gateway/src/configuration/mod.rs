@@ -20,8 +20,10 @@ use vg_core::sync::arc_watch::channel;
 use vg_core::sync::broadcast::Traced;
 use vg_core::sync::handles::{Handle, handles};
 use vg_rpc_client::{
-    ConfigurationClient, ConfigurationEventRecvError, ConfigurationEventsReceiver,
+    Client,
 };
+use vg_rpc_client::events::error::RecvError;
+use vg_rpc_client::events::EventReceiver;
 
 #[derive(Default, Debug, Clone, Getters, TypedBuilder)]
 pub struct SourceRoutingConfiguration {
@@ -41,8 +43,8 @@ pub struct SourceBackendConfiguration {
 
 #[derive(TypedBuilder)]
 pub struct SourceConfigurationRegistryOptions {
-    client: ConfigurationClient,
-    events: ConfigurationEventsReceiver,
+    client: Client,
+    events: EventReceiver,
 }
 
 impl From<SourceConfigurationRegistryOptions> for SourceConfigurationRegistry {
@@ -62,8 +64,8 @@ impl From<SourceConfigurationRegistryOptions> for SourceConfigurationRegistry {
 #[derive(TypedBuilder)]
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
 pub struct SourceConfigurationRegistry {
-    client: ConfigurationClient,
-    events: ConfigurationEventsReceiver,
+    client: Client,
+    events: EventReceiver,
     backends_tx: Sender<SourceBackendConfiguration>,
     routing_tx: Sender<SourceRoutingConfiguration>,
 }
@@ -100,7 +102,7 @@ impl SourceConfigurationRegistry {
                                 let context = Context::current().with_span(span);
                                 processor.handle(event).with_context(context).await;
                             }
-                            Err(ConfigurationEventRecvError::Lagged) => {
+                            Err(RecvError::Lagged) => {
                                 processor.init().await;
                             }
                             _ => {

@@ -15,26 +15,27 @@ use tokio::task::JoinSet;
 use vg_core::instrumentation::init;
 use vg_core::net::topology::TopologyLocation;
 use vg_rpc_client::{
-    ConfigurationClient, ConfigurationEventsClient, ConfigurationTransport,
-    ConfigurationTransportOptions,
+    Client
 };
+use vg_rpc_client::events::EventClient;
+use vg_rpc_client::transport::{Transport, TransportOptions};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     init("vg-gateway");
 
-    let transport: ConfigurationTransport = ConfigurationTransportOptions::builder()
+    let transport: Transport = TransportOptions::builder()
         .address(Uri::from_static("ws://localhost:9000"))
         .listener_ref("example_listener".to_string())
         .build()
         .async_try_into()
         .await?;
 
-    let client = ConfigurationClient::builder()
+    let client = Client::builder()
         .transport(transport.clone())
         .build();
 
-    let events = ConfigurationEventsClient::new(transport);
+    let events = EventClient::new(transport);
 
     let events_rx = events.events();
 

@@ -1,4 +1,4 @@
-use crate::ConfigurationEventSinkRegistry;
+use crate::EventSinkRegistry;
 use crate::events::PendingConfigurationEventSink;
 use async_trait::async_trait;
 use jsonrpsee_core::SubscriptionResult;
@@ -10,47 +10,47 @@ use vg_config::http::listener::Listener;
 use vg_config::http::provider::HttpConfigurationProvider;
 use vg_config::http::route::Route;
 use vg_rpc::{
-    ConfigurationApiError, ConfigurationApiServer, GetBackendRequest, GetListenerRequest,
+    ApiError, ApiServer, GetBackendRequest, GetListenerRequest,
     GetRouteRequest, GetSharedFilterRequest, SubscribeEventsRequest,
 };
 
 #[derive(TypedBuilder)]
-pub struct ConfigurationApiServerMethods {
-    event_sinks: ConfigurationEventSinkRegistry,
+pub struct ApiServerImpl {
+    event_sinks: EventSinkRegistry,
     http_configuration: Box<dyn HttpConfigurationProvider>,
 }
 
 #[async_trait]
-impl ConfigurationApiServer for ConfigurationApiServerMethods {
-    async fn listener(&self, req: GetListenerRequest) -> Result<Listener, ConfigurationApiError> {
+impl ApiServer for ApiServerImpl {
+    async fn listener(&self, req: GetListenerRequest) -> Result<Listener, ApiError> {
         self.http_configuration
             .listener(req.listener_ref())
             .await
-            .ok_or(ConfigurationApiError::NotFound)
+            .ok_or(ApiError::NotFound)
     }
 
-    async fn route(&self, req: GetRouteRequest) -> Result<Route, ConfigurationApiError> {
+    async fn route(&self, req: GetRouteRequest) -> Result<Route, ApiError> {
         self.http_configuration
             .route(req.route_ref())
             .await
-            .ok_or(ConfigurationApiError::NotFound)
+            .ok_or(ApiError::NotFound)
     }
 
-    async fn backend(&self, req: GetBackendRequest) -> Result<Backend, ConfigurationApiError> {
+    async fn backend(&self, req: GetBackendRequest) -> Result<Backend, ApiError> {
         self.http_configuration
             .backend(req.backend_ref())
             .await
-            .ok_or(ConfigurationApiError::NotFound)
+            .ok_or(ApiError::NotFound)
     }
 
     async fn shared_filter(
         &self,
         req: GetSharedFilterRequest,
-    ) -> Result<SharedFilter, ConfigurationApiError> {
+    ) -> Result<SharedFilter, ApiError> {
         self.http_configuration
             .shared_filter(req.filter_ref())
             .await
-            .ok_or(ConfigurationApiError::NotFound)
+            .ok_or(ApiError::NotFound)
     }
 
     async fn events(

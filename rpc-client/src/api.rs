@@ -1,6 +1,5 @@
-use crate::ConfigurationTransport;
 use crate::instrumentation::TRACER;
-use jsonrpsee::core::ClientError;
+use jsonrpsee::core::ClientError as JsonrpseeClientError;
 use opentelemetry::trace::{SpanKind, Tracer};
 use std::sync::Arc;
 use thiserror::Error;
@@ -10,17 +9,18 @@ use vg_config::http::filter::{SharedFilter, SharedFilterRef};
 use vg_config::http::listener::Listener;
 use vg_config::http::route::{Route, RouteRef};
 use vg_rpc::{
-    ConfigurationApiClient, ConfigurationApiError, GetBackendRequest, GetListenerRequest,
+    ApiClient, ApiError, GetBackendRequest, GetListenerRequest,
     GetRouteRequest, GetSharedFilterRequest, RequestContext,
 };
+use crate::transport::Transport;
 
 #[derive(Clone, TypedBuilder)]
-pub struct ConfigurationClient {
-    transport: ConfigurationTransport,
+pub struct Client {
+    transport: Transport,
 }
 
-impl ConfigurationClient {
-    pub async fn listener(&self) -> Result<Arc<Listener>, ConfigurationClientError> {
+impl Client {
+    pub async fn listener(&self) -> Result<Arc<Listener>, ClientError> {
         let span = TRACER
             .span_builder("ConfigurationClient::listener")
             .with_kind(SpanKind::Client)
@@ -40,7 +40,7 @@ impl ConfigurationClient {
     pub async fn route(
         &self,
         route_ref: &RouteRef,
-    ) -> Result<Arc<Route>, ConfigurationClientError> {
+    ) -> Result<Arc<Route>, ClientError> {
         let span = TRACER
             .span_builder("ConfigurationClient::route")
             .with_kind(SpanKind::Client)
@@ -59,7 +59,7 @@ impl ConfigurationClient {
     pub async fn backend(
         &self,
         backend_ref: &BackendRef,
-    ) -> Result<Arc<Backend>, ConfigurationClientError> {
+    ) -> Result<Arc<Backend>, ClientError> {
         let span = TRACER
             .span_builder("ConfigurationClient::backend")
             .with_kind(SpanKind::Client)
@@ -78,7 +78,7 @@ impl ConfigurationClient {
     pub async fn shared_filter(
         &self,
         filter_ref: &SharedFilterRef,
-    ) -> Result<Arc<SharedFilter>, ConfigurationClientError> {
+    ) -> Result<Arc<SharedFilter>, ClientError> {
         let span = TRACER
             .span_builder("ConfigurationClient::shared_filter")
             .with_kind(SpanKind::Client)
@@ -96,7 +96,7 @@ impl ConfigurationClient {
 }
 
 #[derive(Debug, Clone, Error)]
-pub enum ConfigurationClientError {
+pub enum ClientError {
     #[error("Listener not found")]
     NotFound,
     #[error("Request timeout")]
@@ -105,15 +105,15 @@ pub enum ConfigurationClientError {
     Unknown,
 }
 
-impl From<ClientError> for ConfigurationClientError {
-    fn from(value: ClientError) -> Self {
+impl From<JsonrpseeClientError> for ClientError {
+    fn from(value: JsonrpseeClientError) -> Self {
         match value {
-            ClientError::Call(err) => match ConfigurationApiError::from(err) {
-                ConfigurationApiError::NotFound => ConfigurationClientError::NotFound,
-                _ => ConfigurationClientError::Unknown,
+            JsonrpseeClientError::Call(err) => match ApiError::from(err) {
+                ApiError::NotFound => ClientError::NotFound,
+                _ => ClientError::Unknown,
             },
-            ClientError::RequestTimeout => ConfigurationClientError::RequestTimeout,
-            _ => ConfigurationClientError::Unknown,
+            JsonrpseeClientError::RequestTimeout => ClientError::RequestTimeout,
+            _ => ClientError::Unknown,
         }
     }
 }

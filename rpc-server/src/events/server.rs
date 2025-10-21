@@ -1,4 +1,4 @@
-use crate::ConfigurationEventSinkRegistry;
+use crate::EventSinkRegistry;
 use crate::events::sinks::{ConfigurationEventSink, ConfigurationEventSinkId};
 use crate::instrumentation::TRACER;
 use dashmap::DashMap;
@@ -10,13 +10,13 @@ use typed_builder::TypedBuilder;
 use vg_config::http::listener::ListenerRef;
 use vg_core::sync::handles::{Handle, handles};
 use vg_core::sync::mpsc::{Receiver, Sender, Traced, channel};
-use vg_rpc::ConfigurationEvent;
+use vg_rpc::Event;
 
 #[derive(Debug)]
 pub struct ConfigurationEventServer {
     sinks: Arc<DashMap<ConfigurationEventSinkId, ConfigurationEventSink>>,
-    tx: Sender<(ListenerRef, ConfigurationEvent)>,
-    rx: Receiver<(ListenerRef, ConfigurationEvent)>,
+    tx: Sender<(ListenerRef, Event)>,
+    rx: Receiver<(ListenerRef, Event)>,
 }
 
 impl Default for ConfigurationEventServer {
@@ -35,8 +35,8 @@ impl ConfigurationEventServer {
         }
     }
 
-    pub fn sinks(&self) -> ConfigurationEventSinkRegistry {
-        ConfigurationEventSinkRegistry::builder()
+    pub fn sinks(&self) -> EventSinkRegistry {
+        EventSinkRegistry::builder()
             .sinks(self.sinks.clone())
             .build()
     }
@@ -90,11 +90,11 @@ impl ConfigurationEventServer {
 
 #[derive(Debug, Clone, TypedBuilder)]
 pub struct ConfigurationEventSender {
-    tx: Sender<(ListenerRef, ConfigurationEvent)>,
+    tx: Sender<(ListenerRef, Event)>,
 }
 
 impl ConfigurationEventSender {
-    pub async fn send(&self, listener_ref: ListenerRef, event: ConfigurationEvent) {
+    pub async fn send(&self, listener_ref: ListenerRef, event: Event) {
         let span = TRACER
             .span_builder("ConfigurationEventSender::send")
             .with_kind(SpanKind::Producer)

@@ -18,26 +18,26 @@ use vg_config::http::route::{Route, RouteRef};
 
 #[derive(FromPrimitive, Debug, Serialize, Deserialize, TryFrom, Clone, Copy)]
 #[repr(u16)]
-pub enum ConfigurationApiError {
+pub enum ApiError {
     NotFound = StatusCode::NOT_FOUND.as_u16(),
     Unknown = StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
 }
 
-impl From<ConfigurationApiError> for ErrorObject<'static> {
-    fn from(val: ConfigurationApiError) -> Self {
+impl From<ApiError> for ErrorObject<'static> {
+    fn from(val: ApiError) -> Self {
         let code = val as i32;
         match val {
-            ConfigurationApiError::NotFound => ErrorObject::borrowed(code, "Not Found", None::<_>),
-            ConfigurationApiError::Unknown => {
+            ApiError::NotFound => ErrorObject::borrowed(code, "Not Found", None::<_>),
+            ApiError::Unknown => {
                 ErrorObject::borrowed(code, "Unknown Error", None::<_>)
             }
         }
     }
 }
 
-impl From<ErrorObjectOwned> for ConfigurationApiError {
+impl From<ErrorObjectOwned> for ApiError {
     fn from(val: ErrorObjectOwned) -> Self {
-        ConfigurationApiError::from_i32(val.code()).unwrap_or(ConfigurationApiError::Unknown)
+        ApiError::from_i32(val.code()).unwrap_or(ApiError::Unknown)
     }
 }
 
@@ -89,7 +89,7 @@ impl AsRef<RequestContext> for RequestContext {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub enum ConfigurationEvent {
+pub enum Event {
     ListenerChanged,
     RouteChanged(RouteRef),
     BackendChanged(BackendRef),
@@ -98,11 +98,11 @@ pub enum ConfigurationEvent {
 
 #[derive(Debug, Serialize, Deserialize, Getters, CloneGetters, Clone, TypedBuilder)]
 #[serde(rename_all = "camelCase")]
-pub struct ConfigurationEventMessage {
+pub struct EventMessage {
     #[getset(get = "pub")]
     context: RequestContext,
     #[getset(get_clone = "pub")]
-    event: ConfigurationEvent,
+    event: Event,
 }
 
 #[derive(Debug, Serialize, Deserialize, Getters, CloneGetters, Clone, TypedBuilder)]
@@ -151,22 +151,22 @@ pub struct GetSharedFilterRequest {
 }
 
 #[rpc(client, server)]
-pub trait ConfigurationApi {
-    #[subscription(name = "subscribeEvents" => "events", item = ConfigurationEventMessage)]
+pub trait Api {
+    #[subscription(name = "subscribeEvents" => "events", item = EventMessage)]
     async fn events(&self, req: SubscribeEventsRequest) -> SubscriptionResult;
 
     #[method(name = "getListener")]
-    async fn listener(&self, req: GetListenerRequest) -> Result<Listener, ConfigurationApiError>;
+    async fn listener(&self, req: GetListenerRequest) -> Result<Listener, ApiError>;
 
     #[method(name = "getRoute")]
-    async fn route(&self, req: GetRouteRequest) -> Result<Route, ConfigurationApiError>;
+    async fn route(&self, req: GetRouteRequest) -> Result<Route, ApiError>;
 
     #[method(name = "getBackend")]
-    async fn backend(&self, req: GetBackendRequest) -> Result<Backend, ConfigurationApiError>;
+    async fn backend(&self, req: GetBackendRequest) -> Result<Backend, ApiError>;
 
     #[method(name = "getSharedFilter")]
     async fn shared_filter(
         &self,
         req: GetSharedFilterRequest,
-    ) -> Result<SharedFilter, ConfigurationApiError>;
+    ) -> Result<SharedFilter, ApiError>;
 }

@@ -1,48 +1,48 @@
-use crate::ConfigurationEventSinkRegistry;
-use crate::api::ConfigurationApiServerMethods;
+use crate::EventSinkRegistry;
+use crate::api::ApiServerImpl;
 use derive_more::From;
 use jsonrpsee::server::{Server, ServerHandle};
 use std::net::SocketAddr;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
 use vg_config::http::provider::HttpConfigurationProvider;
-use vg_rpc::ConfigurationApiServer;
+use vg_rpc::{ApiServer};
 
 #[derive(TypedBuilder)]
-pub struct ConfigurationServerOptions {
+pub struct ApiServerOptions {
     #[builder(setter(into))]
     binding: SocketAddr,
-    event_sinks: ConfigurationEventSinkRegistry,
+    event_sinks: EventSinkRegistry,
     http_configuration: Box<dyn HttpConfigurationProvider>,
 }
 
 #[derive(Debug, Error)]
 #[error("TODO server error")]
-pub struct StartConfigurationServerError;
+pub struct StartApiServerError;
 
 #[derive(From, Clone)]
-pub struct ConfigurationServerHandle(ServerHandle);
+pub struct ApiServerHandle(ServerHandle);
 
-impl ConfigurationServerHandle {
+impl ApiServerHandle {
     pub async fn stopped(self) {
         self.0.stopped().await
     }
 }
 
-impl ConfigurationServerOptions {
+impl ApiServerOptions {
     pub async fn start_server(
         self,
-    ) -> Result<ConfigurationServerHandle, StartConfigurationServerError> {
+    ) -> Result<ApiServerHandle, StartApiServerError> {
         let server = Server::builder()
             .build(self.binding)
             .await
-            .map_err(|_| StartConfigurationServerError)?;
+            .map_err(|_| StartApiServerError)?;
 
-        let methods = ConfigurationApiServerMethods::builder()
+        let api_server = ApiServerImpl::builder()
             .event_sinks(self.event_sinks)
             .http_configuration(self.http_configuration)
             .build();
 
-        Ok(server.start(methods.into_rpc()).into())
+        Ok(server.start(api_server.into_rpc()).into())
     }
 }

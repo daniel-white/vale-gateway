@@ -1,4 +1,3 @@
-use crate::ConfigurationTransport;
 use jsonrpsee::core::ClientError;
 use opentelemetry::Context;
 use opentelemetry::context::FutureExt;
@@ -6,37 +5,39 @@ use opentelemetry::trace::{Span, SpanKind, TraceContextExt, Tracer};
 use thiserror::Error;
 use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
-use vg_core::sync::broadcast::error::RecvError;
+use vg_core::sync::broadcast::error::RecvError as BroadcastRecvErr;
 use vg_core::sync::broadcast::{Receiver, Sender, Traced, channel};
 use vg_core::sync::handles::{Handle, handles};
 use vg_rpc::{
-    ConfigurationApiClient, ConfigurationApiError, RequestContext, SubscribeEventsRequest,
+    ApiClient, ApiError, RequestContext, SubscribeEventsRequest,
 };
 
 use crate::instrumentation::TRACER;
-pub use vg_rpc::ConfigurationEvent;
+pub use vg_rpc::Event;
+use crate::events::error::RecvError;
+use crate::transport::Transport;
 
-pub struct ConfigurationEventsClient {
-    transport: ConfigurationTransport,
-    tx: Sender<ConfigurationEvent>,
+pub struct EventClient {
+    transport: Transport,
+    tx: Sender<Event>,
 }
 
-impl ConfigurationEventsClient {
-    pub fn new(transport: ConfigurationTransport) -> Self {
+impl EventClient {
+    pub fn new(transport: Transport) -> Self {
         let (tx, _) = channel(32);
         Self { transport, tx }
     }
 
-    pub fn events(&self) -> ConfigurationEventsReceiver {
-        ConfigurationEventsReceiver::builder()
+    pub fn events(&self) -> EventReceiver {
+        EventReceiver::builder()
             .tx(self.tx.clone())
             .rx(self.tx.subscribe())
             .build()
     }
 
-    pub async fn start(self) -> Result<Handle, ConfigurationEventClientError> {
+    pub async fn start(self) -> Result<Handle, EventClientError> {
         let span = TRACER
-            .span_builder("ConfigurationEventClient::events")
+            .span_builder("EventClient::start")
             .with_kind(SpanKind::Client)
             .start(&*TRACER);
         let client = self.transport.client();
@@ -57,7 +58,7 @@ impl ConfigurationEventsClient {
                     event = subscription.next() => {
                         if let Some(Ok(event)) = event {
                             let channel = event.context().propagation_channel();
-                            let mut span = TRACER.span_builder("ConfigurationEventClient::recv")
+                            let mut span = TRACER.span_builder("EventClient::recv")
                                 .with_kind(SpanKind::Consumer)
                                 .start_with_context(&*TRACER, &channel.into());
                             let _ = self.tx.send(event.event());
@@ -81,7 +82,7 @@ impl ConfigurationEventsClient {
 }
 
 #[derive(Debug, Error)]
-pub enum ConfigurationEventClientError {
+pub enum EventClientError {
     #[error("Listener not found")]
     NotFound,
     #[error("Request timeout")]
@@ -90,35 +91,29 @@ pub enum ConfigurationEventClientError {
     Unknown,
 }
 
-impl From<ClientError> for ConfigurationEventClientError {
+impl From<ClientError> for EventClientError {
     fn from(value: ClientError) -> Self {
         match value {
-            ClientError::Call(err) => match ConfigurationApiError::from(err) {
-                ConfigurationApiError::NotFound => ConfigurationEventClientError::NotFound,
-                _ => ConfigurationEventClientError::Unknown,
+            ClientError::Call(err) => match ApiError::from(err) {
+                ApiError::NotFound => EventClientError::NotFound,
+                _ => EventClientError::Unknown,
             },
-            ClientError::RequestTimeout => ConfigurationEventClientError::RequestTimeout,
-            _ => ConfigurationEventClientError::Unknown,
+            ClientError::RequestTimeout => EventClientError::RequestTimeout,
+            _ => EventClientError::Unknown,
         }
     }
 }
 
-#[derive(Debug, Error)]
-pub enum ConfigurationEventRecvError {
-    #[error("Channel is closed")]
-    Closed,
-    #[error("Channel has lagged")]
-    Lagged,
-}
+
 
 #[derive(Debug, TypedBuilder)]
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
-pub struct ConfigurationEventsReceiver {
-    tx: Sender<ConfigurationEvent>,
-    rx: Receiver<ConfigurationEvent>,
+pub struct EventReceiver {
+    tx: Sender<Event>,
+    rx: Receiver<Event>,
 }
 
-impl Clone for ConfigurationEventsReceiver {
+impl Clone for EventReceiver {
     fn clone(&self) -> Self {
         Self::builder()
             .tx(self.tx.clone())
@@ -127,19 +122,19 @@ impl Clone for ConfigurationEventsReceiver {
     }
 }
 
-impl ConfigurationEventsReceiver {
+impl EventReceiver {
     pub async fn recv(
         &mut self,
-    ) -> Result<Traced<ConfigurationEvent>, ConfigurationEventRecvError> {
+    ) -> Result<Traced<Event>, RecvError> {
         let span = TRACER
-            .span_builder("ConfigurationEventReceiver::recv")
+            .span_builder("EventReceiver::recv")
             .with_kind(SpanKind::Consumer)
             .start(&*TRACER);
         let context = Context::current().with_span(span);
         match self.rx.recv().with_context(context).await {
             Ok(value) => Ok(value),
-            Err(RecvError::Closed) => Err(ConfigurationEventRecvError::Closed),
-            Err(RecvError::Lagged(_)) => Err(ConfigurationEventRecvError::Lagged),
+            Err(BroadcastRecvErr::Closed) => Err(RecvError::Closed),
+            Err(BroadcastRecvErr::Lagged(_)) => Err(RecvError::Lagged),
         }
     }
 

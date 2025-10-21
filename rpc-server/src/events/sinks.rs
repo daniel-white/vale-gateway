@@ -9,7 +9,7 @@ use std::sync::Arc;
 use typed_builder::TypedBuilder;
 use vg_config::http::listener::ListenerRef;
 use vg_rpc::{
-    ConfigurationApiError, ConfigurationEvent, ConfigurationEventMessage, RequestContext,
+    ApiError, Event, EventMessage, RequestContext,
 };
 
 #[derive(Debug, TypedBuilder)]
@@ -33,7 +33,7 @@ impl PendingConfigurationEventSink {
         }
     }
 
-    pub async fn reject(self, error: ConfigurationApiError) -> Result<(), ConfigurationApiError> {
+    pub async fn reject(self, error: ApiError) -> Result<(), ApiError> {
         self.sink.reject(error).await;
         Ok(())
     }
@@ -58,13 +58,13 @@ impl ConfigurationEventSink {
         self.sink.is_closed()
     }
 
-    pub async fn send(&self, event: ConfigurationEvent) -> Result<(), ()> {
+    pub async fn send(&self, event: Event) -> Result<(), ()> {
         // TODO handle serialization error
         let span = TRACER
             .span_builder("ConfigurationEventSink::send")
             .with_kind(SpanKind::Producer)
             .start(&*TRACER);
-        let message = ConfigurationEventMessage::builder()
+        let message = EventMessage::builder()
             .context(RequestContext::new(span))
             .event(event)
             .build();
@@ -88,15 +88,15 @@ impl ConfigurationEventSink {
 }
 
 #[derive(Debug, TypedBuilder)]
-pub struct ConfigurationEventSinkRegistry {
+pub struct EventSinkRegistry {
     sinks: Arc<DashMap<ConfigurationEventSinkId, ConfigurationEventSink>>,
 }
 
-impl ConfigurationEventSinkRegistry {
+impl EventSinkRegistry {
     pub async fn try_register(
         &self,
         pending_sink: PendingConfigurationEventSink,
-    ) -> Result<(), ConfigurationApiError> {
+    ) -> Result<(), ApiError> {
         // TODO validate and accept/reject the pending sink
 
         let sink = pending_sink.accept().await.unwrap();

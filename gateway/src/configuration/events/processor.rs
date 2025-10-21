@@ -7,11 +7,12 @@ use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::filter::{SharedFilter, SharedFilterRef};
 use vg_config::http::route::{Route, RouteRef};
 use vg_core::sync::arc_watch::Sender;
-use vg_rpc_client::{ConfigurationClient, ConfigurationClientError, ConfigurationEvent};
+use vg_rpc_client::{Client, ClientError};
+use vg_rpc_client::events::Event;
 
 #[derive(TypedBuilder)]
 pub struct ConfigurationEventProcessor {
-    client: ConfigurationClient,
+    client: Client,
     #[builder(default, setter(skip))]
     backends: TVar<SourceBackendConfiguration>,
     backends_tx: Sender<SourceBackendConfiguration>,
@@ -25,18 +26,18 @@ impl ConfigurationEventProcessor {
         let _ = self.sync_all().await;
     }
 
-    pub async fn handle(&self, event: ConfigurationEvent) {
+    pub async fn handle(&self, event: Event) {
         match event {
-            ConfigurationEvent::ListenerChanged => {
+            Event::ListenerChanged => {
                 let _ = self.sync_all().await;
             }
-            ConfigurationEvent::RouteChanged(route_ref) => {
+            Event::RouteChanged(route_ref) => {
                 let _ = self.sync_route(route_ref).await;
             }
-            ConfigurationEvent::BackendChanged(backend_ref) => {
+            Event::BackendChanged(backend_ref) => {
                 let _ = self.sync_backend(backend_ref).await;
             }
-            ConfigurationEvent::SharedFilterChanged(filter_ref) => {
+            Event::SharedFilterChanged(filter_ref) => {
                 let _ = self.sync_shared_filter(filter_ref).await;
             }
         };
@@ -171,7 +172,7 @@ impl ConfigurationEventProcessor {
     async fn fetch_routes(
         &self,
         route_refs: &[RouteRef],
-    ) -> Vec<Result<Arc<Route>, ConfigurationClientError>> {
+    ) -> Vec<Result<Arc<Route>, ClientError>> {
         let routes = route_refs
             .iter()
             .map(|route_ref| self.client.route(route_ref));
@@ -182,7 +183,7 @@ impl ConfigurationEventProcessor {
     async fn fetch_backends(
         &self,
         backend_refs: &[BackendRef],
-    ) -> Vec<Result<Arc<Backend>, ConfigurationClientError>> {
+    ) -> Vec<Result<Arc<Backend>, ClientError>> {
         let backends = backend_refs
             .iter()
             .map(|backend_ref| self.client.backend(backend_ref));
@@ -193,7 +194,7 @@ impl ConfigurationEventProcessor {
     async fn fetch_shared_filters(
         &self,
         filter_refs: &[SharedFilterRef],
-    ) -> Vec<Result<Arc<SharedFilter>, ConfigurationClientError>> {
+    ) -> Vec<Result<Arc<SharedFilter>, ClientError>> {
         let filters = filter_refs
             .iter()
             .map(|filter_ref| self.client.shared_filter(filter_ref));
