@@ -1,6 +1,6 @@
 use crate::instrumentation::TRACER;
 use dashmap::DashMap;
-use getset::Getters;
+use getset::{CloneGetters, Getters};
 use jsonrpsee_core::server::{
     ConnectionId, PendingSubscriptionSink, SubscriptionMessage, SubscriptionSink,
 };
@@ -8,29 +8,31 @@ use opentelemetry::trace::{FutureExt, SpanKind, Tracer};
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
 use vg_config::http::listener::ListenerRef;
-use vg_rpc::{
-    ApiError, Event, EventMessage, RequestContext,
-};
+use vg_rpc::{ApiError, Event, EventMessage, RequestContext};
 
 #[derive(Debug, TypedBuilder)]
-pub struct PendingConfigurationEventSink {
+#[builder(builder_method(vis = "pub(crate)"), builder_type(vis = "pub(crate)"))]
+pub struct PendingEventSink {
     listener_ref: ListenerRef,
     sink: PendingSubscriptionSink,
 }
 
-impl PendingConfigurationEventSink {
+impl PendingEventSink {
     pub fn connection_id(&self) -> ConnectionId {
         self.sink.connection_id()
     }
 
-    pub async fn accept(self) -> Result<ConfigurationEventSink, ()> {
-        match self.sink.accept().await {
-            Ok(sink) => Ok(ConfigurationEventSink::builder()
-                .listener_ref(self.listener_ref)
-                .sink(sink)
-                .build()),
-            Err(_) => Err(()), // TODO: handle error
-        }
+    pub async fn accept(self) -> Result<EventSink, ()> {
+        let sink =  self.sink.accept().await.map_err(|_| ())?; // TODO: handle error) 
+        
+        let sink = EventSink::builder()
+            .listener_ref(self.listener_ref)
+            .sink(sink)
+            .build();
+
+        let _ = sink.send(Event::Initialize).await?; // TODO handle error
+        
+        Ok(sink)
     }
 
     pub async fn reject(self, error: ApiError) -> Result<(), ApiError> {
@@ -40,22 +42,27 @@ impl PendingConfigurationEventSink {
 }
 
 #[derive(Debug, Clone, TypedBuilder, Getters)]
-pub struct ConfigurationEventSink {
+#[builder(builder_method(vis = ""), builder_type(vis = ""))]
+pub struct EventSink {
     #[getset(get = "pub")]
     listener_ref: ListenerRef,
     sink: SubscriptionSink,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ConfigurationEventSinkId(ConnectionId);
+pub struct EventSinkId(ConnectionId);
 
-impl ConfigurationEventSink {
-    pub fn connection_id(&self) -> ConfigurationEventSinkId {
-        ConfigurationEventSinkId(self.sink.connection_id())
+impl EventSink {
+    pub fn id(&self) -> EventSinkId {
+        EventSinkId(self.sink.connection_id())
     }
 
     pub fn is_closed(&self) -> bool {
         self.sink.is_closed()
+    }
+
+    pub async fn closed(&self) {
+        self.sink.closed().await
     }
 
     pub async fn send(&self, event: Event) -> Result<(), ()> {
@@ -81,26 +88,26 @@ impl ConfigurationEventSink {
             .await
             .map_err(|_| ())
     }
-
-    pub async fn closed(&self) {
-        self.sink.closed().await
-    }
 }
 
-#[derive(Debug, TypedBuilder)]
+#[derive(Clone, Debug, TypedBuilder, CloneGetters)]
+#[builder(builder_method(vis = "pub(crate)"), builder_type(vis = "pub(crate)"))]
 pub struct EventSinkRegistry {
-    sinks: Arc<DashMap<ConfigurationEventSinkId, ConfigurationEventSink>>,
+    #[builder(default, setter(skip))]
+    #[getset(get_clone = "pub(crate)")]
+    sinks: Arc<DashMap<EventSinkId, EventSink>>,
 }
 
 impl EventSinkRegistry {
-    pub async fn try_register(
+    pub(crate) async fn try_register(
         &self,
-        pending_sink: PendingConfigurationEventSink,
+        pending_sink: PendingEventSink,
     ) -> Result<(), ApiError> {
         // TODO validate and accept/reject the pending sink
 
         let sink = pending_sink.accept().await.unwrap();
-        self.sinks.insert(sink.connection_id(), sink);
+        self.sinks.insert(sink.id(), sink);
+        
 
         Ok(())
     }

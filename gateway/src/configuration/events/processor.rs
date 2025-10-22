@@ -1,5 +1,5 @@
 use crate::configuration::{SourceBackendConfiguration, SourceRoutingConfiguration};
-use async_stm::{TVar, atomically};
+use async_stm::{atomically, TVar};
 use futures::future::join_all;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
@@ -7,12 +7,13 @@ use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::filter::{SharedFilter, SharedFilterRef};
 use vg_config::http::route::{Route, RouteRef};
 use vg_core::sync::arc_watch::Sender;
-use vg_rpc_client::{ApiClient, ClientError};
 use vg_rpc_client::events::Event;
+use vg_rpc_client::api::ApiClient;
+use vg_rpc_client::api::error::ApiClientError;
 
 #[derive(TypedBuilder)]
 pub struct ConfigurationEventProcessor {
-    client: ApiClient,
+    api_client: ApiClient,
     #[builder(default, setter(skip))]
     backends: TVar<SourceBackendConfiguration>,
     backends_tx: Sender<SourceBackendConfiguration>,
@@ -27,8 +28,9 @@ impl ConfigurationEventProcessor {
     }
 
     pub async fn handle(&self, event: Event) {
+        println!("event! {:?}", event);
         match event {
-            Event::ListenerChanged => {
+            Event::Initialize | Event::ListenerChanged => {
                 let _ = self.sync_all().await;
             }
             Event::RouteChanged(route_ref) => {
@@ -44,7 +46,7 @@ impl ConfigurationEventProcessor {
     }
 
     async fn sync_all(&self) -> Result<(), ()> {
-        let listener = self.client.listener().await.map_err(|_| ())?;
+        let listener = self.api_client.listener().await.map_err(|_| ())?;
         let routes = self.fetch_routes(listener.route_refs()).await;
         let shared_filters = self
             .fetch_shared_filters(listener.shared_filter_refs())
@@ -94,7 +96,7 @@ impl ConfigurationEventProcessor {
     }
 
     async fn sync_route(&self, route_ref: RouteRef) -> Result<(), ()> {
-        let route = self.client.route(&route_ref).await.map_err(|_| ())?;
+        let route = self.api_client.route(&route_ref).await.map_err(|_| ())?;
 
         let routing = atomically(|| {
             let routing = self.routing.read()?;
@@ -122,7 +124,7 @@ impl ConfigurationEventProcessor {
 
     async fn sync_shared_filter(&self, filter_ref: SharedFilterRef) -> Result<(), ()> {
         let shared_filter = self
-            .client
+            .api_client
             .shared_filter(&filter_ref)
             .await
             .map_err(|_| ())?;
@@ -151,7 +153,11 @@ impl ConfigurationEventProcessor {
     }
 
     async fn sync_backend(&self, backend_ref: BackendRef) -> Result<(), ()> {
-        let backend = self.client.backend(&backend_ref).await.map_err(|_| ())?;
+        let backend = self
+            .api_client
+            .backend(&backend_ref)
+            .await
+            .map_err(|_| ())?;
 
         let backends = atomically(|| {
             let backends = self.backends.read()?;
@@ -172,10 +178,10 @@ impl ConfigurationEventProcessor {
     async fn fetch_routes(
         &self,
         route_refs: &[RouteRef],
-    ) -> Vec<Result<Arc<Route>, ClientError>> {
+    ) -> Vec<Result<Arc<Route>, ApiClientError>> {
         let routes = route_refs
             .iter()
-            .map(|route_ref| self.client.route(route_ref));
+            .map(|route_ref| self.api_client.route(route_ref));
 
         join_all(routes).await
     }
@@ -183,10 +189,10 @@ impl ConfigurationEventProcessor {
     async fn fetch_backends(
         &self,
         backend_refs: &[BackendRef],
-    ) -> Vec<Result<Arc<Backend>, ClientError>> {
+    ) -> Vec<Result<Arc<Backend>, ApiClientError>> {
         let backends = backend_refs
             .iter()
-            .map(|backend_ref| self.client.backend(backend_ref));
+            .map(|backend_ref| self.api_client.backend(backend_ref));
 
         join_all(backends).await
     }
@@ -194,10 +200,10 @@ impl ConfigurationEventProcessor {
     async fn fetch_shared_filters(
         &self,
         filter_refs: &[SharedFilterRef],
-    ) -> Vec<Result<Arc<SharedFilter>, ClientError>> {
+    ) -> Vec<Result<Arc<SharedFilter>, ApiClientError>> {
         let filters = filter_refs
             .iter()
-            .map(|filter_ref| self.client.shared_filter(filter_ref));
+            .map(|filter_ref| self.api_client.shared_filter(filter_ref));
 
         join_all(filters).await
     }

@@ -28,9 +28,7 @@ impl From<ApiError> for ErrorObject<'static> {
         let code = val as i32;
         match val {
             ApiError::NotFound => ErrorObject::borrowed(code, "Not Found", None::<_>),
-            ApiError::Unknown => {
-                ErrorObject::borrowed(code, "Unknown Error", None::<_>)
-            }
+            ApiError::Unknown => ErrorObject::borrowed(code, "Unknown Error", None::<_>),
         }
     }
 }
@@ -90,6 +88,7 @@ impl AsRef<RequestContext> for RequestContext {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum Event {
+    Initialize,
     ListenerChanged,
     RouteChanged(RouteRef),
     BackendChanged(BackendRef),
@@ -165,8 +164,5 @@ pub trait Api {
     async fn backend(&self, req: GetBackendRequest) -> Result<Backend, ApiError>;
 
     #[method(name = "getSharedFilter")]
-    async fn shared_filter(
-        &self,
-        req: GetSharedFilterRequest,
-    ) -> Result<SharedFilter, ApiError>;
+    async fn shared_filter(&self, req: GetSharedFilterRequest) -> Result<SharedFilter, ApiError>;
 }

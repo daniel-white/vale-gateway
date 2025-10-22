@@ -1,53 +1,47 @@
-use crate::EventSinkRegistry;
-use crate::events::PendingConfigurationEventSink;
+use std::sync::Arc;
 use async_trait::async_trait;
-use jsonrpsee_core::SubscriptionResult;
 use jsonrpsee_core::server::PendingSubscriptionSink;
+use jsonrpsee_core::SubscriptionResult;
 use typed_builder::TypedBuilder;
 use vg_config::http::backend::Backend;
 use vg_config::http::filter::SharedFilter;
 use vg_config::http::listener::Listener;
-use vg_config::http::provider::HttpConfigurationProvider;
+use vg_config::provider::DataProvider;
 use vg_config::http::route::Route;
-use vg_rpc::{
-    ApiError, ApiServer, GetBackendRequest, GetListenerRequest,
-    GetRouteRequest, GetSharedFilterRequest, SubscribeEventsRequest,
-};
+use vg_rpc::{ApiError, ApiServer, GetBackendRequest, GetListenerRequest, GetRouteRequest, GetSharedFilterRequest, SubscribeEventsRequest};
+use crate::events::sinks::{EventSinkRegistry, PendingEventSink};
 
 #[derive(TypedBuilder)]
-pub struct ApiServerImpl {
+pub struct ApiServerMethods {
     event_sinks: EventSinkRegistry,
-    http_configuration: Box<dyn HttpConfigurationProvider>,
+    data_provider: Arc<dyn DataProvider>,
 }
 
 #[async_trait]
-impl ApiServer for ApiServerImpl {
+impl ApiServer for ApiServerMethods {
     async fn listener(&self, req: GetListenerRequest) -> Result<Listener, ApiError> {
-        self.http_configuration
+        self.data_provider
             .listener(req.listener_ref())
             .await
             .ok_or(ApiError::NotFound)
     }
 
     async fn route(&self, req: GetRouteRequest) -> Result<Route, ApiError> {
-        self.http_configuration
+        self.data_provider
             .route(req.route_ref())
             .await
             .ok_or(ApiError::NotFound)
     }
 
     async fn backend(&self, req: GetBackendRequest) -> Result<Backend, ApiError> {
-        self.http_configuration
+        self.data_provider
             .backend(req.backend_ref())
             .await
             .ok_or(ApiError::NotFound)
     }
 
-    async fn shared_filter(
-        &self,
-        req: GetSharedFilterRequest,
-    ) -> Result<SharedFilter, ApiError> {
-        self.http_configuration
+    async fn shared_filter(&self, req: GetSharedFilterRequest) -> Result<SharedFilter, ApiError> {
+        self.data_provider
             .shared_filter(req.filter_ref())
             .await
             .ok_or(ApiError::NotFound)
@@ -58,7 +52,7 @@ impl ApiServer for ApiServerImpl {
         subscription_sink: PendingSubscriptionSink,
         req: SubscribeEventsRequest,
     ) -> SubscriptionResult {
-        let pending_sink = PendingConfigurationEventSink::builder()
+        let pending_sink = PendingEventSink::builder()
             .listener_ref(req.listener_ref())
             .sink(subscription_sink)
             .build();

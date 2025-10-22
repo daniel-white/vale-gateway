@@ -14,12 +14,12 @@ use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::filter::{SharedFilter, SharedFilterRef};
 use vg_config::http::listener::Listener;
 use vg_config::http::route::{Route, RouteRef};
-pub use vg_core::sync::arc_watch::Receiver;
+use vg_core::sync::arc_watch::Receiver;
 use vg_core::sync::arc_watch::Sender;
 use vg_core::sync::arc_watch::channel;
 use vg_core::sync::broadcast::Traced;
 use vg_core::sync::handles::{Handle, handles};
-use vg_rpc_client::ApiClient;
+use vg_rpc_client::api::ApiClient;
 use vg_rpc_client::events::error::RecvError;
 use vg_rpc_client::events::EventReceiver;
 
@@ -41,7 +41,7 @@ pub struct SourceBackendConfiguration {
 
 #[derive(TypedBuilder)]
 pub struct SourceConfigurationRegistryOptions {
-    client: ApiClient,
+    api_client: ApiClient,
     events: EventReceiver,
 }
 
@@ -51,7 +51,7 @@ impl From<SourceConfigurationRegistryOptions> for SourceConfigurationRegistry {
         let (routing_tx, _) = channel();
 
         Self::builder()
-            .client(value.client)
+            .api_client(value.api_client)
             .events(value.events)
             .backends_tx(backends_tx)
             .routing_tx(routing_tx)
@@ -62,7 +62,7 @@ impl From<SourceConfigurationRegistryOptions> for SourceConfigurationRegistry {
 #[derive(TypedBuilder)]
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
 pub struct SourceConfigurationRegistry {
-    client: ApiClient,
+    api_client: ApiClient,
     events: EventReceiver,
     backends_tx: Sender<SourceBackendConfiguration>,
     routing_tx: Sender<SourceRoutingConfiguration>,
@@ -82,7 +82,7 @@ impl SourceConfigurationRegistry {
         let mut events = self.events;
 
         let processor = ConfigurationEventProcessor::builder()
-            .client(self.client)
+            .api_client(self.api_client)
             .routing_tx(self.routing_tx)
             .backends_tx(self.backends_tx)
             .build();

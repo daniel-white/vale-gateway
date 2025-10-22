@@ -1,4 +1,4 @@
-use crate::configuration::{Receiver, SourceBackendConfiguration};
+use crate::configuration::{SourceBackendConfiguration};
 use async_stm::{TVar, atomically};
 use enumflags2::BitFlags;
 use getset::{CloneGetters, Getters};
@@ -9,7 +9,7 @@ use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
 use vg_config::http::backend::{Backend as BackendConfig, BackendRef};
 use vg_core::net::topology::{TopologyLocation, TopologyLocationMatch};
-use vg_core::sync::arc_watch::{Sender, channel};
+use vg_core::sync::arc_watch::{Receiver, Sender, channel};
 use vg_core::sync::handles::{Handle, handles};
 
 #[derive(TypedBuilder, Clone, Debug, Getters, CloneGetters)]

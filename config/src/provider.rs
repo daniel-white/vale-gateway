@@ -5,7 +5,7 @@ use crate::http::route::{Route, RouteRef};
 use async_trait::async_trait;
 
 #[async_trait]
-pub trait HttpConfigurationProvider: Send + Sync {
+pub trait DataProvider: Send + Sync {
     async fn listener(&self, listener_ref: ListenerRef) -> Option<Listener>;
 
     async fn route(&self, route_ref: RouteRef) -> Option<Route>;

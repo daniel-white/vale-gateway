@@ -13,11 +13,9 @@ use tokio::select;
 use tokio::task::JoinSet;
 use vg_core::instrumentation::init;
 use vg_core::net::topology::TopologyLocation;
-use vg_rpc_client::{
-    ApiClient
-};
-use vg_rpc_client::events::EventClient;
+use vg_rpc_client::events::{EventClient, EventClientOptions};
 use vg_rpc_client::transport::{Transport, TransportOptions};
+use vg_rpc_client::api::{ApiClient, ApiClientOptions};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -29,20 +27,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .build()
         .try_into()?;
 
-    let api = ApiClient::builder()
+    let api_client: ApiClient = ApiClientOptions::builder()
         .transport_client(transport.client())
-        .build();
+        .build()
+        .into();
 
-    let events = EventClient::new(transport.client());
-
-    let events_rx = events.events();
+    let event_client: EventClient = EventClientOptions::builder()
+        .capacity(32)
+        .transport_client(transport.client())
+        .build()
+        .try_into()?;
 
     let current_location = CurrentLocationConfigurator::new();
 
     let source_configuration: SourceConfigurationRegistry =
         SourceConfigurationRegistryOptions::builder()
-            .client(api)
-            .events(events_rx)
+            .api_client(api_client)
+            .events(event_client.events())
             .build()
             .into();
 
@@ -74,7 +75,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let shared_filter_handlers = shared_filter_handlers.start();
     let backends_configurator = backends_configurator.start();
     let source_configuration = source_configuration.start();
-    let event_client = events.start();
+    let event_client = event_client.start();
 
     let mut js = JoinSet::new();
 
