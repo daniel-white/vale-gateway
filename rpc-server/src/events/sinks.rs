@@ -8,6 +8,7 @@ use opentelemetry::trace::{FutureExt, SpanKind, Tracer};
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
 use vg_config::http::listener::ListenerRef;
+use vg_config::provider::ConfigurationProvider;
 use vg_rpc::{ApiError, Event, EventMessage, RequestContext};
 
 #[derive(Debug, TypedBuilder)]
@@ -35,9 +36,8 @@ impl PendingEventSink {
         Ok(sink)
     }
 
-    pub async fn reject(self, error: ApiError) -> Result<(), ApiError> {
-        self.sink.reject(error).await;
-        Ok(())
+    pub async fn reject(self, error: ApiError) {
+        self.sink.reject(error).await
     }
 }
 
@@ -90,12 +90,13 @@ impl EventSink {
     }
 }
 
-#[derive(Clone, Debug, TypedBuilder, CloneGetters)]
+#[derive(Clone, TypedBuilder, CloneGetters)]
 #[builder(builder_method(vis = "pub(crate)"), builder_type(vis = "pub(crate)"))]
 pub struct EventSinkRegistry {
     #[builder(default, setter(skip))]
     #[getset(get_clone = "pub(crate)")]
     sinks: Arc<DashMap<EventSinkId, EventSink>>,
+    configuration: Arc<dyn ConfigurationProvider>
 }
 
 impl EventSinkRegistry {
@@ -103,11 +104,13 @@ impl EventSinkRegistry {
         &self,
         pending_sink: PendingEventSink,
     ) -> Result<(), ApiError> {
-        // TODO validate and accept/reject the pending sink
+        if !self.configuration.listener_exists(&pending_sink.listener_ref).await {
+            pending_sink.reject(ApiError::NotFound).await;
+            return Err(ApiError::NotFound)
+        }
 
-        let sink = pending_sink.accept().await.unwrap();
+        let sink = pending_sink.accept().await.map_err(|_| ApiError::Unknown)?;
         self.sinks.insert(sink.id(), sink);
-        
 
         Ok(())
     }

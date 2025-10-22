@@ -13,15 +13,17 @@ use getset::CloneGetters;
 use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
 use vg_config::http::listener::ListenerRef;
+use vg_config::provider::ConfigurationProvider;
 use vg_core::sync::handles::{Handle, handles};
 use vg_core::sync::mpsc::{Receiver, Sender, Traced, channel};
 
-#[derive(Debug, TypedBuilder)]
+#[derive(TypedBuilder)]
 pub struct EventBrokerOptions {
-    capacity: usize
+    capacity: usize,
+    configuration: Arc<dyn ConfigurationProvider>
 }
 
-#[derive(Debug, TypedBuilder, CloneGetters)]
+#[derive(TypedBuilder, CloneGetters)]
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
 pub struct EventBroker {
     #[getset(get_clone = "pub")]
@@ -33,7 +35,9 @@ pub struct EventBroker {
 impl From<EventBrokerOptions> for EventBroker {
     fn from(value: EventBrokerOptions) -> Self {
         let (sender, receiver) = channel(value.capacity);
-        let sinks = EventSinkRegistry::builder().build();
+        let sinks = EventSinkRegistry::builder()
+            .configuration(value.configuration)
+            .build();
         Self::builder()
             .sinks(sinks)
             .sender(sender)

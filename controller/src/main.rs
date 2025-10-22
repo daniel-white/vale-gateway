@@ -11,7 +11,7 @@ use vg_config::http::backend::{Backend, BackendEndpoint, BackendRef};
 use vg_config::http::filter::{SharedFilter, SharedFilterRef};
 use vg_config::http::listener::policy::ListenerPolicies;
 use vg_config::http::listener::{Listener, ListenerRef};
-use vg_config::provider::DataProvider;
+use vg_config::provider::ConfigurationProvider;
 use vg_config::http::route::{Route, RouteRef};
 use vg_core::instrumentation::init;
 use vg_rpc_server::api::{ApiServer, ApiServerOptions};
@@ -20,11 +20,11 @@ use vg_rpc_server::events::{Event, EventBroker, EventBrokerOptions};
 pub struct HttpConfigProvider;
 
 #[async_trait]
-impl DataProvider for HttpConfigProvider {
-    async fn listener(&self, listener_ref: ListenerRef) -> Option<Listener> {
+impl ConfigurationProvider for HttpConfigProvider {
+    async fn listener(&self, listener_ref: &ListenerRef) -> Option<Listener> {
         let beref = BackendRef::from("be1".to_string());
         let l = Listener::builder()
-            .ref_(listener_ref)
+            .ref_(listener_ref.clone())
             .policies(ListenerPolicies::default())
             .backend_refs(vec![beref])
             .route_refs(Vec::new())
@@ -34,12 +34,13 @@ impl DataProvider for HttpConfigProvider {
 
         Some(l)
     }
+    
 
-    async fn route(&self, route_ref: RouteRef) -> Option<Route> {
+    async fn route(&self, route_ref: &RouteRef) -> Option<Route> {
         None
     }
 
-    async fn backend(&self, backend_ref: BackendRef) -> Option<Backend> {
+    async fn backend(&self, backend_ref: &BackendRef) -> Option<Backend> {
         let ep1 = BackendEndpoint::builder()
             .addrs(Vec::new())
             .node(Some("a".to_string()))
@@ -60,7 +61,7 @@ impl DataProvider for HttpConfigProvider {
         Some(be)
     }
 
-    async fn shared_filter(&self, filter_ref: SharedFilterRef) -> Option<SharedFilter> {
+    async fn shared_filter(&self, filter_ref: &SharedFilterRef) -> Option<SharedFilter> {
         None
     }
 }
@@ -70,8 +71,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     init("vg-controller");
 
     let mut join_set: JoinSet<()> = JoinSet::new();
-    
+    let configuration = Arc::from(HttpConfigProvider);
     let event_broker: EventBroker = EventBrokerOptions::builder()
+        .configuration(configuration.clone())
         .capacity(1024)
         .build()
         .into();
@@ -79,7 +81,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let api_server: ApiServer = ApiServerOptions::builder()
         .binding(SocketAddr::from_str("0.0.0.0:9000").unwrap())
         .event_sinks(event_broker.sinks())
-        .data_provider(Arc::from(HttpConfigProvider))
+        .configuration(configuration)
         .build()
         .into();
 

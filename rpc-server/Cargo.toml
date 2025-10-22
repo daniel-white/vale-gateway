@@ -12,6 +12,7 @@ derive_more.workspace = true
 jsonrpsee = { workspace = true, features = ["tracing", "server"] }
 jsonrpsee-core.workspace = true
 opentelemetry.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tower-layer.workspace = true

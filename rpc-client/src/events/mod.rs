@@ -79,8 +79,10 @@ impl EventClient {
                             break 'main;
                         }
                         result = client.events(req) => {
+                            println!("subscription result: {:?}", result);
                             let Ok(mut subscription) = result else {
                                 // TODO add backoff and use tokio-retry
+                                println!("subscription failed");
                                 transport_client.request_reconnect().await;
                                 tokio::time::sleep(Duration::from_secs(1)).await;
                                 break 'subscription;

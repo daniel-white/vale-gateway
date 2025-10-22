@@ -118,7 +118,7 @@ pub struct SubscribeEventsRequest {
 pub struct GetListenerRequest {
     #[getset(get = "pub")]
     context: RequestContext,
-    #[getset(get_clone = "pub")]
+    #[getset(get = "pub")]
     listener_ref: ListenerRef,
 }
 
@@ -127,7 +127,7 @@ pub struct GetListenerRequest {
 pub struct GetRouteRequest {
     #[getset(get = "pub")]
     context: RequestContext,
-    #[getset(get_clone = "pub")]
+    #[getset(get = "pub")]
     route_ref: RouteRef,
 }
 
@@ -136,7 +136,7 @@ pub struct GetRouteRequest {
 pub struct GetBackendRequest {
     #[getset(get = "pub")]
     context: RequestContext,
-    #[getset(get_clone = "pub")]
+    #[getset(get = "pub")]
     backend_ref: BackendRef,
 }
 
@@ -145,7 +145,7 @@ pub struct GetBackendRequest {
 pub struct GetSharedFilterRequest {
     #[getset(get = "pub")]
     context: RequestContext,
-    #[getset(get_clone = "pub")]
+    #[getset(get = "pub")]
     filter_ref: SharedFilterRef,
 }
 

@@ -3713,6 +3713,7 @@ dependencies = [
  "jsonrpsee",
  "jsonrpsee-core",
  "opentelemetry",
+ "serde_json",
  "thiserror 2.0.17",
  "tokio",
  "tower-layer",

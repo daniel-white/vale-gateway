@@ -3,7 +3,7 @@ use std::sync::Arc;
 use derive_more::From;
 use jsonrpsee::server::{Server, ServerHandle};
 use typed_builder::TypedBuilder;
-use vg_config::provider::DataProvider;
+use vg_config::provider::ConfigurationProvider;
 use vg_rpc::ApiServer as ApiServerT;
 use crate::api::error::ApiServerStartError;
 use crate::api::methods::ApiServerMethods;
@@ -17,7 +17,7 @@ pub struct ApiServerOptions {
     #[builder(setter(into))]
     binding: SocketAddr,
     event_sinks: EventSinkRegistry,
-    data_provider: Arc<dyn DataProvider>,
+    configuration: Arc<dyn ConfigurationProvider>,
 }
 
 #[derive(TypedBuilder)]
@@ -30,7 +30,7 @@ pub struct ApiServer {
 impl From<ApiServerOptions> for ApiServer {
     fn from(value: ApiServerOptions) -> Self {
         let methods = ApiServerMethods::builder()
-            .data_provider(value.data_provider)
+            .configuration(value.configuration)
             .event_sinks(value.event_sinks)
             .build();
 
