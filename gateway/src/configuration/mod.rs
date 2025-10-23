@@ -1,7 +1,8 @@
 mod events;
 pub mod location;
+pub mod processor;
 
-use crate::configuration::events::processor::ConfigurationEventProcessor;
+use processor::ConfigurationProcessor;
 use crate::instrumentation::TRACER;
 use getset::Getters;
 use opentelemetry::Context;
@@ -18,7 +19,7 @@ use vg_core::sync::arc_watch::Receiver;
 use vg_core::sync::arc_watch::Sender;
 use vg_core::sync::arc_watch::channel;
 use vg_core::sync::broadcast::Traced;
-use vg_core::sync::handles::{Handle, handles};
+use vg_core::sync::handles::{handles, Handle};
 use vg_rpc_client::api::ApiClient;
 use vg_rpc_client::events::error::RecvError;
 use vg_rpc_client::events::EventReceiver;
@@ -81,7 +82,7 @@ impl SourceConfigurationRegistry {
         let (handle, mut stop_handle) = handles();
         let mut events = self.events;
 
-        let processor = ConfigurationEventProcessor::builder()
+        let processor = ConfigurationProcessor::builder()
             .api_client(self.api_client)
             .routing_tx(self.routing_tx)
             .backends_tx(self.backends_tx)

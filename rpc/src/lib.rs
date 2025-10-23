@@ -107,8 +107,6 @@ pub struct EventMessage {
 #[derive(Debug, Serialize, Deserialize, Getters, CloneGetters, Clone, TypedBuilder)]
 #[serde(rename_all = "camelCase")]
 pub struct SubscribeEventsRequest {
-    #[getset(get = "pub")]
-    context: RequestContext,
     #[getset(get_clone = "pub")]
     listener_ref: ListenerRef,
 }
@@ -117,16 +115,12 @@ pub struct SubscribeEventsRequest {
 #[serde(rename_all = "camelCase")]
 pub struct GetListenerRequest {
     #[getset(get = "pub")]
-    context: RequestContext,
-    #[getset(get = "pub")]
     listener_ref: ListenerRef,
 }
 
 #[derive(Debug, Serialize, Deserialize, Getters, CloneGetters, Clone, TypedBuilder)]
 #[serde(rename_all = "camelCase")]
 pub struct GetRouteRequest {
-    #[getset(get = "pub")]
-    context: RequestContext,
     #[getset(get = "pub")]
     route_ref: RouteRef,
 }
@@ -135,16 +129,12 @@ pub struct GetRouteRequest {
 #[serde(rename_all = "camelCase")]
 pub struct GetBackendRequest {
     #[getset(get = "pub")]
-    context: RequestContext,
-    #[getset(get = "pub")]
     backend_ref: BackendRef,
 }
 
 #[derive(Debug, Serialize, Deserialize, Getters, CloneGetters, Clone, TypedBuilder)]
 #[serde(rename_all = "camelCase")]
 pub struct GetSharedFilterRequest {
-    #[getset(get = "pub")]
-    context: RequestContext,
     #[getset(get = "pub")]
     filter_ref: SharedFilterRef,
 }

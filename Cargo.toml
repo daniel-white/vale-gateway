@@ -33,6 +33,7 @@ hickory-proto = "0.25"
 http = "1"
 http-serde-ext = "1"
 ipnet = { version = "2", features = ["serde"] }
+itertools = "0.14"
 jsonrpsee = "0.26"
 jsonrpsee-core = "0.26"
 k8s-openapi = { version = "0.26", features = ["v1_34"] }

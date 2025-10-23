@@ -7,8 +7,10 @@ edition = "2024"
 async-trait.workspace = true
 async_from.workspace = true
 derive_more.workspace = true
+futures.workspace = true
 getset.workspace = true
 http.workspace = true
+itertools.workspace = true
 jsonrpsee = { workspace = true, features = ["tracing", "ws-client"] }
 opentelemetry.workspace = true
 opentelemetry-semantic-conventions.workspace = true

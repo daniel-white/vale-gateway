@@ -64,7 +64,6 @@ impl EventClient {
                         .with_kind(SpanKind::Client)
                         .start(&*TRACER);
                     let req = SubscribeEventsRequest::builder()
-                        .context(RequestContext::new(span))
                         .listener_ref(transport_client.listener_ref())
                         .build();
 

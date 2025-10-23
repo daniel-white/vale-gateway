@@ -12,7 +12,7 @@ use vg_rpc_client::api::ApiClient;
 use vg_rpc_client::api::error::ApiClientError;
 
 #[derive(TypedBuilder)]
-pub struct ConfigurationEventProcessor {
+pub struct ConfigurationProcessor {
     api_client: ApiClient,
     #[builder(default, setter(skip))]
     backends: TVar<SourceBackendConfiguration>,
@@ -22,15 +22,14 @@ pub struct ConfigurationEventProcessor {
     routing_tx: Sender<SourceRoutingConfiguration>,
 }
 
-impl ConfigurationEventProcessor {
-    pub async fn init(&self) {
-        let _ = self.sync_all().await;
-    }
-
+impl ConfigurationProcessor {
+    
     pub async fn handle(&self, event: Event) {
-        println!("event! {:?}", event);
         match event {
-            Event::Initialize | Event::ListenerChanged => {
+            Event::Initialize => {
+                let _ = self.init().await;
+            }
+            Event::ListenerChanged => {
                 let _ = self.sync_all().await;
             }
             Event::RouteChanged(route_ref) => {
@@ -45,24 +44,24 @@ impl ConfigurationEventProcessor {
         };
     }
 
+    pub async fn init(&self) {
+        let _ = self.sync_all().await;
+    }
+
     async fn sync_all(&self) -> Result<(), ()> {
         let listener = self.api_client.listener().await.map_err(|_| ())?;
-        let routes = self.fetch_routes(listener.route_refs()).await;
-        let shared_filters = self
-            .fetch_shared_filters(listener.shared_filter_refs())
-            .await;
-        let backends = self.fetch_backends(listener.backend_refs()).await;
+        let routes = self.api_client.routes(listener.route_refs().as_slice()).await.map_err(|_| ())?;
+        let shared_filters = self.api_client.shared_filters(listener.shared_filter_refs().as_slice()).await.map_err(|_| ())?;
+        let backends = self.api_client.backends(listener.backend_refs().as_slice()).await.map_err(|_| ())?;
 
         let (routing, backends) = atomically(|| {
             let routes = routes
                 .iter()
-                .filter_map(|r| r.clone().ok())
-                .map(|route| (Arc::new(route.ref_()), route))
+                .map(|route| (Arc::new(route.ref_()), route.clone()))
                 .collect();
             let shared_filters = shared_filters
                 .iter()
-                .filter_map(|r| r.clone().ok())
-                .map(|filter| (Arc::new(filter.ref_()), filter))
+                .map(|filter| (Arc::new(filter.ref_()), filter.clone()))
                 .collect();
 
             let routing = SourceRoutingConfiguration::builder()
@@ -75,8 +74,7 @@ impl ConfigurationEventProcessor {
 
             let backends = backends
                 .iter()
-                .filter_map(|r| r.clone().ok())
-                .map(|backend| (Arc::new(backend.ref_()), backend))
+                .map(|backend| (Arc::new(backend.ref_()), backend.clone()))
                 .collect();
 
             let backends = SourceBackendConfiguration::builder()
@@ -173,38 +171,5 @@ impl ConfigurationEventProcessor {
 
         let _ = self.backends_tx.send(backends);
         Ok(())
-    }
-
-    async fn fetch_routes(
-        &self,
-        route_refs: &[RouteRef],
-    ) -> Vec<Result<Arc<Route>, ApiClientError>> {
-        let routes = route_refs
-            .iter()
-            .map(|route_ref| self.api_client.route(route_ref));
-
-        join_all(routes).await
-    }
-
-    async fn fetch_backends(
-        &self,
-        backend_refs: &[BackendRef],
-    ) -> Vec<Result<Arc<Backend>, ApiClientError>> {
-        let backends = backend_refs
-            .iter()
-            .map(|backend_ref| self.api_client.backend(backend_ref));
-
-        join_all(backends).await
-    }
-
-    async fn fetch_shared_filters(
-        &self,
-        filter_refs: &[SharedFilterRef],
-    ) -> Vec<Result<Arc<SharedFilter>, ApiClientError>> {
-        let filters = filter_refs
-            .iter()
-            .map(|filter_ref| self.api_client.shared_filter(filter_ref));
-
-        join_all(filters).await
     }
 }
