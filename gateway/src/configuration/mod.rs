@@ -25,29 +25,29 @@ use vg_rpc_client::events::error::RecvError;
 use vg_rpc_client::events::EventReceiver;
 
 #[derive(Default, Debug, Clone, Getters, TypedBuilder)]
-pub struct SourceRoutingConfiguration {
+pub struct RoutingConfiguration {
     #[getset(get = "pub")]
     listener: Option<Arc<Listener>>,
     #[getset(get = "pub")]
-    routes: HashMap<Arc<RouteRef>, Arc<Route>>,
+    routes: HashMap<RouteRef, Arc<Route>>,
     #[getset(get = "pub")]
-    shared_filters: HashMap<Arc<SharedFilterRef>, Arc<SharedFilter>>,
+    shared_filters: HashMap<SharedFilterRef, Arc<SharedFilter>>,
 }
 
 #[derive(Default, Debug, Clone, Getters, TypedBuilder)]
-pub struct SourceBackendConfiguration {
+pub struct BackendConfiguration {
     #[getset(get = "pub")]
-    backends: HashMap<Arc<BackendRef>, Arc<Backend>>,
+    backends: HashMap<BackendRef, Arc<Backend>>,
 }
 
 #[derive(TypedBuilder)]
-pub struct SourceConfigurationRegistryOptions {
+pub struct ConfigurationRegistryOptions {
     api_client: ApiClient,
     events: EventReceiver,
 }
 
-impl From<SourceConfigurationRegistryOptions> for SourceConfigurationRegistry {
-    fn from(value: SourceConfigurationRegistryOptions) -> Self {
+impl From<ConfigurationRegistryOptions> for ConfigurationRegistry {
+    fn from(value: ConfigurationRegistryOptions) -> Self {
         let (backends_tx, _) = channel();
         let (routing_tx, _) = channel();
 
@@ -62,19 +62,19 @@ impl From<SourceConfigurationRegistryOptions> for SourceConfigurationRegistry {
 
 #[derive(TypedBuilder)]
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
-pub struct SourceConfigurationRegistry {
+pub struct ConfigurationRegistry {
     api_client: ApiClient,
     events: EventReceiver,
-    backends_tx: Sender<SourceBackendConfiguration>,
-    routing_tx: Sender<SourceRoutingConfiguration>,
+    backends_tx: Sender<BackendConfiguration>,
+    routing_tx: Sender<RoutingConfiguration>,
 }
 
-impl SourceConfigurationRegistry {
-    pub fn backends(&self) -> Receiver<SourceBackendConfiguration> {
+impl ConfigurationRegistry {
+    pub fn backends(&self) -> Receiver<BackendConfiguration> {
         self.backends_tx.subscribe()
     }
 
-    pub fn routing(&self) -> Receiver<SourceRoutingConfiguration> {
+    pub fn routing(&self) -> Receiver<RoutingConfiguration> {
         self.routing_tx.subscribe()
     }
 
@@ -92,21 +92,17 @@ impl SourceConfigurationRegistry {
             processor.init().await;
             loop {
                 select! {
-                    value = events.recv() => {
-                        match value {
+                    result = events.recv() => {
+                        match result {
                             Ok(Traced { value: event, context }) => {
                                 let span = TRACER.span_builder("SourceConfigurationRegistry::recv::ok")
                                 .with_kind(SpanKind::Consumer)
                                 .start_with_context(&*TRACER, &context);
                                 let context = Context::current().with_span(span);
-                                processor.handle(event).with_context(context).await;
+                                processor.handle(event).with_context(context).await
                             }
-                            Err(RecvError::Lagged) => {
-                                processor.init().await;
-                            }
-                            _ => {
-                                continue;
-                            }
+                            Err(RecvError::Lagged) => processor.init().await,
+                            Err(RecvError::Closed) => break,
                         }
                     },
                     _ = stop_handle.stopped() => {

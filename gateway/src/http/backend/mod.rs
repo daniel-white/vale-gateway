@@ -1,4 +1,4 @@
-use crate::configuration::{SourceBackendConfiguration};
+use crate::configuration::{BackendConfiguration};
 use async_stm::{TVar, atomically};
 use enumflags2::BitFlags;
 use getset::{CloneGetters, Getters};
@@ -14,14 +14,14 @@ use vg_core::sync::handles::{Handle, handles};
 
 #[derive(TypedBuilder, Clone, Debug, Getters, CloneGetters)]
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
-pub struct BackendAddresses {
+pub struct Backend {
     #[getset(get_clone = "pub")]
-    ref_: Arc<BackendRef>,
+    ref_: BackendRef,
 
     endpoints: HashMap<BitFlags<TopologyLocationMatch>, HashSet<IpAddr>>,
 }
 
-impl BackendAddresses {
+impl Backend {
     pub fn endpoints_matching(&self, location_match: TopologyLocationMatch) -> HashSet<IpAddr> {
         self.endpoints
             .iter()
@@ -37,7 +37,7 @@ impl BackendAddresses {
     }
 }
 
-impl From<(&TopologyLocation, &BackendConfig)> for BackendAddresses {
+impl From<(&TopologyLocation, &BackendConfig)> for Backend {
     fn from((current_location, value): (&TopologyLocation, &BackendConfig)) -> Self {
         let endpoints = value
             .endpoints()
@@ -64,17 +64,17 @@ impl From<(&TopologyLocation, &BackendConfig)> for BackendAddresses {
 
 #[derive(Debug, Default, Clone, TypedBuilder)]
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
-pub struct BackendConfiguration {
-    backends: HashMap<Arc<BackendRef>, Arc<BackendAddresses>>,
+pub struct Backends {
+    backends: HashMap<BackendRef, Arc<Backend>>
 }
 
-impl From<(&TopologyLocation, &SourceBackendConfiguration)> for BackendConfiguration {
-    fn from((current_location, value): (&TopologyLocation, &SourceBackendConfiguration)) -> Self {
+impl From<(&TopologyLocation, &BackendConfiguration)> for Backends {
+    fn from((current_location, value): (&TopologyLocation, &BackendConfiguration)) -> Self {
         let backends = value
             .backends()
             .iter()
             .map(|(ref_, backend)| {
-                let backend: BackendAddresses = (current_location, backend.as_ref()).into();
+                let backend: Backend = (current_location, backend.as_ref()).into();
                 (ref_.clone(), Arc::new(backend))
             })
             .collect();
@@ -86,62 +86,59 @@ impl From<(&TopologyLocation, &SourceBackendConfiguration)> for BackendConfigura
 #[derive(TypedBuilder)]
 pub struct BackendConfiguratorOptions {
     current_location: Receiver<TopologyLocation>,
-    backends: Receiver<SourceBackendConfiguration>,
+    backend_configuration: Receiver<BackendConfiguration>,
 }
 
 #[derive(TypedBuilder)]
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
 pub struct BackendConfigurator {
     current_location: Receiver<TopologyLocation>,
-    backends: Receiver<SourceBackendConfiguration>,
-    configuration: TVar<BackendConfiguration>,
-    configuration_tx: Sender<BackendConfiguration>,
+    backend_configuration: Receiver<BackendConfiguration>,
+    backends: Sender<Backends>,
 }
 
 impl From<BackendConfiguratorOptions> for BackendConfigurator {
     fn from(value: BackendConfiguratorOptions) -> Self {
-        let (tx, _) = channel();
+        let (backends, _) = channel();
 
         Self::builder()
             .current_location(value.current_location)
-            .backends(value.backends)
-            .configuration(Default::default())
-            .configuration_tx(tx)
+            .backend_configuration(value.backend_configuration)
+            .backends(backends)
             .build()
     }
 }
 
 impl BackendConfigurator {
-    pub fn backends(&self) -> Receiver<BackendConfiguration> {
-        self.configuration_tx.subscribe()
+    pub fn backends(&self) -> Receiver<Backends> {
+        self.backends.subscribe()
     }
 
     pub fn start(self) -> Handle {
         let (handle, mut stop_handle) = handles();
-        let mut current_location = self.current_location;
-        let mut backends = self.backends;
-        let configuration_t = self.configuration;
-        let configuration_tx = self.configuration_tx;
 
         spawn(async move {
+            let mut current_location = self.current_location;
+            let mut backend_configuration = self.backend_configuration;
+            let backends = TVar::new(Default::default());
             loop {
-                let configuration = atomically(|| {
+                let backends = atomically(|| {
                     let current_location = current_location.current().unwrap_or_default();
-                    let source_backends = backends.current().unwrap_or_default();
+                    let source_backends = backend_configuration.current().unwrap_or_default();
                     let configuration =
                         (current_location.as_ref(), source_backends.as_ref()).into();
-                    configuration_t.write(configuration)?;
+                    backends.write(configuration)?;
 
-                    configuration_t.read()
+                    backends.read()
                 })
                 .await;
-                let _ = configuration_tx.send(configuration);
+                let _ = self.backends.send(backends);
 
                 select! {
                     _ = current_location.changed() => {
                         continue;
                     }
-                    _ = backends.changed() => {
+                    _ = backend_configuration.changed() => {
                         continue;
                     }
                     _ = stop_handle.stopped() => {

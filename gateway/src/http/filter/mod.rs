@@ -1,4 +1,4 @@
-use crate::configuration::SourceRoutingConfiguration;
+use crate::configuration::RoutingConfiguration;
 use async_stm::{TVar, atomically};
 use getset::{CloneGetters, Getters};
 use std::collections::HashMap;
@@ -12,46 +12,44 @@ use vg_http::filter::SharedFilterHandler;
 
 #[derive(TypedBuilder, Default, Clone, Debug, Getters, CloneGetters)]
 pub struct SharedFilterHandlers {
-    handlers: HashMap<Arc<SharedFilterRef>, Arc<SharedFilterHandler>>,
+    handlers: HashMap<SharedFilterRef, Arc<SharedFilterHandler>>,
 }
 
 #[derive(TypedBuilder)]
 pub struct SharedFilterHandlersManagerOptions {
-    routing: Receiver<SourceRoutingConfiguration>,
+    routing_configuration: Receiver<RoutingConfiguration>,
 }
 
 #[derive(TypedBuilder)]
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
 pub struct SharedFilterHandlersManager {
-    routing: Receiver<SourceRoutingConfiguration>,
-    handlers: TVar<SharedFilterHandlers>,
-    handlers_tx: Sender<SharedFilterHandlers>,
+    routing_configuration: Receiver<RoutingConfiguration>,
+    handlers: Sender<SharedFilterHandlers>,
 }
 
 impl From<SharedFilterHandlersManagerOptions> for SharedFilterHandlersManager {
     fn from(value: SharedFilterHandlersManagerOptions) -> Self {
-        let (tx, _) = channel();
+        let (handlers, _) = channel();
 
         Self::builder()
-            .routing(value.routing)
-            .handlers(Default::default())
-            .handlers_tx(tx)
+            .routing_configuration(value.routing_configuration)
+            .handlers(handlers)
             .build()
     }
 }
 
 impl SharedFilterHandlersManager {
     pub fn handlers(&self) -> Receiver<SharedFilterHandlers> {
-        self.handlers_tx.subscribe()
+        self.handlers.subscribe()
     }
 
     pub fn start(self) -> Handle {
         let (handle, mut stop_handle) = handles();
-        let mut routing = self.routing;
-        let handlers_t = self.handlers;
-        let handlers_tx = self.handlers_tx;
 
         spawn(async move {
+            let mut routing = self.routing_configuration;
+            let handlers_t = TVar::new(Default::default());
+            
             loop {
                 let handlers = atomically(|| {
                     let routing = routing.current().unwrap_or_default();
@@ -64,7 +62,7 @@ impl SharedFilterHandlersManager {
                         })
                         .collect();
 
-                    let handlers = SharedFilterHandlers::builder().handlers(handlers).build();
+                    let handlers = SharedFilterHandlers::builder().handlers(Arc::new(handlers)).build();
 
                     handlers_t.write(handlers)?;
 
@@ -72,7 +70,7 @@ impl SharedFilterHandlersManager {
                 })
                 .await;
 
-                let _ = handlers_tx.send(handlers);
+                let _ = self.handlers.send(handlers);
 
                 select! {
                     _ = routing.changed() => {

@@ -3,7 +3,7 @@ mod http;
 mod instrumentation;
 
 use crate::configuration::location::CurrentLocationConfigurator;
-use crate::configuration::{SourceConfigurationRegistry, SourceConfigurationRegistryOptions};
+use crate::configuration::{ConfigurationRegistry, ConfigurationRegistryOptions};
 use crate::http::backend::{BackendConfigurator, BackendConfiguratorOptions};
 use crate::http::filter::{SharedFilterHandlersManager, SharedFilterHandlersManagerOptions};
 use ::http::Uri;
@@ -16,6 +16,7 @@ use vg_core::net::topology::TopologyLocation;
 use vg_rpc_client::events::{EventClient, EventClientOptions};
 use vg_rpc_client::transport::{Transport, TransportOptions};
 use vg_rpc_client::api::{ApiClient, ApiClientOptions};
+use crate::http::routing::route::{RouteConfigurator, RouteConfiguratorOptions};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -40,8 +41,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let current_location = CurrentLocationConfigurator::new();
 
-    let source_configuration: SourceConfigurationRegistry =
-        SourceConfigurationRegistryOptions::builder()
+    let source_configuration: ConfigurationRegistry =
+        ConfigurationRegistryOptions::builder()
             .api_client(api_client)
             .events(event_client.events())
             .build()
@@ -49,13 +50,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let shared_filter_handlers: SharedFilterHandlersManager =
         SharedFilterHandlersManagerOptions::builder()
-            .routing(source_configuration.routing())
+            .routing_configuration(source_configuration.routing())
             .build()
             .into();
 
     let backends_configurator: BackendConfigurator = BackendConfiguratorOptions::builder()
         .current_location(current_location.current_location())
-        .backends(source_configuration.backends())
+        .backend_configuration(source_configuration.backends())
+        .build()
+        .into();
+    
+    let routes_configurator: RouteConfigurator = RouteConfiguratorOptions::builder()
+        .routing_configuration(source_configuration.routing())
+        .shared_filter_handlers(shared_filter_handlers.handlers())
         .build()
         .into();
 
@@ -70,10 +77,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut rrx = source_configuration.routing();
     let mut brx = backends_configurator.backends();
     let mut sfhx = shared_filter_handlers.handlers();
+    let mut routes_rx = routes_configurator.routes();
 
     let transport = transport.start();
     let shared_filter_handlers = shared_filter_handlers.start();
     let backends_configurator = backends_configurator.start();
+    let routes_configurator = routes_configurator.start();
     let source_configuration = source_configuration.start();
     let event_client = event_client.start();
 
@@ -82,19 +91,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
     js.spawn(transport.stopped());
     js.spawn(shared_filter_handlers.stopped());
     js.spawn(backends_configurator.stopped());
+    js.spawn(routes_configurator.stopped());
     js.spawn(event_client.stopped());
     js.spawn(source_configuration.stopped());
 
     js.spawn(async move {
         loop {
             select! {
-                _ = rrx.changed() => {
+                Ok(_) = routes_rx.changed() => {
+                    println!("routes: {:?}", routes_rx.current());
+                },
+                Ok(_) = rrx.changed() => {
                     println!("routing: {:?}", rrx.current());
                 }
-                _ = brx.changed() => {
+                Ok(_) = brx.changed() => {
                     println!("fully resolved backend: {:?}", brx.current());
                 }
-                _ = sfhx.changed() => {
+                Ok(_) = sfhx.changed() => {
                     println!("fully resolved handlers: {:?}", sfhx.current());
                 }
             }
