@@ -11,6 +11,7 @@ use vg_http::filter::SharedFilterHandler;
 
 #[derive(TypedBuilder, Default, Debug, Getters, CloneGetters)]
 pub struct SharedFilterHandlers {
+    #[getset(get = "pub")]
     handlers: HashMap<SharedFilterRef, SharedFilterHandler>,
 }
 

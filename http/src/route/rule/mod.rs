@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use self::filter::RuleFilter;
 use crate::route::rule::filter::RuleFilterConversionError;
 use crate::route::rule::matcher::request::{RequestMatcher, RequestMatcherConversionError};
@@ -5,7 +6,9 @@ use crate::route::rule::policy::{RulePolicies, RulePoliciesConversionError};
 use getset::Getters;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
+use vg_config::http::filter::SharedFilterRef;
 use vg_config::http::route::rule::Rule as RuleConfig;
+use crate::filter::SharedFilterHandler;
 
 pub mod filter;
 pub mod matcher;
@@ -42,11 +45,11 @@ pub enum RuleConversionError {
     ),
 }
 
-impl TryFrom<&RuleConfig> for Rule {
+impl TryFrom<(&HashMap<SharedFilterRef, SharedFilterHandler>, &RuleConfig)> for Rule {
     type Error = RuleConversionError;
 
-    fn try_from(value: &RuleConfig) -> Result<Self, Self::Error> {
-        let matchers = value
+    fn try_from((shared_filter_handlers, rule): (&HashMap<SharedFilterRef, SharedFilterHandler>, &RuleConfig)) -> Result<Self, Self::Error> {
+        let matchers = rule
             .matchers()
             .iter()
             .enumerate()
@@ -56,19 +59,19 @@ impl TryFrom<&RuleConfig> for Rule {
             })
             .collect::<Result<_, _>>()?;
 
-        let filters = value
+        let filters = rule
             .filters()
             .iter()
             .enumerate()
             .map(|(idx, filter)| {
-                RuleFilter::try_from(filter).map_err(|err| RuleConversionError::Filter(idx, err))
+                RuleFilter::try_from((shared_filter_handlers, filter)).map_err(|err| RuleConversionError::Filter(idx, err))
             })
             .collect::<Result<_, _>>()?;
 
-        let policies = value.policies().try_into()?;
+        let policies = rule.policies().try_into()?;
 
         let rule = Self::builder()
-            .name(value.name())
+            .name(rule.name())
             .matchers(matchers)
             .filters(filters)
             .policies(policies)

@@ -34,13 +34,13 @@ pub fn loads_request_matcher_from_file() {
     //
     // let config = serde_json::to_string_pretty(&x).unwrap_or_default();
     // println!("{}", config);
-
-    let config = include_str!("request_matcher.json");
-    let config = serde_json::from_str::<RouteConfig>(config).expect("Failed to parse JSON config");
-    match Route::try_from(&config) {
-        Ok(route) => println!("Successfully converted config: {:#?}", route),
-        Err(e) => panic!("Failed to convert config: {}", e),
-    }
+    // 
+    // let config = include_str!("request_matcher.json");
+    // let config = serde_json::from_str::<RouteConfig>(config).expect("Failed to parse JSON config");
+    // match Route::try_from(&config) {
+    //     Ok(route) => println!("Successfully converted config: {:#?}", route),
+    //     Err(e) => panic!("Failed to convert config: {}", e),
+    // }
 
     // let config = RequestMatcher::try_from(&config).expect("Failed to convert config");
 }

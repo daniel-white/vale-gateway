@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::filter::backend_uri_rewriter::{
     BackendUriRewriterFilterHandler, BackendUriRewriterFilterHandlerConversionError,
 };
@@ -10,22 +11,28 @@ use crate::filter::redirect_response::{
 use std::ops::Deref;
 use std::sync::Arc;
 use thiserror::Error;
-use vg_config::http::filter::access_control::AccessControlFilterRef;
-use vg_config::http::filter::static_response::StaticResponseFilterRef;
+use vg_config::http::filter::SharedFilterRef;
 use vg_config::http::route::rule::filter::RuleFilter as RuleFilterConfig;
+use crate::filter::access_control::AccessControlFilterHandler;
+use crate::filter::SharedFilterHandler;
+use crate::filter::static_response::StaticResponseFilterHandler;
 
 #[derive(Debug)]
 pub enum RuleFilter {
-    AccessControl(Arc<AccessControlFilterRef>),
+    AccessControl(Arc<AccessControlFilterHandler>),
     RequestHeaderModifier(Arc<HeaderModifierFilterHandler>),
     ResponseHeaderModifier(Arc<HeaderModifierFilterHandler>),
     RedirectResponse(Arc<RedirectResponseFilterHandler>),
-    StaticResponse(Arc<StaticResponseFilterRef>),
+    StaticResponse(Arc<StaticResponseFilterHandler>),
     BackendUriRewriter(Arc<BackendUriRewriterFilterHandler>),
 }
 
 #[derive(Debug, Error)]
 pub enum RuleFilterConversionError {
+    #[error("AccessControl filter not found")]
+    AccessControl,
+    #[error("StaticResponse filter not found")]
+    StaticResponse,
     #[error("Request header modifier error: {0}")]
     RequestHeaderModifier(#[source] HeaderModifierFilterHandlerConversionError),
     #[error("Response header modifier error: {0}")]
@@ -44,13 +51,17 @@ pub enum RuleFilterConversionError {
     ),
 }
 
-impl TryFrom<&RuleFilterConfig> for RuleFilter {
+impl TryFrom<(&HashMap<SharedFilterRef, SharedFilterHandler>, &RuleFilterConfig)> for RuleFilter {
     type Error = RuleFilterConversionError;
 
-    fn try_from(value: &RuleFilterConfig) -> Result<Self, Self::Error> {
-        match value {
+    fn try_from((shared_filter_handlers, filter): (&HashMap<SharedFilterRef, SharedFilterHandler>, &RuleFilterConfig)) -> Result<Self, Self::Error> {
+        match filter {
             RuleFilterConfig::AccessControl(filter) => {
-                Ok(RuleFilter::AccessControl(Arc::new(filter.ref_())))
+                let ref_ = SharedFilterRef::AccessControl(filter.ref_());
+                let Some(filter) = shared_filter_handlers.get(&ref_).and_then(|handler| handler.clone().try_unwrap_access_control().ok()) else {
+                    return Err(RuleFilterConversionError::AccessControl)
+                };
+                Ok(RuleFilter::AccessControl(filter))
             }
             RuleFilterConfig::RequestHeaderModifier(filter) => {
                 let handler = HeaderModifierFilterHandler::try_from(filter.deref())
@@ -67,7 +78,11 @@ impl TryFrom<&RuleFilterConfig> for RuleFilter {
                 Ok(RuleFilter::RedirectResponse(Arc::new(handler)))
             }
             RuleFilterConfig::StaticResponse(filter) => {
-                Ok(RuleFilter::StaticResponse(Arc::new(filter.ref_())))
+                let ref_ = SharedFilterRef::StaticResponse(filter.ref_());
+                let Some(filter) = shared_filter_handlers.get(&ref_).and_then(|handler| handler.clone().try_unwrap_static_response().ok()) else {
+                    return Err(RuleFilterConversionError::StaticResponse)
+                };
+                Ok(RuleFilter::StaticResponse(filter))
             }
             RuleFilterConfig::BackendUriRewriter(filter) => {
                 let handler = BackendUriRewriterFilterHandler::try_from(filter.deref())?;

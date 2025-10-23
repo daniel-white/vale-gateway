@@ -1,16 +1,19 @@
+use std::collections::HashMap;
 use crate::route::host::{HostMatcher, HostMatcherConversionError};
 use crate::route::rule::{Rule, RuleConversionError};
-use getset::Getters;
+use getset::{CloneGetters, Getters};
 use thiserror::Error;
 use typed_builder::TypedBuilder;
+use vg_config::http::filter::SharedFilterRef;
 use vg_config::http::route::{Route as RouteConfig, RouteRef};
+use crate::filter::SharedFilterHandler;
 
 pub mod host;
 pub mod rule;
 
-#[derive(Debug, TypedBuilder, Getters)]
+#[derive(Debug, TypedBuilder, Getters, CloneGetters)]
 pub struct Route {
-    #[getset(get = "pub")]
+    #[getset(get_clone = "pub")]
     ref_: RouteRef,
     #[getset(get = "pub")]
     host_matchers: Vec<HostMatcher>,
@@ -27,11 +30,11 @@ pub enum RouteConversionError {
     Rule(usize, #[source] RuleConversionError),
 }
 
-impl TryFrom<&RouteConfig> for Route {
+impl TryFrom<(&HashMap<SharedFilterRef, SharedFilterHandler>, &RouteConfig)> for Route {
     type Error = RouteConversionError;
 
-    fn try_from(value: &RouteConfig) -> Result<Self, Self::Error> {
-        let host_matchers = value
+    fn try_from((shared_filter_handlers, route): (&HashMap<SharedFilterRef, SharedFilterHandler>, &RouteConfig)) -> Result<Self, Self::Error> {
+        let host_matchers = route
             .host_matchers()
             .iter()
             .enumerate()
@@ -41,17 +44,17 @@ impl TryFrom<&RouteConfig> for Route {
             })
             .collect::<Result<_, _>>()?;
 
-        let rules = value
+        let rules = route
             .rules()
             .iter()
             .enumerate()
             .map(|(idx, rule)| {
-                Rule::try_from(rule).map_err(|err| RouteConversionError::Rule(idx, err))
+                Rule::try_from((shared_filter_handlers, rule)).map_err(|err| RouteConversionError::Rule(idx, err))
             })
             .collect::<Result<_, _>>()?;
 
         let route = Self::builder()
-            .ref_(value.ref_().clone())
+            .ref_(route.ref_().clone())
             .host_matchers(host_matchers)
             .rules(rules)
             .build();

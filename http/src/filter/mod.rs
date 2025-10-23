@@ -3,6 +3,8 @@ use crate::filter::static_response::{
     StaticResponseFilterHandler, StaticResponseFilterHandlerConversionError,
 };
 use std::ops::Deref;
+use std::sync::Arc;
+use derive_more::{Into, TryUnwrap};
 use thiserror::Error;
 use vg_config::http::filter::SharedFilter;
 
@@ -12,10 +14,10 @@ pub mod header_modifier;
 pub mod redirect_response;
 pub mod static_response;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, TryUnwrap)]
 pub enum SharedFilterHandler {
-    AccessControl(AccessControlFilterHandler),
-    StaticResponse(StaticResponseFilterHandler),
+    AccessControl(Arc<AccessControlFilterHandler>),
+    StaticResponse(Arc<StaticResponseFilterHandler>),
 }
 
 #[derive(Debug, Error)]
@@ -39,7 +41,7 @@ impl TryFrom<&SharedFilter> for SharedFilterHandler {
             }
             SharedFilter::StaticResponse(filter) => {
                 let handler: StaticResponseFilterHandler = filter.deref().try_into()?;
-                Ok(SharedFilterHandler::StaticResponse(handler))
+                Ok(SharedFilterHandler::StaticResponse(Arc::new(handler)))
             }
         }
     }
