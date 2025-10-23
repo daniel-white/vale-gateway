@@ -24,7 +24,7 @@ use vg_rpc_client::api::ApiClient;
 use vg_rpc_client::events::error::RecvError;
 use vg_rpc_client::events::EventReceiver;
 
-#[derive(Default, Debug, Clone, Getters, TypedBuilder)]
+#[derive(Default, Debug, Getters, TypedBuilder)]
 pub struct RoutingConfiguration {
     #[getset(get = "pub")]
     listener: Option<Arc<Listener>>,
@@ -34,7 +34,7 @@ pub struct RoutingConfiguration {
     shared_filters: HashMap<SharedFilterRef, Arc<SharedFilter>>,
 }
 
-#[derive(Default, Debug, Clone, Getters, TypedBuilder)]
+#[derive(Default, Debug, Getters, TypedBuilder)]
 pub struct BackendConfiguration {
     #[getset(get = "pub")]
     backends: HashMap<BackendRef, Arc<Backend>>,
@@ -48,14 +48,14 @@ pub struct ConfigurationRegistryOptions {
 
 impl From<ConfigurationRegistryOptions> for ConfigurationRegistry {
     fn from(value: ConfigurationRegistryOptions) -> Self {
-        let (backends_tx, _) = channel();
-        let (routing_tx, _) = channel();
+        let (backends, _) = channel();
+        let (routing, _) = channel();
 
         Self::builder()
             .api_client(value.api_client)
             .events(value.events)
-            .backends_tx(backends_tx)
-            .routing_tx(routing_tx)
+            .backends(backends)
+            .routing(routing)
             .build()
     }
 }
@@ -65,17 +65,17 @@ impl From<ConfigurationRegistryOptions> for ConfigurationRegistry {
 pub struct ConfigurationRegistry {
     api_client: ApiClient,
     events: EventReceiver,
-    backends_tx: Sender<BackendConfiguration>,
-    routing_tx: Sender<RoutingConfiguration>,
+    backends: Sender<BackendConfiguration>,
+    routing: Sender<RoutingConfiguration>,
 }
 
 impl ConfigurationRegistry {
     pub fn backends(&self) -> Receiver<BackendConfiguration> {
-        self.backends_tx.subscribe()
+        self.backends.subscribe()
     }
 
     pub fn routing(&self) -> Receiver<RoutingConfiguration> {
-        self.routing_tx.subscribe()
+        self.routing.subscribe()
     }
 
     pub fn start(self) -> Handle {
@@ -84,8 +84,8 @@ impl ConfigurationRegistry {
 
         let processor = ConfigurationProcessor::builder()
             .api_client(self.api_client)
-            .routing_tx(self.routing_tx)
-            .backends_tx(self.backends_tx)
+            .routing(self.routing)
+            .backends(self.backends)
             .build();
 
         spawn(async move {

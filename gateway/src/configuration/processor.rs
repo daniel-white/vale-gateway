@@ -1,5 +1,4 @@
 use crate::configuration::{BackendConfiguration, RoutingConfiguration};
-use async_stm::{atomically, TVar};
 use futures::future::join_all;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
@@ -13,12 +12,8 @@ use vg_rpc_client::api::ApiClient;
 #[derive(TypedBuilder)]
 pub struct ConfigurationProcessor {
     api_client: ApiClient,
-    #[builder(default, setter(skip))]
-    backends: TVar<BackendConfiguration>,
-    backends_tx: Sender<BackendConfiguration>,
-    #[builder(default, setter(skip))]
-    routing: TVar<RoutingConfiguration>,
-    routing_tx: Sender<RoutingConfiguration>,
+    backends: Sender<BackendConfiguration>,
+    routing: Sender<RoutingConfiguration>,
 }
 
 impl ConfigurationProcessor {
@@ -53,7 +48,7 @@ impl ConfigurationProcessor {
         let shared_filters = self.api_client.shared_filters(listener.shared_filter_refs().as_slice()).await.map_err(|_| ())?;
         let backends = self.api_client.backends(listener.backend_refs().as_slice()).await.map_err(|_| ())?;
 
-        let (routing, backends) = atomically(|| {
+        let (routing, backends) =  {
             let routes = routes
                 .iter()
                 .map(|route| (route.ref_(), route.clone()))
@@ -68,9 +63,7 @@ impl ConfigurationProcessor {
                 .routes(routes)
                 .shared_filters(shared_filters)
                 .build();
-
-            self.routing.write(routing)?;
-
+            
             let backends = backends
                 .iter()
                 .map(|backend| (backend.ref_(), backend.clone()))
@@ -79,15 +72,13 @@ impl ConfigurationProcessor {
             let backends = BackendConfiguration::builder()
                 .backends(backends)
                 .build();
+            
 
-            self.backends.write(backends)?;
+            (routing, backends)
+        };
 
-            Ok((self.routing.read()?, self.backends.read()?))
-        })
-        .await;
-
-        let _ = self.routing_tx.send(routing);
-        let _ = self.backends_tx.send(backends);
+        let _ = self.routing.send(Arc::new(routing));
+        let _ = self.backends.send(Arc::new(backends));
 
         Ok(())
     }
@@ -95,26 +86,17 @@ impl ConfigurationProcessor {
     async fn sync_route(&self, route_ref: RouteRef) -> Result<(), ()> {
         let route = self.api_client.route(&route_ref).await.map_err(|_| ())?;
 
-        let routing = atomically(|| {
-            let routing = self.routing.read()?;
+        let routing = self.routing.current().unwrap_or_default();
+        let mut routes = routing.routes().clone();
+        routes.insert(route.ref_(), route);
 
-            let route = route.clone();
-            let mut routes = routing.routes().clone();
-            routes.insert(route.ref_(), route);
-
-            let routing = RoutingConfiguration::builder()
-                .listener(routing.listener().clone())
-                .routes(routes)
-                .shared_filters(routing.shared_filters().clone())
-                .build();
-
-            self.routing.write(routing)?;
-
-            self.routing.read()
-        })
-        .await;
-
-        let _ = self.routing_tx.send(routing);
+        let routing = RoutingConfiguration::builder()
+            .listener(routing.listener().clone())
+            .routes(routes)
+            .shared_filters(routing.shared_filters().clone())
+            .build();
+        
+        let _ = self.routing.send(Arc::new(routing));
 
         Ok(())
     }
@@ -126,25 +108,17 @@ impl ConfigurationProcessor {
             .await
             .map_err(|_| ())?;
 
-        let routing = atomically(|| {
-            let routing = self.routing.read()?;
+        let routing = self.routing.current().unwrap_or_default();
+        let mut shared_filters = routing.shared_filters().clone();
+        shared_filters.insert(shared_filter.ref_(), shared_filter.clone());
 
-            let mut shared_filters = routing.shared_filters().clone();
-            shared_filters.insert(shared_filter.ref_(), shared_filter.clone());
+        let routing = RoutingConfiguration::builder()
+            .listener(routing.listener.clone())
+            .routes(routing.routes.clone())
+            .shared_filters(shared_filters)
+            .build();
 
-            let routing = RoutingConfiguration::builder()
-                .listener(routing.listener.clone())
-                .routes(routing.routes.clone())
-                .shared_filters(shared_filters)
-                .build();
-
-            self.routing.write(routing)?;
-
-            self.routing.read()
-        })
-        .await;
-
-        let _ = self.routing_tx.send(routing);
+        let _ = self.routing.send(Arc::new(routing));
 
         Ok(())
     }
@@ -156,19 +130,16 @@ impl ConfigurationProcessor {
             .await
             .map_err(|_| ())?;
 
-        let backends = atomically(|| {
-            let backends = self.backends.read()?;
-            let mut backends = backends.as_ref().clone();
-            backends
-                .backends
-                .insert(backend.ref_(), backend.clone());
-            self.backends.write(backends)?;
+        let backends = self.backends.current().unwrap_or_default();
+        let mut backends = backends.backends().clone();
+        backends.insert(backend.ref_(), backend.clone());
 
-            self.backends.read()
-        })
-        .await;
+        let backends = BackendConfiguration::builder()
+            .backends(backends)
+            .build();
 
-        let _ = self.backends_tx.send(backends);
+
+        let _ = self.backends.send(Arc::new(backends));
         Ok(())
     }
 }

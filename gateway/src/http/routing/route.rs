@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use async_stm::{atomically, TVar};
 use getset::{CloneGetters, Getters};
 use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
@@ -11,13 +10,13 @@ use vg_http::route::host::HostMatcher;
 use crate::configuration::RoutingConfiguration;
 use crate::http::filter::SharedFilterHandlers;
 
-#[derive(TypedBuilder, Clone, Debug, Getters, CloneGetters)]
+#[derive(TypedBuilder, Debug, Getters, CloneGetters)]
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
 pub struct Route {
     #[getset(get_clone = "pub")]
     ref_: RouteRef,
     
-    host_matchers: Arc<Vec<HostMatcher>>,
+    host_matchers: Vec<HostMatcher>,
 }
 
 #[derive(Debug, Default, Clone, TypedBuilder)]
@@ -61,27 +60,25 @@ impl RouteConfigurator {
         let (handle, mut stop_handle) = handles();
 
         spawn(async move {
-            let mut routing_configuration = self.routing_configuration;
+            let mut routing = self.routing_configuration;
             let mut shared_filter_handlers = self.shared_filter_handlers;
-            let routes = TVar::new(Default::default());
             loop{
-                let routes = atomically(|| {
-                    let routing_configuration = routing_configuration.current().unwrap_or_default();
+                let routes: Vec<_> = {
+                    let routing = routing.current().unwrap_or_default();
+                    let shared_filter_handlers = shared_filter_handlers.current().unwrap_or_default();
                     
-                    
-                    routing_configuration.routes().values().map(|r| {
+                    routing.routes().values().map(|r| {
                         Route::builder()
                             .ref_(r.ref_())
-                    })
-                    
-                    
-                    routes.read()
-                }).await;
+                            .host_matchers(Vec::new())
+                            .build()
+                    }).collect()
+                };
                 
-                let _ = self.routes.send(routes);
+                let _ = self.routes.send(Arc::new(Routes::default()));
                 
                 select! {
-                    _ = routing_configuration.changed() => {
+                    _ = routing.changed() => {
                         continue;
                     }
                     _ = shared_filter_handlers.changed() => {

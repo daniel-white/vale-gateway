@@ -29,10 +29,16 @@ impl<T> Sender<T> {
         self.tx.send(Some(val.clone())).map_err(|_| SendError(val))
     }
 
+    pub fn current(&self) -> Option<Arc<T>> {
+        self.tx.borrow().clone()
+    }
+
     pub fn subscribe(&self) -> Receiver<T> {
         let rx = self.tx.subscribe();
         Receiver::builder().rx(rx).build()
     }
+    
+
 }
 
 pub fn channel<T>() -> (Sender<T>, Receiver<T>) {

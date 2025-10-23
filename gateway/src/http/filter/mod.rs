@@ -1,5 +1,4 @@
 use crate::configuration::RoutingConfiguration;
-use async_stm::{TVar, atomically};
 use getset::{CloneGetters, Getters};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -10,9 +9,9 @@ use vg_core::sync::arc_watch::{Receiver, Sender, channel};
 use vg_core::sync::handles::{Handle, handles};
 use vg_http::filter::SharedFilterHandler;
 
-#[derive(TypedBuilder, Default, Clone, Debug, Getters, CloneGetters)]
+#[derive(TypedBuilder, Default, Debug, Getters, CloneGetters)]
 pub struct SharedFilterHandlers {
-    handlers: HashMap<SharedFilterRef, Arc<SharedFilterHandler>>,
+    handlers: HashMap<SharedFilterRef, SharedFilterHandler>,
 }
 
 #[derive(TypedBuilder)]
@@ -48,29 +47,23 @@ impl SharedFilterHandlersManager {
 
         spawn(async move {
             let mut routing = self.routing_configuration;
-            let handlers_t = TVar::new(Default::default());
             
             loop {
-                let handlers = atomically(|| {
+                let handlers = {
                     let routing = routing.current().unwrap_or_default();
                     let handlers = routing
                         .shared_filters()
                         .iter()
                         .filter_map(|(ref_, filter)| {
                             let handler: SharedFilterHandler = filter.as_ref().try_into().ok()?;
-                            Some((ref_.clone(), Arc::new(handler)))
+                            Some((ref_.clone(), handler))
                         })
                         .collect();
 
-                    let handlers = SharedFilterHandlers::builder().handlers(Arc::new(handlers)).build();
-
-                    handlers_t.write(handlers)?;
-
-                    handlers_t.read()
-                })
-                .await;
-
-                let _ = self.handlers.send(handlers);
+                    SharedFilterHandlers::builder().handlers(handlers).build()
+                };
+                
+                let _ = self.handlers.send(Arc::new(handlers));
 
                 select! {
                     _ = routing.changed() => {

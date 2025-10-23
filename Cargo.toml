@@ -17,7 +17,6 @@ members = [
 [workspace.dependencies]
 assertables = "9"
 async_from = "0.2"
-async-stm = "0.5"
 async-trait = "0.1"
 atomic_refcell = "0.1"
 base64ct = { version = "1", features = ["alloc"] }

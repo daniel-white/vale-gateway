@@ -1,5 +1,4 @@
 use crate::configuration::{BackendConfiguration};
-use async_stm::{TVar, atomically};
 use enumflags2::BitFlags;
 use getset::{CloneGetters, Getters};
 use std::collections::{HashMap, HashSet};
@@ -56,7 +55,7 @@ impl From<(&TopologyLocation, &BackendConfig)> for Backend {
             .collect();
 
         Self::builder()
-            .ref_(Arc::new(value.ref_()))
+            .ref_(value.ref_())
             .endpoints(endpoints)
             .build()
     }
@@ -120,19 +119,13 @@ impl BackendConfigurator {
         spawn(async move {
             let mut current_location = self.current_location;
             let mut backend_configuration = self.backend_configuration;
-            let backends = TVar::new(Default::default());
             loop {
-                let backends = atomically(|| {
+                let backends =  {
                     let current_location = current_location.current().unwrap_or_default();
                     let source_backends = backend_configuration.current().unwrap_or_default();
-                    let configuration =
-                        (current_location.as_ref(), source_backends.as_ref()).into();
-                    backends.write(configuration)?;
-
-                    backends.read()
-                })
-                .await;
-                let _ = self.backends.send(backends);
+                    (current_location.as_ref(), source_backends.as_ref()).into()
+                };
+                let _ = self.backends.send(Arc::new(backends));
 
                 select! {
                     _ = current_location.changed() => {
