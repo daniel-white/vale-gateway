@@ -6,14 +6,15 @@ use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::filter::{SharedFilter, SharedFilterRef};
 use vg_config::http::route::{Route, RouteRef};
 use vg_core::sync::arc_watch::Sender;
+use vg_core::sync::observable::Observable;
 use vg_rpc_client::api::ApiClient;
 use vg_rpc_client::events::Event;
 
 #[derive(TypedBuilder)]
 pub struct ConfigurationProcessor {
     api_client: ApiClient,
-    backends: Sender<BackendConfiguration>,
-    routing: Sender<RoutingConfiguration>,
+    backends: Observable<BackendConfiguration>,
+    routing: Observable<RoutingConfiguration>,
 }
 
 impl ConfigurationProcessor {
@@ -64,7 +65,7 @@ impl ConfigurationProcessor {
             .await
             .map_err(|_| ())?;
 
-        let (routing, backends) = {
+        self.routing.update(|_| {
             let routes = routes
                 .iter()
                 .map(|route| (route.ref_(), route.clone()))
@@ -74,42 +75,38 @@ impl ConfigurationProcessor {
                 .map(|filter| (filter.ref_(), filter.clone()))
                 .collect();
 
-            let routing = RoutingConfiguration::builder()
+            RoutingConfiguration::builder()
                 .listener(Some(listener.clone()))
                 .routes(routes)
                 .shared_filters(shared_filters)
-                .build();
-
+                .build()
+        });
+        
+        self.backends.update(|_| {
             let backends = backends
                 .iter()
                 .map(|backend| (backend.ref_(), backend.clone()))
                 .collect();
 
-            let backends = BackendConfiguration::builder().backends(backends).build();
-
-            (routing, backends)
-        };
-
-        let _ = self.routing.send(Arc::new(routing));
-        let _ = self.backends.send(Arc::new(backends));
-
+            BackendConfiguration::builder().backends(backends).build()
+        });
+        
         Ok(())
     }
 
     async fn sync_route(&self, route_ref: RouteRef) -> Result<(), ()> {
         let route = self.api_client.route(&route_ref).await.map_err(|_| ())?;
 
-        let routing = self.routing.current().unwrap_or_default();
-        let mut routes = routing.routes().clone();
-        routes.insert(route.ref_(), route);
-
-        let routing = RoutingConfiguration::builder()
-            .listener(routing.listener().clone())
-            .routes(routes)
-            .shared_filters(routing.shared_filters().clone())
-            .build();
-
-        let _ = self.routing.send(Arc::new(routing));
+        self.routing.update(|routing| {
+            let mut routes = routing.routes().clone();
+            routes.insert(route.ref_(), route.clone());
+    
+            RoutingConfiguration::builder()
+                .listener(routing.listener().clone())
+                .routes(routes)
+                .shared_filters(routing.shared_filters().clone())
+                .build()
+        });
 
         Ok(())
     }
@@ -121,17 +118,16 @@ impl ConfigurationProcessor {
             .await
             .map_err(|_| ())?;
 
-        let routing = self.routing.current().unwrap_or_default();
-        let mut shared_filters = routing.shared_filters().clone();
-        shared_filters.insert(shared_filter.ref_(), shared_filter.clone());
-
-        let routing = RoutingConfiguration::builder()
-            .listener(routing.listener.clone())
-            .routes(routing.routes.clone())
-            .shared_filters(shared_filters)
-            .build();
-
-        let _ = self.routing.send(Arc::new(routing));
+        self.routing.update(|routing| {
+            let mut shared_filters = routing.shared_filters().clone();
+            shared_filters.insert(shared_filter.ref_(), shared_filter.clone());
+    
+            RoutingConfiguration::builder()
+                .listener(routing.listener.clone())
+                .routes(routing.routes.clone())
+                .shared_filters(shared_filters)
+                .build()
+        });
 
         Ok(())
     }
@@ -143,13 +139,13 @@ impl ConfigurationProcessor {
             .await
             .map_err(|_| ())?;
 
-        let backends = self.backends.current().unwrap_or_default();
+         self.backends.update(|backends|{
         let mut backends = backends.backends().clone();
         backends.insert(backend.ref_(), backend.clone());
 
-        let backends = BackendConfiguration::builder().backends(backends).build();
-
-        let _ = self.backends.send(Arc::new(backends));
+        BackendConfiguration::builder().backends(backends).build()
+        });
+            
         Ok(())
     }
 }

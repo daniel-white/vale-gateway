@@ -41,7 +41,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let current_location = CurrentLocationConfigurator::new();
 
-    let source_configuration: ConfigurationRegistry = ConfigurationRegistryOptions::builder()
+    let configuration: ConfigurationRegistry = ConfigurationRegistryOptions::builder()
         .api_client(api_client)
         .events(event_client.events())
         .build()
@@ -49,18 +49,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let shared_filter_handlers: SharedFilterHandlersManager =
         SharedFilterHandlersManagerOptions::builder()
-            .routing_configuration(source_configuration.routing())
+            .routing(configuration.routing())
             .build()
             .into();
 
     let backends_configurator: BackendConfigurator = BackendConfiguratorOptions::builder()
         .current_location(current_location.current_location())
-        .backend_configuration(source_configuration.backends())
+        .backends(configuration.backends())
         .build()
         .into();
 
     let routes_configurator: RouteConfigurator = RouteConfiguratorOptions::builder()
-        .routing_configuration(source_configuration.routing())
+        .routing(configuration.routing())
         .shared_filter_handlers(shared_filter_handlers.handlers())
         .build()
         .into();
@@ -73,7 +73,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .build(),
     ));
 
-    let mut rrx = source_configuration.routing();
+    let mut rrx = configuration.routing();
     let mut brx = backends_configurator.backends();
     let mut sfhx = shared_filter_handlers.handlers();
     let mut routes_rx = routes_configurator.routes();
@@ -82,7 +82,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let shared_filter_handlers = shared_filter_handlers.start();
     let backends_configurator = backends_configurator.start();
     let routes_configurator = routes_configurator.start();
-    let source_configuration = source_configuration.start();
+    let source_configuration = configuration.start();
     let event_client = event_client.start();
 
     let mut js = JoinSet::new();
@@ -100,8 +100,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 Ok(_) = routes_rx.changed() => {
                     println!("routes: {:?}", routes_rx.current());
                 },
-                Ok(_) = rrx.changed() => {
-                    println!("routing: {:?}", rrx.current());
+                routing = rrx.changed() => {
+                    println!("routing: {:?}", routing);
                 }
                 Ok(_) = brx.changed() => {
                     println!("fully resolved backend: {:?}", brx.current());

@@ -15,16 +15,14 @@ use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::filter::{SharedFilter, SharedFilterRef};
 use vg_config::http::listener::Listener;
 use vg_config::http::route::{Route, RouteRef};
-use vg_core::sync::arc_watch::Receiver;
-use vg_core::sync::arc_watch::Sender;
-use vg_core::sync::arc_watch::channel;
 use vg_core::sync::broadcast::Traced;
 use vg_core::sync::handles::{Handle, handles};
+use vg_core::sync::observable::{Observable, Subscription};
 use vg_rpc_client::api::ApiClient;
 use vg_rpc_client::events::EventReceiver;
 use vg_rpc_client::events::error::RecvError;
 
-#[derive(Default, Debug, Getters, TypedBuilder)]
+#[derive(Default, Debug, Getters, TypedBuilder, PartialEq)]
 pub struct RoutingConfiguration {
     #[getset(get = "pub")]
     listener: Option<Arc<Listener>>,
@@ -34,7 +32,7 @@ pub struct RoutingConfiguration {
     shared_filters: HashMap<SharedFilterRef, Arc<SharedFilter>>,
 }
 
-#[derive(Default, Debug, Getters, TypedBuilder)]
+#[derive(Default, Debug, Getters, TypedBuilder, PartialEq)]
 pub struct BackendConfiguration {
     #[getset(get = "pub")]
     backends: HashMap<BackendRef, Arc<Backend>>,
@@ -48,14 +46,9 @@ pub struct ConfigurationRegistryOptions {
 
 impl From<ConfigurationRegistryOptions> for ConfigurationRegistry {
     fn from(value: ConfigurationRegistryOptions) -> Self {
-        let (backends, _) = channel();
-        let (routing, _) = channel();
-
         Self::builder()
             .api_client(value.api_client)
             .events(value.events)
-            .backends(backends)
-            .routing(routing)
             .build()
     }
 }
@@ -65,16 +58,18 @@ impl From<ConfigurationRegistryOptions> for ConfigurationRegistry {
 pub struct ConfigurationRegistry {
     api_client: ApiClient,
     events: EventReceiver,
-    backends: Sender<BackendConfiguration>,
-    routing: Sender<RoutingConfiguration>,
+    #[builder(default, setter(skip))]
+    backends: Observable<BackendConfiguration>,
+    #[builder(default, setter(skip))]
+    routing: Observable<RoutingConfiguration>,
 }
 
 impl ConfigurationRegistry {
-    pub fn backends(&self) -> Receiver<BackendConfiguration> {
+    pub fn backends(&self) -> Subscription<BackendConfiguration> {
         self.backends.subscribe()
     }
 
-    pub fn routing(&self) -> Receiver<RoutingConfiguration> {
+    pub fn routing(&self) -> Subscription<RoutingConfiguration> {
         self.routing.subscribe()
     }
 

@@ -10,6 +10,7 @@ use vg_config::http::backend::{Backend as BackendConfig, BackendRef};
 use vg_core::net::topology::{TopologyLocation, TopologyLocationMatch};
 use vg_core::sync::arc_watch::{Receiver, Sender, channel};
 use vg_core::sync::handles::{Handle, handles};
+use vg_core::sync::observable::Subscription;
 
 #[derive(TypedBuilder, Clone, Debug, Getters, CloneGetters)]
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
@@ -85,14 +86,14 @@ impl From<(&TopologyLocation, &BackendConfiguration)> for Backends {
 #[derive(TypedBuilder)]
 pub struct BackendConfiguratorOptions {
     current_location: Receiver<TopologyLocation>,
-    backend_configuration: Receiver<BackendConfiguration>,
+    backends: Subscription<BackendConfiguration>,
 }
 
 #[derive(TypedBuilder)]
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
 pub struct BackendConfigurator {
     current_location: Receiver<TopologyLocation>,
-    backend_configuration: Receiver<BackendConfiguration>,
+    source_backends: Subscription<BackendConfiguration>,
     backends: Sender<Backends>,
 }
 
@@ -102,7 +103,7 @@ impl From<BackendConfiguratorOptions> for BackendConfigurator {
 
         Self::builder()
             .current_location(value.current_location)
-            .backend_configuration(value.backend_configuration)
+            .source_backends(value.backends)
             .backends(backends)
             .build()
     }
@@ -118,11 +119,11 @@ impl BackendConfigurator {
 
         spawn(async move {
             let mut current_location = self.current_location;
-            let mut backend_configuration = self.backend_configuration;
+            let mut source_backends_subscription = self.source_backends;
             loop {
                 let backends = {
                     let current_location = current_location.current().unwrap_or_default();
-                    let source_backends = backend_configuration.current().unwrap_or_default();
+                    let source_backends = source_backends_subscription.current();
                     (current_location.as_ref(), source_backends.as_ref()).into()
                 };
                 let _ = self.backends.send(Arc::new(backends));
@@ -131,7 +132,7 @@ impl BackendConfigurator {
                     _ = current_location.changed() => {
                         continue;
                     }
-                    _ = backend_configuration.changed() => {
+                    _ = source_backends_subscription.changed() => {
                         continue;
                     }
                     _ = stop_handle.stopped() => {

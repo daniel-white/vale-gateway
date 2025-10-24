@@ -8,7 +8,7 @@ pub mod header_modifier;
 pub mod redirect_response;
 pub mod static_response;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum SharedFilter {
     AccessControl(AccessControlSharedFilter),

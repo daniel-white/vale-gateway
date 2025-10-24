@@ -8,6 +8,7 @@ use typed_builder::TypedBuilder;
 use vg_config::http::route::RouteRef;
 use vg_core::sync::arc_watch::{Receiver, Sender, channel};
 use vg_core::sync::handles::{Handle, handles};
+use vg_core::sync::observable::Subscription;
 use vg_http::route::Route;
 
 #[derive(Debug, Default, TypedBuilder)]
@@ -18,14 +19,14 @@ pub struct Routes {
 
 #[derive(TypedBuilder)]
 pub struct RouteConfiguratorOptions {
-    routing_configuration: Receiver<RoutingConfiguration>,
+    routing: Subscription<RoutingConfiguration>,
     shared_filter_handlers: Receiver<SharedFilterHandlers>,
 }
 
 #[derive(TypedBuilder)]
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
 pub struct RouteConfigurator {
-    routing_configuration: Receiver<RoutingConfiguration>,
+    routing: Subscription<RoutingConfiguration>,
     shared_filter_handlers: Receiver<SharedFilterHandlers>,
     routes: Sender<Routes>,
 }
@@ -35,7 +36,7 @@ impl From<RouteConfiguratorOptions> for RouteConfigurator {
         let (routes, _) = channel();
 
         Self::builder()
-            .routing_configuration(value.routing_configuration)
+            .routing(value.routing)
             .shared_filter_handlers(value.shared_filter_handlers)
             .routes(routes)
             .build()
@@ -51,11 +52,11 @@ impl RouteConfigurator {
         let (handle, mut stop_handle) = handles();
 
         spawn(async move {
-            let mut routing = self.routing_configuration;
+            let mut routing = self.routing;
             let mut shared_filter_handlers = self.shared_filter_handlers;
             loop {
                 let routes: HashMap<_, _> = {
-                    let routing = routing.current().unwrap_or_default();
+                    let routing = routing.current();
                     let shared_filter_handlers =
                         shared_filter_handlers.current().unwrap_or_default();
                     let shared_filter_handlers = shared_filter_handlers.handlers();

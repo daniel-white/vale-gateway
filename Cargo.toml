@@ -15,6 +15,7 @@ members = [
 ]
 
 [workspace.dependencies]
+arc-swap = "1"
 assertables = "9"
 async_from = "0.2"
 async-trait = "0.1"

@@ -1,12 +1,14 @@
 use crate::configuration::RoutingConfiguration;
 use getset::{CloneGetters, Getters};
 use std::collections::HashMap;
+use std::ops::Sub;
 use std::sync::Arc;
 use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
 use vg_config::http::filter::SharedFilterRef;
 use vg_core::sync::arc_watch::{Receiver, Sender, channel};
 use vg_core::sync::handles::{Handle, handles};
+use vg_core::sync::observable::Subscription;
 use vg_http::filter::SharedFilterHandler;
 
 #[derive(TypedBuilder, Default, Debug, Getters, CloneGetters)]
@@ -17,13 +19,13 @@ pub struct SharedFilterHandlers {
 
 #[derive(TypedBuilder)]
 pub struct SharedFilterHandlersManagerOptions {
-    routing_configuration: Receiver<RoutingConfiguration>,
+    routing: Subscription<RoutingConfiguration>,
 }
 
 #[derive(TypedBuilder)]
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
 pub struct SharedFilterHandlersManager {
-    routing_configuration: Receiver<RoutingConfiguration>,
+    routing: Subscription<RoutingConfiguration>,
     handlers: Sender<SharedFilterHandlers>,
 }
 
@@ -32,7 +34,7 @@ impl From<SharedFilterHandlersManagerOptions> for SharedFilterHandlersManager {
         let (handlers, _) = channel();
 
         Self::builder()
-            .routing_configuration(value.routing_configuration)
+            .routing(value.routing)
             .handlers(handlers)
             .build()
     }
@@ -47,12 +49,11 @@ impl SharedFilterHandlersManager {
         let (handle, mut stop_handle) = handles();
 
         spawn(async move {
-            let mut routing = self.routing_configuration;
+            let mut routing = self.routing;
 
             loop {
                 let handlers = {
-                    let routing = routing.current().unwrap_or_default();
-                    let handlers = routing
+                    let handlers = routing.current()
                         .shared_filters()
                         .iter()
                         .filter_map(|(ref_, filter)| {

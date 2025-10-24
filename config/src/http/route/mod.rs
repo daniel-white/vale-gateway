@@ -12,7 +12,7 @@ pub mod rule;
 #[serde(transparent)]
 pub struct RouteRef(String);
 
-#[derive(Debug, Clone, Serialize, Deserialize, TypedBuilder, Getters, CloneGetters)]
+#[derive(Debug, Clone, Serialize, Deserialize, TypedBuilder, Getters, CloneGetters, PartialEq)]
 pub struct Route {
     #[getset(get_clone = "pub")]
     #[serde(rename = "ref")]
