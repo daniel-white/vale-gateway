@@ -43,7 +43,7 @@ impl ConfigurationProcessor {
     }
 
     async fn sync_all(&self) -> Result<(), ()> {
-        let listener = self.api_client.listener().await.map_err(|_| ())?;
+        let listener = self.api_client.listener().await.inspect_err(|err| println!("listener error: {:?}", err)).map_err(|_| ())?;
         let routes = self.api_client.routes(listener.route_refs().as_slice()).await.map_err(|_| ())?;
         let shared_filters = self.api_client.shared_filters(listener.shared_filter_refs().as_slice()).await.map_err(|_| ())?;
         let backends = self.api_client.backends(listener.backend_refs().as_slice()).await.map_err(|_| ())?;

@@ -77,27 +77,7 @@ mod tests {
         let (parts, _) = Request::get("/").body(()).unwrap().into_parts();
         parts
     }
-
-    #[test]
-    fn test_client_addr_extraction_from_direct_connection() {
-        // Test extracting client address from direct connection using actual ClientAddrFilterHandler
-        use std::net::SocketAddr;
-
-        let extractor = ClientAddressExtractor::None;
-
-        let handler = ClientAddressesPolicyHandler::builder()
-            .extractor(extractor)
-            .backend_header(None)
-            .build();
-
-        let socket_addr = SocketAddr::from_str("192.168.1.100:12345").unwrap();
-        let mut request_parts = create_empty_parts();
-
-        let result = handler.filter(socket_addr, &mut request_parts);
-
-        // NoopClientAddressExtractor returns None
-        assert!(result.is_none());
-    }
+    
 
     #[test]
     fn test_client_addr_extraction_from_x_forwarded_for() {
@@ -365,29 +345,5 @@ mod tests {
             request_parts.headers.get("x-client-ip").unwrap(),
             "203.0.113.1"
         );
-    }
-
-    #[test]
-    fn test_client_addr_backend_header_removal() {
-        // Test that backend header is removed when present
-        use std::net::SocketAddr;
-
-        let extractor = ClientAddressExtractor::None;
-
-        let handler = ClientAddressesPolicyHandler::builder()
-            .extractor(extractor)
-            .backend_header(Some(HeaderName::from_static("x-client-ip")))
-            .build();
-
-        let socket_addr = SocketAddr::from_str("192.168.1.1:80").unwrap();
-        let mut request_parts = create_empty_parts();
-        request_parts
-            .headers
-            .insert("x-client-ip", HeaderValue::from_static("existing-value"));
-
-        let _result = handler.filter(socket_addr, &mut request_parts);
-
-        // Should remove the existing header (since extractor returns None)
-        assert!(request_parts.headers.get("x-client-ip").is_none());
     }
 }

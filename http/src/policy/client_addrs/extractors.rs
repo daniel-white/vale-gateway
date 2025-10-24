@@ -17,7 +17,6 @@ trait Extractor: Into<ClientAddressExtractor> {
 
 #[derive(Debug)]
 pub enum ClientAddressExtractor {
-    None,
     Direct,
     TrustedHeader(TrustedHeaderClientAddressExtractor),
     TrustedProxies(TrustedProxiesClientAddressExtractor),
@@ -26,7 +25,6 @@ pub enum ClientAddressExtractor {
 impl ClientAddressExtractor {
     pub fn extract(&self, client_addr: SocketAddr, req: &Parts) -> Option<IpAddr> {
         match self {
-            Self::None => None,
             Self::Direct => Some(client_addr.ip()),
             Self::TrustedHeader(extractor) => extractor.extract(client_addr, req),
             Self::TrustedProxies(extractor) => extractor.extract(client_addr, req),
@@ -55,7 +53,6 @@ impl TryFrom<&ClientAddressExtractorConfig> for ClientAddressExtractor {
 
     fn try_from(value: &ClientAddressExtractorConfig) -> Result<Self, Self::Error> {
         let extractor = match value {
-            ClientAddressExtractorConfig::None => Self::None,
             ClientAddressExtractorConfig::Direct => Self::Direct,
             ClientAddressExtractorConfig::TrustedHeader(config) => {
                 TrustedHeaderClientAddressExtractor::try_from(config)?.into()
@@ -209,19 +206,6 @@ mod tests {
         use http::Request;
         let (parts, _) = Request::get("/").body(()).unwrap().into_parts();
         parts
-    }
-
-    #[tokio::test]
-    async fn test_none_extractor() {
-        // Test None extractor that always returns None
-        let socket_addr = SocketAddr::from_str("192.168.1.100:12345").unwrap();
-        let request_parts = create_empty_parts();
-
-        let extractor = ClientAddressExtractor::None;
-        let result = extractor.extract(socket_addr, &request_parts);
-
-        // None extractor always returns None
-        assert_none!(result);
     }
 
     #[tokio::test]
@@ -539,11 +523,9 @@ mod tests {
             .insert(X_FORWARDED_FOR, HeaderValue::from_static("203.0.113.2"));
 
         // Test each extractor type
-        let noop_result = ClientAddressExtractor::None.extract(socket_addr, &request_parts);
         let header_result = header_extractor.extract(socket_addr, &request_parts);
         let proxies_result = proxies_extractor.extract(socket_addr, &request_parts);
-
-        assert_none!(noop_result);
+        
         assert_some_eq_x!(header_result, IpAddr::from_str("203.0.113.1").unwrap());
         assert_some_eq_x!(proxies_result, IpAddr::from_str("203.0.113.2").unwrap());
     }

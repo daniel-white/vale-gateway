@@ -6,13 +6,16 @@ use opentelemetry::trace::{FutureExt, TraceContextExt, Tracer};
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
+use http::StatusCode;
 use tokio::task::JoinSet;
 use vg_config::http::backend::{Backend, BackendEndpoint, BackendRef};
 use vg_config::http::filter::{SharedFilter, SharedFilterRef};
+use vg_config::http::filter::static_response::{StaticResponseFilter, StaticResponseFilterRef, StaticResponseSharedFilter};
 use vg_config::http::listener::policy::ListenerPolicies;
 use vg_config::http::listener::{Listener, ListenerRef};
 use vg_config::provider::ConfigurationProvider;
 use vg_config::http::route::{Route, RouteRef};
+use vg_config::http::route::host::HostMatcher;
 use vg_core::instrumentation::init;
 use vg_rpc_server::api::{ApiServer, ApiServerOptions};
 use vg_rpc_server::events::{Event, EventBroker, EventBrokerOptions};
@@ -23,12 +26,15 @@ pub struct HttpConfigProvider;
 impl ConfigurationProvider for HttpConfigProvider {
     async fn listener(&self, listener_ref: &ListenerRef) -> Option<Listener> {
         let beref = BackendRef::from("be1".to_string());
+        let r = RouteRef::from("r".to_string());
+        let f = StaticResponseFilterRef::from("f".to_string());
+        let f = SharedFilterRef::StaticResponse(f);
         let l = Listener::builder()
             .ref_(listener_ref.clone())
             .policies(ListenerPolicies::default())
             .backend_refs(vec![beref])
-            .route_refs(Vec::new())
-            .shared_filter_refs(Vec::new())
+            .route_refs(vec![r])
+            .shared_filter_refs(vec![f])
             .filters(Vec::new())
             .build();
 
@@ -37,7 +43,13 @@ impl ConfigurationProvider for HttpConfigProvider {
     
 
     async fn route(&self, route_ref: &RouteRef) -> Option<Route> {
-        None
+        let r = Route::builder()
+            .ref_(route_ref.clone())
+            .host_matchers(vec![HostMatcher::Exact("example.com.".to_string())])
+            .rules(Vec::new())
+            .build();
+        
+        Some(r)
     }
 
     async fn backend(&self, backend_ref: &BackendRef) -> Option<Backend> {
@@ -62,7 +74,16 @@ impl ConfigurationProvider for HttpConfigProvider {
     }
 
     async fn shared_filter(&self, filter_ref: &SharedFilterRef) -> Option<SharedFilter> {
-        None
+        let  f = StaticResponseFilter::builder()
+            .status_code(StatusCode::ACCEPTED)
+            .body(None).build();
+        let f = StaticResponseSharedFilter::builder()
+            .ref_(StaticResponseFilterRef::from("f".to_string()))
+            .filter(f)
+            .build();
+        let f =    
+        SharedFilter::StaticResponse(f);
+        Some(f)
     }
 }
 

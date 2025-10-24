@@ -59,9 +59,12 @@ impl RouteConfigurator {
                     let shared_filter_handlers = shared_filter_handlers.current().unwrap_or_default();
                     let shared_filter_handlers = shared_filter_handlers.handlers();
                     
-                    routing.routes().values().map(|route| {
-                        let route = Route::try_from((shared_filter_handlers, route.as_ref())).unwrap();
-                        (route.ref_(), route)
+                    routing.routes().values().filter_map(|route| {
+                        let route = Route::try_from((shared_filter_handlers, route.as_ref()));
+                        match route {
+                            Ok(route) => Some((route.ref_(), route)),
+                            Err(_) => None // TODO handle error
+                        }
                     }).collect()
                 };
                 

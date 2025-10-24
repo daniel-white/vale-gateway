@@ -32,9 +32,9 @@ pub struct ListenerPolicies {
     retries: Option<RetryPolicy>,
 
     #[getset(get_clone = "pub")]
-    #[serde(default, skip_serializing_if = "ClientAddressesPolicy::is_default")]
+    #[serde(default = "default_client_addresses_policy", skip_serializing_if = "Option::is_none")]
     #[builder(default)]
-    client_addresses: ClientAddressesPolicy,
+    client_addresses: Option<ClientAddressesPolicy>,
 
     #[getset(get_clone = "pub")]
     #[builder(default)]
@@ -46,7 +46,11 @@ impl ListenerPolicies {
     pub fn is_default(&self) -> bool {
         self.timeouts.is_none()
             && self.retries.is_none()
-            && self.client_addresses.is_default()
+            && self.client_addresses.as_ref().is_some_and(|p| p.is_default())
             && self.error_response.is_default()
     }
+}
+
+fn default_client_addresses_policy() -> Option<ClientAddressesPolicy> {
+    Some(ClientAddressesPolicy::default())
 }

@@ -42,7 +42,7 @@ impl SharedFilter {
 }
 
 #[derive(Debug, Hash, Serialize, Deserialize, Clone, PartialEq, Eq)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(tag = "kind", content = "ref", rename_all = "camelCase")]
 pub enum SharedFilterRef {
     AccessControl(AccessControlFilterRef),
     StaticResponse(StaticResponseFilterRef),

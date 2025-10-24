@@ -81,7 +81,6 @@ impl TrustedProxiesClientAddressExtractor {
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, From)]
 #[serde(tag = "extractor", rename_all = "camelCase")]
 pub enum ClientAddressExtractor {
-    None,
     #[default]
     Direct,
     TrustedHeader(TrustedHeaderClientAddressExtractor),
@@ -129,20 +128,6 @@ mod tests {
     use ipnet::IpNet;
     use serde_json;
     use std::net::IpAddr;
-
-    #[test]
-    fn test_serialize_client_addr_none() {
-        let policy = ClientAddressesPolicy::builder()
-            .extractor(ClientAddressExtractor::None)
-            .backend_header(Some(HeaderName::from_static("x-client-ip")))
-            .build();
-
-        let json = serde_json::to_string(&policy).unwrap();
-        assert_eq!(
-            json,
-            r#"{"extractor":"none","backendHeader":"x-client-ip"}"#
-        );
-    }
 
     #[test]
     fn test_serialize_client_addr_direct() {
