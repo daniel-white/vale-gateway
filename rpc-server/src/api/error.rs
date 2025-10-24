@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum ApiServerStartError{
+pub enum ApiServerStartError {
     #[error("TODO")]
-    Unknown
+    Unknown,
 }

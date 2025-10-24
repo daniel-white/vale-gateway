@@ -525,7 +525,7 @@ mod tests {
         // Test each extractor type
         let header_result = header_extractor.extract(socket_addr, &request_parts);
         let proxies_result = proxies_extractor.extract(socket_addr, &request_parts);
-        
+
         assert_some_eq_x!(header_result, IpAddr::from_str("203.0.113.1").unwrap());
         assert_some_eq_x!(proxies_result, IpAddr::from_str("203.0.113.2").unwrap());
     }

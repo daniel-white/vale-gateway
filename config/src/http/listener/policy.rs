@@ -21,33 +21,39 @@ use typed_builder::TypedBuilder;
 )]
 #[serde(rename_all = "camelCase")]
 pub struct ListenerPolicies {
-    #[getset(get_clone = "pub")]
+    #[getset(get = "pub")]
     #[serde(default, skip_serializing_if = "TimeoutPolicies::is_none")]
     #[builder(default)]
     timeouts: TimeoutPolicies,
 
-    #[getset(get_clone = "pub")]
+    #[getset(get = "pub")]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[builder(default)]
     retries: Option<RetryPolicy>,
 
-    #[getset(get_clone = "pub")]
-    #[serde(default = "default_client_addresses_policy", skip_serializing_if = "Option::is_none")]
+    #[getset(get = "pub")]
+    #[serde(
+        default = "default_client_addresses_policy",
+        skip_serializing_if = "Option::is_none"
+    )]
     #[builder(default)]
     client_addresses: Option<ClientAddressesPolicy>,
 
-    #[getset(get_clone = "pub")]
+    #[getset(get = "pub")]
     #[builder(default)]
     #[serde(default)]
-    error_response: ErrorResponsePolicy,
+    error_responses: ErrorResponsePolicy,
 }
 
 impl ListenerPolicies {
     pub fn is_default(&self) -> bool {
         self.timeouts.is_none()
             && self.retries.is_none()
-            && self.client_addresses.as_ref().is_some_and(|p| p.is_default())
-            && self.error_response.is_default()
+            && self
+                .client_addresses
+                .as_ref()
+                .is_some_and(|p| p.is_default())
+            && self.error_responses.is_default()
     }
 }
 

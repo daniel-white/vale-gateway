@@ -61,6 +61,7 @@ pub struct ClientAddressesPolicyProxies {
 fn trusted_private_ranges_default() -> bool {
     true
 }
+
 fn trusted_headers_default() -> Vec<ClientAddressesPolicyProxiesTrustedHeaders> {
     vec![ClientAddressesPolicyProxiesTrustedHeaders::XForwardedFor]
 }

@@ -2,9 +2,9 @@ use crate::filter::access_control::AccessControlFilterHandler;
 use crate::filter::static_response::{
     StaticResponseFilterHandler, StaticResponseFilterHandlerConversionError,
 };
+use derive_more::TryUnwrap;
 use std::ops::Deref;
 use std::sync::Arc;
-use derive_more::{Into, TryUnwrap};
 use thiserror::Error;
 use vg_config::http::filter::SharedFilter;
 

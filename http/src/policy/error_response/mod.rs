@@ -24,18 +24,14 @@ impl ErrorResponsePolicyHandler {
 }
 
 #[derive(Debug, Error)]
-pub enum ErrorResponsePolicyConversionError {
-    #[error("Invalid error response generator: {0}")]
-    InvalidGenerator(
-        #[from]
-        #[source]
-        ErrorResponseGeneratorConversionError,
-    ),
+pub enum ErrorResponsePolicyHandlerConversionError {
+    #[error(transparent)]
+    Generator(#[from] ErrorResponseGeneratorConversionError),
 }
 
 #[allow(clippy::infallible_try_from)]
 impl TryFrom<&ErrorResponsePolicy> for ErrorResponsePolicyHandler {
-    type Error = ErrorResponsePolicyConversionError;
+    type Error = ErrorResponsePolicyHandlerConversionError;
 
     fn try_from(value: &ErrorResponsePolicy) -> Result<Self, Self::Error> {
         let generator = ErrorResponseGenerator::try_from(value.format())?;

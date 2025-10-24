@@ -37,7 +37,7 @@ impl ClientAddressesPolicyHandler {
 }
 
 #[derive(Debug, Error)]
-pub enum ClientAddrFilterHandlerConversionError {
+pub enum ClientAddressesPolicyHandlerConversionError {
     #[error("Invalid client addr extractor: {0}")]
     InvalidExtractor(
         #[from]
@@ -47,7 +47,7 @@ pub enum ClientAddrFilterHandlerConversionError {
 }
 
 impl TryFrom<&ClientAddressesPolicy> for ClientAddressesPolicyHandler {
-    type Error = ClientAddrFilterHandlerConversionError;
+    type Error = ClientAddressesPolicyHandlerConversionError;
 
     fn try_from(value: &ClientAddressesPolicy) -> Result<Self, Self::Error> {
         let extractor: ClientAddressExtractor = value.extractor().try_into()?;
@@ -77,7 +77,6 @@ mod tests {
         let (parts, _) = Request::get("/").body(()).unwrap().into_parts();
         parts
     }
-    
 
     #[test]
     fn test_client_addr_extraction_from_x_forwarded_for() {

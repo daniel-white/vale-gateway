@@ -1,18 +1,17 @@
 use crate::instrumentation::TRACER;
 use crate::transport::{Client, TransportClient};
+use error::ApiClientError;
+use futures::future::join_all;
 use opentelemetry::trace::{SpanKind, Tracer};
 use std::sync::Arc;
-use futures::future::join_all;
-use itertools::Itertools;
 use typed_builder::TypedBuilder;
-use error::ApiClientError;
 use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::filter::{SharedFilter, SharedFilterRef};
 use vg_config::http::listener::Listener;
 use vg_config::http::route::{Route, RouteRef};
 use vg_rpc::{
     ApiClient as ApiClientTrait, GetBackendRequest, GetListenerRequest, GetRouteRequest,
-    GetSharedFilterRequest, RequestContext,
+    GetSharedFilterRequest,
 };
 
 pub mod error;
@@ -47,7 +46,6 @@ impl ApiClient {
 
         Ok(Arc::new(listener))
     }
-    
 
     pub async fn route(&self, route_ref: &RouteRef) -> Result<Arc<Route>, ApiClientError> {
         let Client::Connected(transport_client) = self.transport_client.client() else {
@@ -63,23 +61,26 @@ impl ApiClient {
         Ok(Arc::new(route))
     }
 
-    pub async fn routes(
-        &self,
-        route_refs: &[RouteRef],
-    ) -> Result<Vec<Arc<Route>>, ApiClientError> {
-
+    pub async fn routes(&self, route_refs: &[RouteRef]) -> Result<Vec<Arc<Route>>, ApiClientError> {
         let Client::Connected(transport_client) = self.transport_client.client() else {
             return Err(ApiClientError::ServiceUnavailable);
         };
-        
+
         let res = route_refs
             .iter()
-            .map(|route_ref| GetRouteRequest::builder()
-                .route_ref((*route_ref).clone())
-                .build())
+            .map(|route_ref| {
+                GetRouteRequest::builder()
+                    .route_ref((*route_ref).clone())
+                    .build()
+            })
             .map(|req| transport_client.route(req));
 
-        let routes: Vec<_> = join_all(res).await.into_iter().filter_map(|res| res.ok()).map(Arc::from).collect();
+        let routes: Vec<_> = join_all(res)
+            .await
+            .into_iter()
+            .filter_map(|res| res.ok())
+            .map(Arc::from)
+            .collect();
         Ok(routes)
     }
 
@@ -112,12 +113,19 @@ impl ApiClient {
 
         let res = backend_refs
             .iter()
-            .map(|route_ref| GetBackendRequest::builder()
-                .backend_ref(route_ref.clone())
-                .build())
+            .map(|route_ref| {
+                GetBackendRequest::builder()
+                    .backend_ref(route_ref.clone())
+                    .build()
+            })
             .map(|req| transport_client.backend(req));
 
-        let backends: Vec<_> = join_all(res).await.into_iter().filter_map(|res| res.ok()).map(Arc::from).collect();
+        let backends: Vec<_> = join_all(res)
+            .await
+            .into_iter()
+            .filter_map(|res| res.ok())
+            .map(Arc::from)
+            .collect();
         Ok(backends)
     }
 
@@ -153,12 +161,19 @@ impl ApiClient {
 
         let res = filter_refs
             .iter()
-            .map(|route_ref| GetSharedFilterRequest::builder()
-                .filter_ref(route_ref.clone())
-                .build())
+            .map(|route_ref| {
+                GetSharedFilterRequest::builder()
+                    .filter_ref(route_ref.clone())
+                    .build()
+            })
             .map(|req| transport_client.shared_filter(req));
 
-        let filters: Vec<_> = join_all(res).await.into_iter().filter_map(|res| res.ok()).map(Arc::from).collect();
+        let filters: Vec<_> = join_all(res)
+            .await
+            .into_iter()
+            .filter_map(|res| res.ok())
+            .map(Arc::from)
+            .collect();
         Ok(filters)
     }
 }
@@ -170,4 +185,3 @@ impl From<ApiClientOptions> for ApiClient {
             .build()
     }
 }
-

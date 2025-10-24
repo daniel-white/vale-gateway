@@ -6,8 +6,8 @@ use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::filter::{SharedFilter, SharedFilterRef};
 use vg_config::http::route::{Route, RouteRef};
 use vg_core::sync::arc_watch::Sender;
-use vg_rpc_client::events::Event;
 use vg_rpc_client::api::ApiClient;
+use vg_rpc_client::events::Event;
 
 #[derive(TypedBuilder)]
 pub struct ConfigurationProcessor {
@@ -17,7 +17,6 @@ pub struct ConfigurationProcessor {
 }
 
 impl ConfigurationProcessor {
-    
     pub async fn handle(&self, event: Event) {
         match event {
             Event::Initialize => {
@@ -43,12 +42,29 @@ impl ConfigurationProcessor {
     }
 
     async fn sync_all(&self) -> Result<(), ()> {
-        let listener = self.api_client.listener().await.inspect_err(|err| println!("listener error: {:?}", err)).map_err(|_| ())?;
-        let routes = self.api_client.routes(listener.route_refs().as_slice()).await.map_err(|_| ())?;
-        let shared_filters = self.api_client.shared_filters(listener.shared_filter_refs().as_slice()).await.map_err(|_| ())?;
-        let backends = self.api_client.backends(listener.backend_refs().as_slice()).await.map_err(|_| ())?;
+        let listener = self
+            .api_client
+            .listener()
+            .await
+            .inspect_err(|err| println!("listener error: {:?}", err))
+            .map_err(|_| ())?;
+        let routes = self
+            .api_client
+            .routes(listener.route_refs().as_slice())
+            .await
+            .map_err(|_| ())?;
+        let shared_filters = self
+            .api_client
+            .shared_filters(listener.shared_filter_refs().as_slice())
+            .await
+            .map_err(|_| ())?;
+        let backends = self
+            .api_client
+            .backends(listener.backend_refs().as_slice())
+            .await
+            .map_err(|_| ())?;
 
-        let (routing, backends) =  {
+        let (routing, backends) = {
             let routes = routes
                 .iter()
                 .map(|route| (route.ref_(), route.clone()))
@@ -63,16 +79,13 @@ impl ConfigurationProcessor {
                 .routes(routes)
                 .shared_filters(shared_filters)
                 .build();
-            
+
             let backends = backends
                 .iter()
                 .map(|backend| (backend.ref_(), backend.clone()))
                 .collect();
 
-            let backends = BackendConfiguration::builder()
-                .backends(backends)
-                .build();
-            
+            let backends = BackendConfiguration::builder().backends(backends).build();
 
             (routing, backends)
         };
@@ -95,7 +108,7 @@ impl ConfigurationProcessor {
             .routes(routes)
             .shared_filters(routing.shared_filters().clone())
             .build();
-        
+
         let _ = self.routing.send(Arc::new(routing));
 
         Ok(())
@@ -134,10 +147,7 @@ impl ConfigurationProcessor {
         let mut backends = backends.backends().clone();
         backends.insert(backend.ref_(), backend.clone());
 
-        let backends = BackendConfiguration::builder()
-            .backends(backends)
-            .build();
-
+        let backends = BackendConfiguration::builder().backends(backends).build();
 
         let _ = self.backends.send(Arc::new(backends));
         Ok(())

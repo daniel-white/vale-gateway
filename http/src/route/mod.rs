@@ -1,12 +1,12 @@
-use std::collections::HashMap;
+use crate::filter::SharedFilterHandler;
 use crate::route::host::{HostMatcher, HostMatcherConversionError};
 use crate::route::rule::{Rule, RuleConversionError};
 use getset::{CloneGetters, Getters};
+use std::collections::HashMap;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
 use vg_config::http::filter::SharedFilterRef;
 use vg_config::http::route::{Route as RouteConfig, RouteRef};
-use crate::filter::SharedFilterHandler;
 
 pub mod host;
 pub mod rule;
@@ -15,8 +15,10 @@ pub mod rule;
 pub struct Route {
     #[getset(get_clone = "pub")]
     ref_: RouteRef,
+
     #[getset(get = "pub")]
     host_matchers: Vec<HostMatcher>,
+
     #[getset(get = "pub")]
     rules: Vec<Rule>,
 }
@@ -33,7 +35,12 @@ pub enum RouteConversionError {
 impl TryFrom<(&HashMap<SharedFilterRef, SharedFilterHandler>, &RouteConfig)> for Route {
     type Error = RouteConversionError;
 
-    fn try_from((shared_filter_handlers, route): (&HashMap<SharedFilterRef, SharedFilterHandler>, &RouteConfig)) -> Result<Self, Self::Error> {
+    fn try_from(
+        (shared_filter_handlers, route): (
+            &HashMap<SharedFilterRef, SharedFilterHandler>,
+            &RouteConfig,
+        ),
+    ) -> Result<Self, Self::Error> {
         let host_matchers = route
             .host_matchers()
             .iter()
@@ -49,7 +56,8 @@ impl TryFrom<(&HashMap<SharedFilterRef, SharedFilterHandler>, &RouteConfig)> for
             .iter()
             .enumerate()
             .map(|(idx, rule)| {
-                Rule::try_from((shared_filter_handlers, rule)).map_err(|err| RouteConversionError::Rule(idx, err))
+                Rule::try_from((shared_filter_handlers, rule))
+                    .map_err(|err| RouteConversionError::Rule(idx, err))
             })
             .collect::<Result<_, _>>()?;
 

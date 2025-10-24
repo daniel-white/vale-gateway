@@ -1,18 +1,18 @@
 pub mod error;
 
-use std::time::Duration;
-use typed_builder::TypedBuilder;
-use tokio::{select, spawn};
-use opentelemetry::trace::{Span, SpanKind, TraceContextExt, Tracer};
-use thiserror::Error;
-use opentelemetry::Context;
-use opentelemetry::context::FutureExt;
-use vg_core::sync::broadcast::{Receiver, Sender, Traced};
-use vg_core::sync::handles::{handles, Handle};
-use vg_rpc::{ApiClient, RequestContext, SubscribeEventsRequest};
 use crate::events::error::RecvError;
 use crate::instrumentation::TRACER;
 use crate::transport::{Client, TransportClient};
+use opentelemetry::Context;
+use opentelemetry::context::FutureExt;
+use opentelemetry::trace::{Span, SpanKind, TraceContextExt, Tracer};
+use std::time::Duration;
+use thiserror::Error;
+use tokio::{select, spawn};
+use typed_builder::TypedBuilder;
+use vg_core::sync::broadcast::{Receiver, Sender, Traced};
+use vg_core::sync::handles::{Handle, handles};
+use vg_rpc::{ApiClient, SubscribeEventsRequest};
 
 pub use vg_rpc::Event;
 
@@ -156,7 +156,6 @@ impl Clone for EventReceiver {
             .build()
     }
 }
-
 
 impl EventReceiver {
     pub async fn recv(&mut self) -> Result<Traced<Event>, RecvError> {

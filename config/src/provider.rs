@@ -7,7 +7,7 @@ use async_trait::async_trait;
 #[async_trait]
 pub trait ConfigurationProvider: Send + Sync {
     async fn listener(&self, listener_ref: &ListenerRef) -> Option<Listener>;
-    
+
     async fn listener_exists(&self, listener_ref: &ListenerRef) -> bool {
         self.listener(listener_ref).await.is_some()
     }

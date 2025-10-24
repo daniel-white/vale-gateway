@@ -1,4 +1,4 @@
-use crate::configuration::{BackendConfiguration};
+use crate::configuration::BackendConfiguration;
 use enumflags2::BitFlags;
 use getset::{CloneGetters, Getters};
 use std::collections::{HashMap, HashSet};
@@ -64,7 +64,7 @@ impl From<(&TopologyLocation, &BackendConfig)> for Backend {
 #[derive(Debug, Default, Clone, TypedBuilder)]
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
 pub struct Backends {
-    backends: HashMap<BackendRef, Arc<Backend>>
+    backends: HashMap<BackendRef, Arc<Backend>>,
 }
 
 impl From<(&TopologyLocation, &BackendConfiguration)> for Backends {
@@ -120,7 +120,7 @@ impl BackendConfigurator {
             let mut current_location = self.current_location;
             let mut backend_configuration = self.backend_configuration;
             loop {
-                let backends =  {
+                let backends = {
                     let current_location = current_location.current().unwrap_or_default();
                     let source_backends = backend_configuration.current().unwrap_or_default();
                     (current_location.as_ref(), source_backends.as_ref()).into()

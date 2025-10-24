@@ -1,13 +1,13 @@
-use std::net::SocketAddr;
-use std::sync::Arc;
-use derive_more::From;
-use jsonrpsee::server::{Server, ServerHandle};
-use typed_builder::TypedBuilder;
-use vg_config::provider::ConfigurationProvider;
-use vg_rpc::ApiServer as ApiServerT;
 use crate::api::error::ApiServerStartError;
 use crate::api::methods::ApiServerMethods;
 use crate::events::sinks::EventSinkRegistry;
+use derive_more::From;
+use jsonrpsee::server::{Server, ServerHandle};
+use std::net::SocketAddr;
+use std::sync::Arc;
+use typed_builder::TypedBuilder;
+use vg_config::provider::ConfigurationProvider;
+use vg_rpc::ApiServer as ApiServerT;
 
 pub mod error;
 mod methods;
@@ -24,7 +24,7 @@ pub struct ApiServerOptions {
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
 pub struct ApiServer {
     binding: SocketAddr,
-    methods: ApiServerMethods
+    methods: ApiServerMethods,
 }
 
 impl From<ApiServerOptions> for ApiServer {
@@ -41,7 +41,6 @@ impl From<ApiServerOptions> for ApiServer {
     }
 }
 
-
 #[derive(From, Clone)]
 pub struct ApiServerStopHandle(ServerHandle);
 
@@ -51,14 +50,13 @@ impl ApiServerStopHandle {
     }
 }
 
-
 impl ApiServer {
     pub async fn start(self) -> Result<ApiServerStopHandle, ApiServerStartError> {
         let server = Server::builder()
             .build(self.binding)
             .await
             .map_err(|_| ApiServerStartError::Unknown)?;
-        
+
         Ok(server.start(self.methods.into_rpc()).into())
     }
 }

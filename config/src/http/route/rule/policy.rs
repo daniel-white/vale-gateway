@@ -19,11 +19,11 @@ use typed_builder::TypedBuilder;
 )]
 #[serde(rename_all = "camelCase")]
 pub struct RulePolicies {
-    #[getset(get_clone = "pub")]
+    #[getset(get = "pub")]
     #[serde(default, skip_serializing_if = "TimeoutPolicies::is_none")]
     timeouts: TimeoutPolicies,
 
-    #[getset(get_clone = "pub")]
+    #[getset(get = "pub")]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     retries: Option<RetryPolicy>,
 }

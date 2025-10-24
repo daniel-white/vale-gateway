@@ -1,14 +1,14 @@
-use std::collections::HashMap;
-use self::filter::RuleFilter;
-use crate::route::rule::filter::RuleFilterConversionError;
+use self::filter::RuleFilterHandler;
+use crate::filter::SharedFilterHandler;
+use crate::route::rule::filter::RuleFilterHandlerConversionError;
 use crate::route::rule::matcher::request::{RequestMatcher, RequestMatcherConversionError};
-use crate::route::rule::policy::{RulePolicies, RulePoliciesConversionError};
+use crate::route::rule::policy::{RulePoliciesConversionError, RulePolicyHandlers};
 use getset::Getters;
+use std::collections::HashMap;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
 use vg_config::http::filter::SharedFilterRef;
 use vg_config::http::route::rule::Rule as RuleConfig;
-use crate::filter::SharedFilterHandler;
 
 pub mod filter;
 pub mod matcher;
@@ -23,10 +23,10 @@ pub struct Rule {
     matchers: Vec<RequestMatcher>,
 
     #[getset(get = "pub")]
-    filters: Vec<RuleFilter>,
+    filters: Vec<RuleFilterHandler>,
 
     #[getset(get = "pub")]
-    policies: RulePolicies,
+    policies: RulePolicyHandlers,
 }
 
 #[derive(Debug, Error)]
@@ -35,7 +35,7 @@ pub enum RuleConversionError {
     Matcher(usize, #[source] RequestMatcherConversionError),
 
     #[error("filter at index {0} is invalid: {1}")]
-    Filter(usize, #[source] RuleFilterConversionError),
+    Filter(usize, #[source] RuleFilterHandlerConversionError),
 
     #[error("policies are invalid: {0}")]
     Policies(
@@ -48,7 +48,12 @@ pub enum RuleConversionError {
 impl TryFrom<(&HashMap<SharedFilterRef, SharedFilterHandler>, &RuleConfig)> for Rule {
     type Error = RuleConversionError;
 
-    fn try_from((shared_filter_handlers, rule): (&HashMap<SharedFilterRef, SharedFilterHandler>, &RuleConfig)) -> Result<Self, Self::Error> {
+    fn try_from(
+        (shared_filter_handlers, rule): (
+            &HashMap<SharedFilterRef, SharedFilterHandler>,
+            &RuleConfig,
+        ),
+    ) -> Result<Self, Self::Error> {
         let matchers = rule
             .matchers()
             .iter()
@@ -64,7 +69,8 @@ impl TryFrom<(&HashMap<SharedFilterRef, SharedFilterHandler>, &RuleConfig)> for 
             .iter()
             .enumerate()
             .map(|(idx, filter)| {
-                RuleFilter::try_from((shared_filter_handlers, filter)).map_err(|err| RuleConversionError::Filter(idx, err))
+                RuleFilterHandler::try_from((shared_filter_handlers, filter))
+                    .map_err(|err| RuleConversionError::Filter(idx, err))
             })
             .collect::<Result<_, _>>()?;
 

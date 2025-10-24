@@ -1,22 +1,27 @@
 mod instrumentation;
 use crate::instrumentation::TRACER;
 use async_trait::async_trait;
+use http::StatusCode;
 use opentelemetry::Context;
 use opentelemetry::trace::{FutureExt, TraceContextExt, Tracer};
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
-use http::StatusCode;
 use tokio::task::JoinSet;
 use vg_config::http::backend::{Backend, BackendEndpoint, BackendRef};
+use vg_config::http::filter::static_response::{
+    StaticResponseFilter, StaticResponseFilterRef, StaticResponseSharedFilter,
+};
 use vg_config::http::filter::{SharedFilter, SharedFilterRef};
-use vg_config::http::filter::static_response::{StaticResponseFilter, StaticResponseFilterRef, StaticResponseSharedFilter};
 use vg_config::http::listener::policy::ListenerPolicies;
-use vg_config::http::listener::{Listener, ListenerRef};
-use vg_config::provider::ConfigurationProvider;
-use vg_config::http::route::{Route, RouteRef};
+use vg_config::http::listener::{
+    Listener, ListenerRef, ListenerTransport, ListenerTransportProtocols,
+};
 use vg_config::http::route::host::HostMatcher;
+use vg_config::http::route::{Route, RouteRef};
+use vg_config::provider::ConfigurationProvider;
 use vg_core::instrumentation::init;
+use vg_core::net::Port;
 use vg_rpc_server::api::{ApiServer, ApiServerOptions};
 use vg_rpc_server::events::{Event, EventBroker, EventBrokerOptions};
 
@@ -25,12 +30,18 @@ pub struct HttpConfigProvider;
 #[async_trait]
 impl ConfigurationProvider for HttpConfigProvider {
     async fn listener(&self, listener_ref: &ListenerRef) -> Option<Listener> {
+        let p = ListenerTransportProtocols::builder()
+            .http(Port::HTTP)
+            .build();
+
+        let t = ListenerTransport::builder().protocols(p).build();
         let beref = BackendRef::from("be1".to_string());
         let r = RouteRef::from("r".to_string());
         let f = StaticResponseFilterRef::from("f".to_string());
         let f = SharedFilterRef::StaticResponse(f);
         let l = Listener::builder()
             .ref_(listener_ref.clone())
+            .transport(t)
             .policies(ListenerPolicies::default())
             .backend_refs(vec![beref])
             .route_refs(vec![r])
@@ -40,7 +51,6 @@ impl ConfigurationProvider for HttpConfigProvider {
 
         Some(l)
     }
-    
 
     async fn route(&self, route_ref: &RouteRef) -> Option<Route> {
         let r = Route::builder()
@@ -48,7 +58,7 @@ impl ConfigurationProvider for HttpConfigProvider {
             .host_matchers(vec![HostMatcher::Exact("example.com.".to_string())])
             .rules(Vec::new())
             .build();
-        
+
         Some(r)
     }
 
@@ -74,15 +84,15 @@ impl ConfigurationProvider for HttpConfigProvider {
     }
 
     async fn shared_filter(&self, filter_ref: &SharedFilterRef) -> Option<SharedFilter> {
-        let  f = StaticResponseFilter::builder()
+        let f = StaticResponseFilter::builder()
             .status_code(StatusCode::ACCEPTED)
-            .body(None).build();
+            .body(None)
+            .build();
         let f = StaticResponseSharedFilter::builder()
             .ref_(StaticResponseFilterRef::from("f".to_string()))
             .filter(f)
             .build();
-        let f =    
-        SharedFilter::StaticResponse(f);
+        let f = SharedFilter::StaticResponse(f);
         Some(f)
     }
 }
@@ -98,7 +108,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .capacity(1024)
         .build()
         .into();
-    
+
     let api_server: ApiServer = ApiServerOptions::builder()
         .binding(SocketAddr::from_str("0.0.0.0:9000").unwrap())
         .event_sinks(event_broker.sinks())

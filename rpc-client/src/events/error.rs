@@ -1,5 +1,5 @@
-use thiserror::Error;
 use jsonrpsee::core::client::Error as ClientError;
+use thiserror::Error;
 use vg_rpc::ApiError;
 #[derive(Debug, Error)]
 pub enum RecvError {

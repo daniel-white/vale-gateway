@@ -2,11 +2,11 @@ mod events;
 pub mod location;
 pub mod processor;
 
-use processor::ConfigurationProcessor;
 use crate::instrumentation::TRACER;
 use getset::Getters;
 use opentelemetry::Context;
 use opentelemetry::trace::{FutureExt, SpanKind, TraceContextExt, Tracer};
+use processor::ConfigurationProcessor;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::{select, spawn};
@@ -19,10 +19,10 @@ use vg_core::sync::arc_watch::Receiver;
 use vg_core::sync::arc_watch::Sender;
 use vg_core::sync::arc_watch::channel;
 use vg_core::sync::broadcast::Traced;
-use vg_core::sync::handles::{handles, Handle};
+use vg_core::sync::handles::{Handle, handles};
 use vg_rpc_client::api::ApiClient;
-use vg_rpc_client::events::error::RecvError;
 use vg_rpc_client::events::EventReceiver;
+use vg_rpc_client::events::error::RecvError;
 
 #[derive(Default, Debug, Getters, TypedBuilder)]
 pub struct RoutingConfiguration {

@@ -37,8 +37,6 @@ impl<T> Sender<T> {
         let rx = self.tx.subscribe();
         Receiver::builder().rx(rx).build()
     }
-    
-
 }
 
 pub fn channel<T>() -> (Sender<T>, Receiver<T>) {

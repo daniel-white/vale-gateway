@@ -6,6 +6,7 @@ use crate::configuration::location::CurrentLocationConfigurator;
 use crate::configuration::{ConfigurationRegistry, ConfigurationRegistryOptions};
 use crate::http::backend::{BackendConfigurator, BackendConfiguratorOptions};
 use crate::http::filter::{SharedFilterHandlersManager, SharedFilterHandlersManagerOptions};
+use crate::http::routing::route::{RouteConfigurator, RouteConfiguratorOptions};
 use ::http::Uri;
 use std::error::Error;
 use std::sync::Arc;
@@ -13,10 +14,9 @@ use tokio::select;
 use tokio::task::JoinSet;
 use vg_core::instrumentation::init;
 use vg_core::net::topology::TopologyLocation;
+use vg_rpc_client::api::{ApiClient, ApiClientOptions};
 use vg_rpc_client::events::{EventClient, EventClientOptions};
 use vg_rpc_client::transport::{Transport, TransportOptions};
-use vg_rpc_client::api::{ApiClient, ApiClientOptions};
-use crate::http::routing::route::{RouteConfigurator, RouteConfiguratorOptions};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -41,12 +41,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let current_location = CurrentLocationConfigurator::new();
 
-    let source_configuration: ConfigurationRegistry =
-        ConfigurationRegistryOptions::builder()
-            .api_client(api_client)
-            .events(event_client.events())
-            .build()
-            .into();
+    let source_configuration: ConfigurationRegistry = ConfigurationRegistryOptions::builder()
+        .api_client(api_client)
+        .events(event_client.events())
+        .build()
+        .into();
 
     let shared_filter_handlers: SharedFilterHandlersManager =
         SharedFilterHandlersManagerOptions::builder()
@@ -59,7 +58,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .backend_configuration(source_configuration.backends())
         .build()
         .into();
-    
+
     let routes_configurator: RouteConfigurator = RouteConfiguratorOptions::builder()
         .routing_configuration(source_configuration.routing())
         .shared_filter_handlers(shared_filter_handlers.handlers())

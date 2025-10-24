@@ -24,15 +24,15 @@ impl PendingEventSink {
     }
 
     pub async fn accept(self) -> Result<EventSink, ()> {
-        let sink =  self.sink.accept().await.map_err(|_| ())?; // TODO: handle error) 
-        
+        let sink = self.sink.accept().await.map_err(|_| ())?; // TODO: handle error) 
+
         let sink = EventSink::builder()
             .listener_ref(self.listener_ref)
             .sink(sink)
             .build();
 
-        let _ = sink.send(Event::Initialize).await?; // TODO handle error
-        
+        sink.send(Event::Initialize).await?; // TODO handle error
+
         Ok(sink)
     }
 
@@ -96,7 +96,7 @@ pub struct EventSinkRegistry {
     #[builder(default, setter(skip))]
     #[getset(get_clone = "pub(crate)")]
     sinks: Arc<DashMap<EventSinkId, EventSink>>,
-    configuration: Arc<dyn ConfigurationProvider>
+    configuration: Arc<dyn ConfigurationProvider>,
 }
 
 impl EventSinkRegistry {
@@ -104,9 +104,13 @@ impl EventSinkRegistry {
         &self,
         pending_sink: PendingEventSink,
     ) -> Result<(), ApiError> {
-        if !self.configuration.listener_exists(&pending_sink.listener_ref).await {
+        if !self
+            .configuration
+            .listener_exists(&pending_sink.listener_ref)
+            .await
+        {
             pending_sink.reject(ApiError::NotFound).await;
-            return Err(ApiError::NotFound)
+            return Err(ApiError::NotFound);
         }
 
         let sink = pending_sink.accept().await.map_err(|_| ApiError::Unknown)?;

@@ -1,11 +1,13 @@
+pub mod filter;
 pub mod policy;
 
 use crate::http::backend::BackendRef;
-use crate::http::filter::{GatewayFilter, SharedFilterRef};
+use crate::http::filter::SharedFilterRef;
+use crate::http::listener::filter::ListenerFilter;
 use crate::http::listener::policy::ListenerPolicies;
 use crate::http::route::RouteRef;
 use derive_more::{Deref, From};
-use getset::{CopyGetters, Getters};
+use getset::{CloneGetters, CopyGetters, Getters};
 use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
 use vg_core::collections::{CollectionEvent, NotifyingCollection};
@@ -15,29 +17,35 @@ use vg_core::net::Port;
 #[serde(transparent)]
 pub struct ListenerRef(String);
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, TypedBuilder, CopyGetters)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, TypedBuilder, CopyGetters, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ListenerProtocols {
+pub struct ListenerTransportProtocols {
     #[getset(get_copy = "pub")]
+    #[builder(default, setter(strip_option))]
+    #[serde(skip_serializing_if = "Option::is_none")]
     http: Option<Port>,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, TypedBuilder, Getters)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TypedBuilder, Getters, CloneGetters,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct ListenerTransport {
-    #[getset(get = "pub")]
-    #[serde(rename = "ref")]
-    ref_: ListenerRef,
-    #[getset(get = "pub")]
-    protocols: ListenerProtocols,
+    #[getset(get_clone = "pub")]
+    protocols: ListenerTransportProtocols,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TypedBuilder, Getters)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TypedBuilder, Getters, CloneGetters,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct Listener {
-    #[getset(get = "pub")]
+    #[getset(get_clone = "pub")]
     #[serde(rename = "ref")]
     ref_: ListenerRef,
+
+    #[getset(get_clone = "pub")]
+    transport: ListenerTransport,
 
     #[getset(get = "pub")]
     #[serde(default, skip_serializing_if = "ListenerPolicies::is_default")]
@@ -45,7 +53,7 @@ pub struct Listener {
 
     #[getset(get = "pub")]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    filters: Vec<GatewayFilter>,
+    filters: Vec<ListenerFilter>,
 
     #[getset(get = "pub")]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

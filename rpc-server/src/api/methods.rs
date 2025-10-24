@@ -1,16 +1,19 @@
-use std::sync::Arc;
+use crate::events::sinks::{EventSinkRegistry, PendingEventSink};
 use async_trait::async_trait;
 use jsonrpsee::types::ErrorObject;
 use jsonrpsee_core::server::PendingSubscriptionSink;
-use jsonrpsee_core::{JsonRawValue, SubscriptionError, SubscriptionResult};
+use jsonrpsee_core::{SubscriptionError, SubscriptionResult};
+use std::sync::Arc;
 use typed_builder::TypedBuilder;
 use vg_config::http::backend::Backend;
 use vg_config::http::filter::SharedFilter;
 use vg_config::http::listener::Listener;
-use vg_config::provider::ConfigurationProvider;
 use vg_config::http::route::Route;
-use vg_rpc::{ApiError, ApiServer, GetBackendRequest, GetListenerRequest, GetRouteRequest, GetSharedFilterRequest, SubscribeEventsRequest};
-use crate::events::sinks::{EventSinkRegistry, PendingEventSink};
+use vg_config::provider::ConfigurationProvider;
+use vg_rpc::{
+    ApiError, ApiServer, GetBackendRequest, GetListenerRequest, GetRouteRequest,
+    GetSharedFilterRequest, SubscribeEventsRequest,
+};
 
 #[derive(TypedBuilder)]
 pub struct ApiServerMethods {
@@ -36,14 +39,14 @@ impl ApiServer for ApiServerMethods {
 
     async fn backend(&self, req: GetBackendRequest) -> Result<Backend, ApiError> {
         self.configuration
-            .backend(&req.backend_ref())
+            .backend(req.backend_ref())
             .await
             .ok_or(ApiError::NotFound)
     }
 
     async fn shared_filter(&self, req: GetSharedFilterRequest) -> Result<SharedFilter, ApiError> {
         self.configuration
-            .shared_filter(&req.filter_ref())
+            .shared_filter(req.filter_ref())
             .await
             .ok_or(ApiError::NotFound)
     }
@@ -57,10 +60,13 @@ impl ApiServer for ApiServerMethods {
             .listener_ref(req.listener_ref())
             .sink(subscription_sink)
             .build();
-        
-        self.event_sinks.try_register(pending_sink).await.map_err(|err| {
-            let err: ErrorObject<'static> = err.into();
-            SubscriptionError::from(err)
-        })
+
+        self.event_sinks
+            .try_register(pending_sink)
+            .await
+            .map_err(|err| {
+                let err: ErrorObject<'static> = err.into();
+                SubscriptionError::from(err)
+            })
     }
 }

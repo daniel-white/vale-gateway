@@ -48,7 +48,7 @@ impl SharedFilterHandlersManager {
 
         spawn(async move {
             let mut routing = self.routing_configuration;
-            
+
             loop {
                 let handlers = {
                     let routing = routing.current().unwrap_or_default();
@@ -63,7 +63,7 @@ impl SharedFilterHandlersManager {
 
                     SharedFilterHandlers::builder().handlers(handlers).build()
                 };
-                
+
                 let _ = self.handlers.send(Arc::new(handlers));
 
                 select! {

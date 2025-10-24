@@ -1,25 +1,25 @@
+use crate::configuration::RoutingConfiguration;
+use crate::http::filter::SharedFilterHandlers;
+use getset::{CloneGetters, Getters};
 use std::collections::HashMap;
 use std::sync::Arc;
-use getset::{CloneGetters, Getters};
 use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
 use vg_config::http::route::RouteRef;
-use vg_core::sync::arc_watch::{channel, Receiver, Sender};
-use vg_core::sync::handles::{handles, Handle};
+use vg_core::sync::arc_watch::{Receiver, Sender, channel};
+use vg_core::sync::handles::{Handle, handles};
 use vg_http::route::Route;
-use crate::configuration::RoutingConfiguration;
-use crate::http::filter::SharedFilterHandlers;
 
 #[derive(Debug, Default, TypedBuilder)]
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
 pub struct Routes {
-    routes: HashMap<RouteRef, Route>
+    routes: HashMap<RouteRef, Route>,
 }
 
 #[derive(TypedBuilder)]
 pub struct RouteConfiguratorOptions {
     routing_configuration: Receiver<RoutingConfiguration>,
-    shared_filter_handlers: Receiver<SharedFilterHandlers>
+    shared_filter_handlers: Receiver<SharedFilterHandlers>,
 }
 
 #[derive(TypedBuilder)]
@@ -46,34 +46,37 @@ impl RouteConfigurator {
     pub fn routes(&self) -> Receiver<Routes> {
         self.routes.subscribe()
     }
-    
-    pub  fn start(self) -> Handle {
+
+    pub fn start(self) -> Handle {
         let (handle, mut stop_handle) = handles();
 
         spawn(async move {
             let mut routing = self.routing_configuration;
             let mut shared_filter_handlers = self.shared_filter_handlers;
-            loop{
+            loop {
                 let routes: HashMap<_, _> = {
                     let routing = routing.current().unwrap_or_default();
-                    let shared_filter_handlers = shared_filter_handlers.current().unwrap_or_default();
+                    let shared_filter_handlers =
+                        shared_filter_handlers.current().unwrap_or_default();
                     let shared_filter_handlers = shared_filter_handlers.handlers();
-                    
-                    routing.routes().values().filter_map(|route| {
-                        let route = Route::try_from((shared_filter_handlers, route.as_ref()));
-                        match route {
-                            Ok(route) => Some((route.ref_(), route)),
-                            Err(_) => None // TODO handle error
-                        }
-                    }).collect()
+
+                    routing
+                        .routes()
+                        .values()
+                        .filter_map(|route| {
+                            let route = Route::try_from((shared_filter_handlers, route.as_ref()));
+                            match route {
+                                Ok(route) => Some((route.ref_(), route)),
+                                Err(_) => None, // TODO handle error
+                            }
+                        })
+                        .collect()
                 };
-                
-                let routes = Routes::builder()
-                    .routes(routes)
-                    .build();
-                
+
+                let routes = Routes::builder().routes(routes).build();
+
                 let _ = self.routes.send(Arc::new(routes));
-                
+
                 select! {
                     _ = routing.changed() => {
                         continue;
@@ -87,7 +90,7 @@ impl RouteConfigurator {
                 }
             }
         });
-        
+
         handle
     }
 }

@@ -1,15 +1,13 @@
-pub  mod sinks;
+pub mod sinks;
 
-use std::io::sink;
 pub use vg_rpc::Event;
 
-use crate::events::sinks::{EventSink, EventSinkId, EventSinkRegistry};
+use crate::events::sinks::EventSinkRegistry;
 use crate::instrumentation::TRACER;
-use dashmap::DashMap;
+use getset::CloneGetters;
 use opentelemetry::Context;
 use opentelemetry::trace::{FutureExt, SpanKind, TraceContextExt, Tracer};
 use std::sync::Arc;
-use getset::CloneGetters;
 use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
 use vg_config::http::listener::ListenerRef;
@@ -20,7 +18,7 @@ use vg_core::sync::mpsc::{Receiver, Sender, Traced, channel};
 #[derive(TypedBuilder)]
 pub struct EventBrokerOptions {
     capacity: usize,
-    configuration: Arc<dyn ConfigurationProvider>
+    configuration: Arc<dyn ConfigurationProvider>,
 }
 
 #[derive(TypedBuilder, CloneGetters)]
@@ -48,9 +46,7 @@ impl From<EventBrokerOptions> for EventBroker {
 
 impl EventBroker {
     pub fn sender(&self) -> EventSender {
-        EventSender::builder()
-            .sender(self.sender.clone())
-            .build()
+        EventSender::builder().sender(self.sender.clone()).build()
     }
 
     pub fn start(self) -> Handle {

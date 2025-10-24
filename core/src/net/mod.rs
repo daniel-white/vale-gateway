@@ -16,6 +16,12 @@ use thiserror::Error;
 #[serde(transparent)]
 pub struct Port(NonZeroU16);
 
+impl Port {
+    pub const HTTP: Port = Port(NonZeroU16::new(80).unwrap());
+
+    pub const HTTPS: Port = Port(NonZeroU16::new(443).unwrap());
+}
+
 impl Display for Port {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)

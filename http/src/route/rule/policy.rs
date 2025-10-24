@@ -1,15 +1,14 @@
 use crate::policy::retry::{RetryPolicyHandler, RetryPolicyHandlerConversionError};
-use crate::policy::timeout::{TimeoutPolicyConversionError, TimeoutPolicyHandler};
+use crate::policy::timeout::{TimeoutPolicyHandlers, TimeoutPolicyHandlersConversionError};
 use getset::{CloneGetters, Getters};
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use vg_config::http::policy::timeout::TimeoutPolicies as TimeoutPoliciesConfig;
-use vg_config::http::route::rule::policy::RulePolicies as RulePoliciesConfig;
+use vg_config::http::route::rule::policy::RulePolicies;
 
 #[derive(Debug, TypedBuilder, CloneGetters, Getters)]
-pub struct RulePolicies {
+pub struct RulePolicyHandlers {
     #[getset(get = "pub")]
-    timeouts: TimeoutPolicies,
+    timeouts: TimeoutPolicyHandlers,
 
     #[getset(get = "pub")]
     retries: Option<RetryPolicyHandler>,
@@ -21,7 +20,7 @@ pub enum RulePoliciesConversionError {
     TimeoutPolicies(
         #[from]
         #[source]
-        TimeoutPoliciesConversionError,
+        TimeoutPolicyHandlersConversionError,
     ),
 
     #[error("retry policy is invalid: {0}")]
@@ -32,63 +31,19 @@ pub enum RulePoliciesConversionError {
     ),
 }
 
-impl TryFrom<&RulePoliciesConfig> for RulePolicies {
+impl TryFrom<&RulePolicies> for RulePolicyHandlers {
     type Error = RulePoliciesConversionError;
 
-    fn try_from(value: &RulePoliciesConfig) -> Result<Self, Self::Error> {
+    fn try_from(value: &RulePolicies) -> Result<Self, Self::Error> {
         let timeouts = value.timeouts().try_into()?;
         let retries = value
             .retries()
+            .as_ref()
             .map(RetryPolicyHandler::try_from)
             .transpose()?;
 
         let policies = Self::builder().timeouts(timeouts).retries(retries).build();
 
         Ok(policies)
-    }
-}
-
-#[derive(Debug, Clone, TypedBuilder, CloneGetters, Getters)]
-pub struct TimeoutPolicies {
-    #[getset(get_clone = "pub")]
-    request: Option<TimeoutPolicyHandler>,
-
-    #[getset(get_clone = "pub")]
-    backend_request: Option<TimeoutPolicyHandler>,
-}
-
-#[derive(Debug, Error)]
-pub enum TimeoutPoliciesConversionError {
-    #[error("request timeout policy is invalid: {0}")]
-    RequestPolicy(#[source] TimeoutPolicyConversionError),
-
-    #[error("backend request timeout policy is invalid: {0}")]
-    BackendRequestPolicy(#[source] TimeoutPolicyConversionError),
-}
-
-impl TryFrom<TimeoutPoliciesConfig> for TimeoutPolicies {
-    type Error = TimeoutPoliciesConversionError;
-
-    fn try_from(value: TimeoutPoliciesConfig) -> Result<Self, Self::Error> {
-        let request = value
-            .request()
-            .map(|p| {
-                p.try_into()
-                    .map_err(TimeoutPoliciesConversionError::RequestPolicy)
-            })
-            .transpose()?;
-
-        let backend_request = value
-            .backend_request()
-            .map(|p| {
-                p.try_into()
-                    .map_err(TimeoutPoliciesConversionError::BackendRequestPolicy)
-            })
-            .transpose()?;
-
-        Ok(Self::builder()
-            .request(request)
-            .backend_request(backend_request)
-            .build())
     }
 }

@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use crate::filter::SharedFilterHandler;
+use crate::filter::access_control::AccessControlFilterHandler;
 use crate::filter::backend_uri_rewriter::{
     BackendUriRewriterFilterHandler, BackendUriRewriterFilterHandlerConversionError,
 };
@@ -8,17 +9,16 @@ use crate::filter::header_modifier::{
 use crate::filter::redirect_response::{
     RedirectResponseFilterHandler, RedirectResponseFilterHandlerConversionError,
 };
+use crate::filter::static_response::StaticResponseFilterHandler;
+use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
 use thiserror::Error;
 use vg_config::http::filter::SharedFilterRef;
-use vg_config::http::route::rule::filter::RuleFilter as RuleFilterConfig;
-use crate::filter::access_control::AccessControlFilterHandler;
-use crate::filter::SharedFilterHandler;
-use crate::filter::static_response::StaticResponseFilterHandler;
+use vg_config::http::route::rule::filter::RuleFilter;
 
 #[derive(Debug)]
-pub enum RuleFilter {
+pub enum RuleFilterHandler {
     AccessControl(Arc<AccessControlFilterHandler>),
     RequestHeaderModifier(Arc<HeaderModifierFilterHandler>),
     ResponseHeaderModifier(Arc<HeaderModifierFilterHandler>),
@@ -28,7 +28,7 @@ pub enum RuleFilter {
 }
 
 #[derive(Debug, Error)]
-pub enum RuleFilterConversionError {
+pub enum RuleFilterHandlerConversionError {
     #[error("AccessControl filter not found")]
     AccessControl,
     #[error("StaticResponse filter not found")]
@@ -51,42 +51,53 @@ pub enum RuleFilterConversionError {
     ),
 }
 
-impl TryFrom<(&HashMap<SharedFilterRef, SharedFilterHandler>, &RuleFilterConfig)> for RuleFilter {
-    type Error = RuleFilterConversionError;
+impl TryFrom<(&HashMap<SharedFilterRef, SharedFilterHandler>, &RuleFilter)> for RuleFilterHandler {
+    type Error = RuleFilterHandlerConversionError;
 
-    fn try_from((shared_filter_handlers, filter): (&HashMap<SharedFilterRef, SharedFilterHandler>, &RuleFilterConfig)) -> Result<Self, Self::Error> {
+    fn try_from(
+        (shared_filter_handlers, filter): (
+            &HashMap<SharedFilterRef, SharedFilterHandler>,
+            &RuleFilter,
+        ),
+    ) -> Result<Self, Self::Error> {
         match filter {
-            RuleFilterConfig::AccessControl(filter) => {
+            RuleFilter::AccessControl(filter) => {
                 let ref_ = SharedFilterRef::AccessControl(filter.ref_());
-                let Some(filter) = shared_filter_handlers.get(&ref_).and_then(|handler| handler.clone().try_unwrap_access_control().ok()) else {
-                    return Err(RuleFilterConversionError::AccessControl)
+                let Some(filter) = shared_filter_handlers
+                    .get(&ref_)
+                    .and_then(|handler| handler.clone().try_unwrap_access_control().ok())
+                else {
+                    return Err(RuleFilterHandlerConversionError::AccessControl);
                 };
-                Ok(RuleFilter::AccessControl(filter))
+                Ok(RuleFilterHandler::AccessControl(filter))
             }
-            RuleFilterConfig::RequestHeaderModifier(filter) => {
+            RuleFilter::RequestHeaderModifier(filter) => {
                 let handler = HeaderModifierFilterHandler::try_from(filter.deref())
-                    .map_err(RuleFilterConversionError::RequestHeaderModifier)?;
-                Ok(RuleFilter::RequestHeaderModifier(Arc::new(handler)))
+                    .map_err(RuleFilterHandlerConversionError::RequestHeaderModifier)?;
+                Ok(RuleFilterHandler::RequestHeaderModifier(Arc::new(handler)))
             }
-            RuleFilterConfig::ResponseHeaderModifier(filter) => {
+            RuleFilter::ResponseHeaderModifier(filter) => {
                 let handler = HeaderModifierFilterHandler::try_from(filter.deref())
-                    .map_err(RuleFilterConversionError::ResponseHeaderModifier)?;
-                Ok(RuleFilter::ResponseHeaderModifier(Arc::new(handler)))
+                    .map_err(RuleFilterHandlerConversionError::ResponseHeaderModifier)?;
+                Ok(RuleFilterHandler::ResponseHeaderModifier(Arc::new(handler)))
             }
-            RuleFilterConfig::RedirectResponse(filter) => {
+            RuleFilter::RedirectResponse(filter) => {
                 let handler = RedirectResponseFilterHandler::try_from(filter.deref())?;
-                Ok(RuleFilter::RedirectResponse(Arc::new(handler)))
+                Ok(RuleFilterHandler::RedirectResponse(Arc::new(handler)))
             }
-            RuleFilterConfig::StaticResponse(filter) => {
+            RuleFilter::StaticResponse(filter) => {
                 let ref_ = SharedFilterRef::StaticResponse(filter.ref_());
-                let Some(filter) = shared_filter_handlers.get(&ref_).and_then(|handler| handler.clone().try_unwrap_static_response().ok()) else {
-                    return Err(RuleFilterConversionError::StaticResponse)
+                let Some(filter) = shared_filter_handlers
+                    .get(&ref_)
+                    .and_then(|handler| handler.clone().try_unwrap_static_response().ok())
+                else {
+                    return Err(RuleFilterHandlerConversionError::StaticResponse);
                 };
-                Ok(RuleFilter::StaticResponse(filter))
+                Ok(RuleFilterHandler::StaticResponse(filter))
             }
-            RuleFilterConfig::BackendUriRewriter(filter) => {
+            RuleFilter::BackendUriRewriter(filter) => {
                 let handler = BackendUriRewriterFilterHandler::try_from(filter.deref())?;
-                Ok(RuleFilter::BackendUriRewriter(Arc::new(handler)))
+                Ok(RuleFilterHandler::BackendUriRewriter(Arc::new(handler)))
             }
         }
     }

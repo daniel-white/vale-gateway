@@ -16,10 +16,10 @@ pub struct RetryPolicyHandler {
     backoff: Duration,
 }
 
-impl TryFrom<RetryPolicy> for RetryPolicyHandler {
+impl TryFrom<&RetryPolicy> for RetryPolicyHandler {
     type Error = RetryPolicyHandlerConversionError;
 
-    fn try_from(value: RetryPolicy) -> Result<Self, Self::Error> {
+    fn try_from(value: &RetryPolicy) -> Result<Self, Self::Error> {
         let codes = value
             .codes()
             .iter()
