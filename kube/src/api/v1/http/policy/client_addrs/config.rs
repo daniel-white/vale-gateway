@@ -54,7 +54,7 @@ impl TryFrom<&ClientAddressesPolicy> for ClientAddressesPolicyConfig {
             value.proxies.as_ref(),
         ) {
             (ClientAddressesPolicySource::None, None, None) => {
-                builder.extractor(ClientAddressExtractor::None)
+                unreachable!("layers")
             }
             (ClientAddressesPolicySource::DirectConnection, None, None) => {
                 builder.extractor(ClientAddressExtractor::Direct)

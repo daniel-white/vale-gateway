@@ -26,7 +26,7 @@ dashmap = "7.0.0-rc2"
 derive_more = { version = "2", features = ["full"] }
 enumflags2 = "0.7"
 futures = "0.3"
-gateway-api = { git = "https://github.com/daniel-white/gateway-api-rs.git", branch = "deps" }
+gateway-api = { git = "https://github.com/daniel-white/gateway-api-rs.git", branch = "main" }
 getset = "0.1"
 heck = "0.5"
 hickory-proto = "0.25"
@@ -46,11 +46,11 @@ multi-map = "1"
 num-traits = "0.2"
 num-derive = "0.4"
 ouroboros = "0.18"
-opentelemetry = { version = "0.30", features = ["metrics", "logs", "trace"] }
-opentelemetry-http = "0.30"
-opentelemetry_sdk = { version = "0.30", features = ["metrics", "logs", "trace"] }
-opentelemetry-semantic-conventions = "0.30"
-opentelemetry-stdout = "0.30"
+opentelemetry = { version = "0.31", features = ["metrics", "logs", "trace"] }
+opentelemetry-http = "0.31"
+opentelemetry_sdk = { version = "0.31", features = ["metrics", "logs", "trace"] }
+opentelemetry-semantic-conventions = "0.31"
+opentelemetry-stdout = "0.31"
 paste = "1"
 pingora = "0.6"
 problemdetails = "0.6"
@@ -69,9 +69,9 @@ tokio-shutdown = "0.1"
 tokio-test = "0.4"
 tower-layer = "0.3"
 tracing = "0.1"
-tracing-opentelemetry = "0.31"
+tracing-opentelemetry = "0.32"
 tracing-subscriber = "0.3"
 trusted-proxies = "0.3"
-typed-builder = "0.22"
+typed-builder = "0.23"
 url = "2"
 

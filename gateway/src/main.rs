@@ -54,7 +54,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .into();
 
     let backends_configurator: BackendConfigurator = BackendConfiguratorOptions::builder()
-        .current_location(current_location.current_location())
+        .current_location(current_location.subscribe())
         .backends(configuration.backends())
         .build()
         .into();
@@ -65,19 +65,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .build()
         .into();
 
-    let current_location = current_location.start();
-    let _ = current_location.send(Arc::new(
-        TopologyLocation::builder()
-            .zone("us-west-1".to_string())
-            .node("a".to_string())
-            .build(),
-    ));
-
+    
     let mut rrx = configuration.routing();
     let mut brx = backends_configurator.backends();
     let mut sfhx = shared_filter_handlers.handlers();
     let mut routes_rx = routes_configurator.routes();
 
+    let current_location = current_location.start();
     let transport = transport.start();
     let shared_filter_handlers = shared_filter_handlers.start();
     let backends_configurator = backends_configurator.start();
@@ -87,6 +81,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut js = JoinSet::new();
 
+    js.spawn(current_location.stopped());
     js.spawn(transport.stopped());
     js.spawn(shared_filter_handlers.stopped());
     js.spawn(backends_configurator.stopped());

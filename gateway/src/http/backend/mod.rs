@@ -85,14 +85,14 @@ impl From<(&TopologyLocation, &BackendConfiguration)> for Backends {
 
 #[derive(TypedBuilder)]
 pub struct BackendConfiguratorOptions {
-    current_location: Receiver<TopologyLocation>,
+    current_location: Subscription<TopologyLocation>,
     backends: Subscription<BackendConfiguration>,
 }
 
 #[derive(TypedBuilder)]
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
 pub struct BackendConfigurator {
-    current_location: Receiver<TopologyLocation>,
+    current_location: Subscription<TopologyLocation>,
     source_backends: Subscription<BackendConfiguration>,
     backends: Sender<Backends>,
 }
@@ -122,7 +122,7 @@ impl BackendConfigurator {
             let mut source_backends_subscription = self.source_backends;
             loop {
                 let backends = {
-                    let current_location = current_location.current().unwrap_or_default();
+                    let current_location = current_location.current();
                     let source_backends = source_backends_subscription.current();
                     (current_location.as_ref(), source_backends.as_ref()).into()
                 };
