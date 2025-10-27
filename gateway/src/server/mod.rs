@@ -1,59 +1,60 @@
-use std::cell::RefCell;
 use async_from::async_trait;
 use pingora::prelude::Opt;
 use pingora::server::{RunArgs, ShutdownSignal, ShutdownSignalWatch, UnixShutdownSignalWatch};
 use pingora::services::Service;
+use std::cell::RefCell;
 use thiserror::Error;
 use tokio::select;
 use tokio::sync::RwLock;
 use tokio::task::spawn_blocking;
 use typed_builder::TypedBuilder;
-use vg_core::sync::handles::{handles, Handle, StopHandle};
+use vg_core::sync::handles::{Handle, StopHandle, handles};
 
 #[derive(TypedBuilder)]
 pub struct ServerOptions {
-    services: Vec<Box<dyn Service>>
+    services: Vec<Box<dyn Service>>,
 }
 
 impl From<ServerOptions> for Server {
     fn from(value: ServerOptions) -> Self {
-        Server::builder()
-            .services(value.services)
-            .build()
+        Server::builder().services(value.services).build()
     }
 }
 
 #[derive(TypedBuilder)]
 pub struct Server {
-    services: Vec<Box<dyn Service>>
+    services: Vec<Box<dyn Service>>,
 }
 
 impl Server {
     pub fn start(self) -> Result<Handle, ServerError> {
         let mut server = pingora::server::Server::new(None)?;
-        
+
         let (handle, stop_handle) = handles();
         let shutdown_signal = StopHandleShutdownSignalWatch::new(stop_handle);
         let shutdown_signal = Box::new(shutdown_signal);
 
         server.add_services(self.services);
-        
-        spawn_blocking(move ||{
+
+        spawn_blocking(move || {
             let args = RunArgs {
                 shutdown_signal: Box::new(UnixShutdownSignalWatch), // TODO
             };
             server.run(args);
         });
-        
+
         Ok(handle)
     }
-    
 }
 
 #[derive(Debug, Error)]
 pub enum ServerError {
     #[error("Pingora error: {0}")]
-    PingoraError(#[from]#[source]Box<pingora::Error>)
+    PingoraError(
+        #[from]
+        #[source]
+        Box<pingora::Error>,
+    ),
 }
 
 struct StopHandleShutdownSignalWatch(RwLock<StopHandle>);

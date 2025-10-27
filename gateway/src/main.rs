@@ -1,13 +1,16 @@
+mod config;
 mod configuration;
 mod http;
 mod instrumentation;
 mod server;
 
+use crate::config::GatewayConfig;
 use crate::configuration::location::CurrentLocationConfigurator;
 use crate::configuration::{ConfigurationRegistry, ConfigurationRegistryOptions};
 use crate::http::backend::{BackendConfigurator, BackendConfiguratorOptions};
 use crate::http::filter::{SharedFilterHandlersManager, SharedFilterHandlersManagerOptions};
 use crate::http::routing::route::{RouteConfigurator, RouteConfiguratorOptions};
+use crate::server::{Server, ServerOptions};
 use ::http::Uri;
 use std::error::Error;
 use std::sync::Arc;
@@ -18,15 +21,22 @@ use vg_core::net::topology::TopologyLocation;
 use vg_rpc_client::api::{ApiClient, ApiClientOptions};
 use vg_rpc_client::events::{EventClient, EventClientOptions};
 use vg_rpc_client::transport::{Transport, TransportOptions};
-use crate::server::{Server, ServerOptions};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     init("vg-gateway");
 
+    // Load configuration from environment variables
+    let config = GatewayConfig::from_env()?;
+    println!(
+        "Gateway configuration loaded - HTTP Port: {}, Instance: {}",
+        config.http_port(),
+        config.gateway_instance()
+    );
+
     let transport: Transport = TransportOptions::builder()
-        .endpoint(Uri::from_static("ws://localhost:9000"))
-        .listener_ref("example_listener".to_string())
+        .endpoint(config.controller_endpoint().clone())
+        .gateway_ref(config.gateway_instance().clone())
         .build()
         .try_into()?;
 
@@ -46,12 +56,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let configuration: ConfigurationRegistry = ConfigurationRegistryOptions::builder()
         .api_client(api_client)
         .events(event_client.events())
+        .gateway_ref(config.gateway_instance().clone())
         .build()
         .into();
 
     let shared_filter_handlers: SharedFilterHandlersManager =
         SharedFilterHandlersManagerOptions::builder()
-            .routing(configuration.routing())
+            .gateway(configuration.gateway())
             .build()
             .into();
 
@@ -62,16 +73,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .into();
 
     let routes_configurator: RouteConfigurator = RouteConfiguratorOptions::builder()
-        .routing(configuration.routing())
+        .gateway(configuration.gateway())
         .shared_filter_handlers(shared_filter_handlers.handlers())
         .build()
         .into();
-    
-    let server: Server = ServerOptions::builder().services(Vec::new()).build().into();
-    
 
-    
-    let mut rrx = configuration.routing();
+    let server: Server = ServerOptions::builder().services(Vec::new()).build().into();
+
+    let mut gateway_rx = configuration.gateway();
     let mut brx = backends_configurator.backends();
     let mut sfhx = shared_filter_handlers.handlers();
     let mut routes_rx = routes_configurator.routes();
@@ -102,8 +111,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 Ok(_) = routes_rx.changed() => {
                     println!("routes: {:?}", routes_rx.current());
                 },
-                routing = rrx.changed() => {
-                    println!("routing: {:?}", routing);
+                gateway = gateway_rx.changed() => {
+                    println!("gateway: {:?}", gateway);
                 }
                 Ok(_) = brx.changed() => {
                     println!("fully resolved backend: {:?}", brx.current());

@@ -13,10 +13,9 @@ use vg_config::http::filter::static_response::{
     StaticResponseFilter, StaticResponseFilterRef, StaticResponseSharedFilter,
 };
 use vg_config::http::filter::{SharedFilter, SharedFilterRef};
+use vg_config::http::gateway::{Gateway, GatewayRef, ListenerProtocol};
 use vg_config::http::listener::policy::ListenerPolicies;
-use vg_config::http::listener::{
-    Listener, ListenerRef, ListenerTransport, ListenerTransportProtocols,
-};
+use vg_config::http::listener::{Listener, ListenerRef};
 use vg_config::http::route::host::HostMatcher;
 use vg_config::http::route::{Route, RouteRef};
 use vg_config::provider::ConfigurationProvider;
@@ -29,27 +28,33 @@ pub struct HttpConfigProvider;
 
 #[async_trait]
 impl ConfigurationProvider for HttpConfigProvider {
-    async fn listener(&self, listener_ref: &ListenerRef) -> Option<Listener> {
-        let p = ListenerTransportProtocols::builder()
-            .http(Port::HTTP)
-            .build();
-
-        let t = ListenerTransport::builder().protocols(p).build();
-        let beref = BackendRef::from("be1".to_string());
+    async fn gateway(&self, gateway_ref: &GatewayRef) -> Option<Gateway> {
+        // Create a sample listener for the gateway
         let r = RouteRef::from("r".to_string());
         let f = StaticResponseFilterRef::from("f".to_string());
         let f = SharedFilterRef::StaticResponse(f);
-        let l = Listener::builder()
-            .ref_(listener_ref.clone())
-            .transport(t)
+        let listener = Listener::builder()
+            .ref_(ListenerRef::from("example_listener".to_string()))
+            .gateway_ref(gateway_ref.clone())
+            .protocol(ListenerProtocol::HTTP)
+            .port(Port::HTTP)
             .policies(ListenerPolicies::default())
-            .backend_refs(vec![beref])
             .route_refs(vec![r])
             .shared_filter_refs(vec![f])
             .filters(Vec::new())
             .build();
 
-        Some(l)
+        // Create a sample gateway with embedded listener data
+        let gateway = Gateway::builder()
+            .ref_(gateway_ref.clone())
+            .listeners(vec![Arc::new(listener)])
+            .filters(Vec::new())
+            .shared_filter_refs(Vec::new())
+            .backend_refs(vec![BackendRef::from("be1".to_string())])
+            .route_refs(vec![RouteRef::from("r".to_string())])
+            .build();
+
+        Some(gateway)
     }
 
     async fn route(&self, route_ref: &RouteRef) -> Option<Route> {
@@ -57,6 +62,7 @@ impl ConfigurationProvider for HttpConfigProvider {
             .ref_(route_ref.clone())
             .host_matchers(vec![HostMatcher::Exact("example.com.".to_string())])
             .rules(Vec::new())
+            .filters(Vec::new())
             .build();
 
         Some(r)
@@ -130,10 +136,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let span = TRACER.start("lc");
                 let context = Context::current().with_span(span);
                 event_sender
-                    .send(
-                        "example_listener".to_string().into(),
-                        Event::ListenerChanged,
-                    )
+                    .send("gateway1".to_string().into(), Event::GatewayChanged)
                     .with_context(context)
                     .await;
             }
@@ -146,7 +149,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let context = Context::current().with_span(span);
                 event_sender
                     .send(
-                        "example_listener".to_string().into(),
+                        "gateway1".to_string().into(),
                         Event::RouteChanged(RouteRef::from("a route".to_string())),
                     )
                     .with_context(context)

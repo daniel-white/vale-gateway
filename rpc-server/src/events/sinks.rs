@@ -7,14 +7,14 @@ use jsonrpsee_core::server::{
 use opentelemetry::trace::{FutureExt, SpanKind, Tracer};
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
-use vg_config::http::listener::ListenerRef;
+use vg_config::http::gateway::GatewayRef;
 use vg_config::provider::ConfigurationProvider;
 use vg_rpc::{ApiError, Event, EventMessage, RequestContext};
 
 #[derive(Debug, TypedBuilder)]
 #[builder(builder_method(vis = "pub(crate)"), builder_type(vis = "pub(crate)"))]
 pub struct PendingEventSink {
-    listener_ref: ListenerRef,
+    gateway_ref: GatewayRef,
     sink: PendingSubscriptionSink,
 }
 
@@ -27,7 +27,7 @@ impl PendingEventSink {
         let sink = self.sink.accept().await.map_err(|_| ())?; // TODO: handle error) 
 
         let sink = EventSink::builder()
-            .listener_ref(self.listener_ref)
+            .gateway_ref(self.gateway_ref)
             .sink(sink)
             .build();
 
@@ -45,7 +45,7 @@ impl PendingEventSink {
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
 pub struct EventSink {
     #[getset(get = "pub")]
-    listener_ref: ListenerRef,
+    gateway_ref: GatewayRef,
     sink: SubscriptionSink,
 }
 
@@ -106,7 +106,7 @@ impl EventSinkRegistry {
     ) -> Result<(), ApiError> {
         if !self
             .configuration
-            .listener_exists(&pending_sink.listener_ref)
+            .gateway_exists(&pending_sink.gateway_ref)
             .await
         {
             pending_sink.reject(ApiError::NotFound).await;

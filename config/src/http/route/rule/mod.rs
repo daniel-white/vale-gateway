@@ -1,6 +1,6 @@
 use self::filter::RuleFilter;
 use self::matcher::RequestMatcher;
-use crate::http::route::rule::backend::RuleBackend;
+use crate::http::route::rule::backend::WeightedBackendRef;
 use crate::http::route::rule::policy::RulePolicies;
 use getset::{CloneGetters, CopyGetters, Getters};
 use serde::{Deserialize, Serialize};
@@ -33,13 +33,14 @@ pub struct Rule {
     matchers: Vec<RequestMatcher>,
 
     #[getset(get = "pub")]
+    backend_refs: Vec<WeightedBackendRef>,
+
+    #[getset(get = "pub")]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     filters: Vec<RuleFilter>,
 
+    // Legacy field - kept for backward compatibility during transition
     #[getset(get = "pub")]
     #[serde(default, skip_serializing_if = "RulePolicies::is_none")]
     policies: RulePolicies,
-
-    #[getset(get = "pub")]
-    backends: Vec<RuleBackend>,
 }

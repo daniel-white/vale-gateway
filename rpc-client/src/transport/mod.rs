@@ -6,7 +6,7 @@ use std::time::Duration;
 use thiserror::Error;
 use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
-use vg_config::http::listener::ListenerRef;
+use vg_config::http::gateway::GatewayRef;
 use vg_core::sync::handles::{Handle, handles};
 
 #[derive(Debug, Clone)]
@@ -23,7 +23,7 @@ enum TransportClientMessage {
 pub struct TransportClient {
     client: tokio::sync::watch::Receiver<Client>,
     #[getset(get_clone = "pub")]
-    listener_ref: ListenerRef,
+    gateway_ref: GatewayRef,
     message_tx: tokio::sync::mpsc::Sender<TransportClientMessage>,
 }
 
@@ -34,6 +34,14 @@ impl TransportClient {
 
     pub fn client(&self) -> Client {
         self.client.borrow().clone()
+    }
+
+    // Temporary method to derive listener_ref from gateway_ref
+    // This will be removed when the API client is updated to use Gateway-centric approach
+    pub fn listener_ref(&self) -> vg_config::http::listener::ListenerRef {
+        // For now, assume the listener_ref can be derived from gateway_ref
+        // This is a temporary solution during the transition
+        format!("listener-{}", self.gateway_ref).into()
     }
 
     pub async fn request_reconnect(&self) {
@@ -47,14 +55,14 @@ impl TransportClient {
 #[derive(Debug, TypedBuilder)]
 pub struct TransportOptions {
     #[builder(setter(into))]
-    listener_ref: ListenerRef,
+    gateway_ref: GatewayRef,
     #[builder(setter(into))]
     endpoint: Uri,
 }
 
 #[derive(TypedBuilder)]
 pub struct Transport {
-    listener_ref: ListenerRef,
+    gateway_ref: GatewayRef,
     endpoint: Uri,
     client: tokio::sync::watch::Sender<Client>,
     message_rx: tokio::sync::mpsc::Receiver<TransportClientMessage>,
@@ -65,7 +73,7 @@ impl Transport {
     pub fn client(&self) -> TransportClient {
         TransportClient::builder()
             .client(self.client.subscribe())
-            .listener_ref(self.listener_ref.clone())
+            .gateway_ref(self.gateway_ref.clone())
             .message_tx(self.message_tx.clone())
             .build()
     }
@@ -134,7 +142,7 @@ impl TryFrom<TransportOptions> for Transport {
         let (message_tx, message_rx) = tokio::sync::mpsc::channel(10);
 
         let transport = Self::builder()
-            .listener_ref(value.listener_ref)
+            .gateway_ref(value.gateway_ref)
             .endpoint(value.endpoint)
             .client(client)
             .message_tx(message_tx)

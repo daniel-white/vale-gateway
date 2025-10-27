@@ -1,4 +1,4 @@
-use crate::configuration::RoutingConfiguration;
+use crate::configuration::GatewayConfiguration;
 use getset::{CloneGetters, Getters};
 use std::collections::HashMap;
 use std::ops::Sub;
@@ -19,13 +19,13 @@ pub struct SharedFilterHandlers {
 
 #[derive(TypedBuilder)]
 pub struct SharedFilterHandlersManagerOptions {
-    routing: Subscription<RoutingConfiguration>,
+    gateway: Subscription<GatewayConfiguration>,
 }
 
 #[derive(TypedBuilder)]
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
 pub struct SharedFilterHandlersManager {
-    routing: Subscription<RoutingConfiguration>,
+    gateway: Subscription<GatewayConfiguration>,
     handlers: Sender<SharedFilterHandlers>,
 }
 
@@ -34,7 +34,7 @@ impl From<SharedFilterHandlersManagerOptions> for SharedFilterHandlersManager {
         let (handlers, _) = channel();
 
         Self::builder()
-            .routing(value.routing)
+            .gateway(value.gateway)
             .handlers(handlers)
             .build()
     }
@@ -49,11 +49,12 @@ impl SharedFilterHandlersManager {
         let (handle, mut stop_handle) = handles();
 
         spawn(async move {
-            let mut routing = self.routing;
+            let mut gateway = self.gateway;
 
             loop {
                 let handlers = {
-                    let handlers = routing.current()
+                    let handlers = gateway
+                        .current()
                         .shared_filters()
                         .iter()
                         .filter_map(|(ref_, filter)| {
@@ -68,7 +69,7 @@ impl SharedFilterHandlersManager {
                 let _ = self.handlers.send(Arc::new(handlers));
 
                 select! {
-                    _ = routing.changed() => {
+                    _ = gateway.changed() => {
                         continue;
                     }
                     _ = stop_handle.stopped() => {

@@ -34,3 +34,25 @@ pub struct RuleBackend {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     filters: Vec<RuleBackendFilter>,
 }
+
+/// WeightedBackendRef represents a backend reference with an associated weight for load balancing
+#[derive(
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    Clone,
+    TypedBuilder,
+    Getters,
+    CloneGetters,
+    CopyGetters,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct WeightedBackendRef {
+    #[getset(get_clone = "pub")]
+    backend_ref: BackendRef,
+
+    #[getset(get_copy = "pub")]
+    weight: u32,
+}

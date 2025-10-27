@@ -60,6 +60,7 @@ impl TryFrom<HTTPRouteWrapper<'_>> for Route {
             .ref_(ref_)
             .host_matchers(host_matchers)
             .rules(rules)
+            .filters(Vec::new())
             .build();
 
         Ok(route)

@@ -13,6 +13,7 @@ use tokio::{select, spawn};
 use typed_builder::TypedBuilder;
 use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::filter::{SharedFilter, SharedFilterRef};
+use vg_config::http::gateway::Gateway;
 use vg_config::http::listener::Listener;
 use vg_config::http::route::{Route, RouteRef};
 use vg_core::sync::broadcast::Traced;
@@ -23,9 +24,9 @@ use vg_rpc_client::events::EventReceiver;
 use vg_rpc_client::events::error::RecvError;
 
 #[derive(Default, Debug, Getters, TypedBuilder, PartialEq)]
-pub struct RoutingConfiguration {
+pub struct GatewayConfiguration {
     #[getset(get = "pub")]
-    listener: Option<Arc<Listener>>,
+    gateway: Option<Arc<Gateway>>,
     #[getset(get = "pub")]
     routes: HashMap<RouteRef, Arc<Route>>,
     #[getset(get = "pub")]
@@ -42,6 +43,7 @@ pub struct BackendConfiguration {
 pub struct ConfigurationRegistryOptions {
     api_client: ApiClient,
     events: EventReceiver,
+    gateway_ref: vg_config::http::gateway::GatewayRef,
 }
 
 impl From<ConfigurationRegistryOptions> for ConfigurationRegistry {
@@ -49,6 +51,7 @@ impl From<ConfigurationRegistryOptions> for ConfigurationRegistry {
         Self::builder()
             .api_client(value.api_client)
             .events(value.events)
+            .gateway_ref(value.gateway_ref)
             .build()
     }
 }
@@ -58,10 +61,11 @@ impl From<ConfigurationRegistryOptions> for ConfigurationRegistry {
 pub struct ConfigurationRegistry {
     api_client: ApiClient,
     events: EventReceiver,
+    gateway_ref: vg_config::http::gateway::GatewayRef,
     #[builder(default, setter(skip))]
     backends: Observable<BackendConfiguration>,
     #[builder(default, setter(skip))]
-    routing: Observable<RoutingConfiguration>,
+    gateway: Observable<GatewayConfiguration>,
 }
 
 impl ConfigurationRegistry {
@@ -69,8 +73,8 @@ impl ConfigurationRegistry {
         self.backends.subscribe()
     }
 
-    pub fn routing(&self) -> Subscription<RoutingConfiguration> {
-        self.routing.subscribe()
+    pub fn gateway(&self) -> Subscription<GatewayConfiguration> {
+        self.gateway.subscribe()
     }
 
     pub fn start(self) -> Handle {
@@ -79,8 +83,9 @@ impl ConfigurationRegistry {
 
         let processor = ConfigurationProcessor::builder()
             .api_client(self.api_client)
-            .routing(self.routing)
+            .gateway(self.gateway)
             .backends(self.backends)
+            .gateway_ref(self.gateway_ref)
             .build();
 
         spawn(async move {

@@ -1,4 +1,4 @@
-use crate::configuration::RoutingConfiguration;
+use crate::configuration::GatewayConfiguration;
 use crate::http::filter::SharedFilterHandlers;
 use getset::{CloneGetters, Getters};
 use std::collections::HashMap;
@@ -19,14 +19,14 @@ pub struct Routes {
 
 #[derive(TypedBuilder)]
 pub struct RouteConfiguratorOptions {
-    routing: Subscription<RoutingConfiguration>,
+    gateway: Subscription<GatewayConfiguration>,
     shared_filter_handlers: Receiver<SharedFilterHandlers>,
 }
 
 #[derive(TypedBuilder)]
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
 pub struct RouteConfigurator {
-    routing: Subscription<RoutingConfiguration>,
+    gateway: Subscription<GatewayConfiguration>,
     shared_filter_handlers: Receiver<SharedFilterHandlers>,
     routes: Sender<Routes>,
 }
@@ -36,7 +36,7 @@ impl From<RouteConfiguratorOptions> for RouteConfigurator {
         let (routes, _) = channel();
 
         Self::builder()
-            .routing(value.routing)
+            .gateway(value.gateway)
             .shared_filter_handlers(value.shared_filter_handlers)
             .routes(routes)
             .build()
@@ -52,16 +52,16 @@ impl RouteConfigurator {
         let (handle, mut stop_handle) = handles();
 
         spawn(async move {
-            let mut routing = self.routing;
+            let mut gateway = self.gateway;
             let mut shared_filter_handlers = self.shared_filter_handlers;
             loop {
                 let routes: HashMap<_, _> = {
-                    let routing = routing.current();
+                    let config = gateway.current();
                     let shared_filter_handlers =
                         shared_filter_handlers.current().unwrap_or_default();
                     let shared_filter_handlers = shared_filter_handlers.handlers();
 
-                    routing
+                    config
                         .routes()
                         .values()
                         .filter_map(|route| {
@@ -79,7 +79,7 @@ impl RouteConfigurator {
                 let _ = self.routes.send(Arc::new(routes));
 
                 select! {
-                    _ = routing.changed() => {
+                    _ = gateway.changed() => {
                         continue;
                     }
                     _ = shared_filter_handlers.changed() => {

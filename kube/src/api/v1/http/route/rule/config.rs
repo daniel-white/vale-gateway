@@ -15,7 +15,7 @@ use thiserror::Error;
 use typed_builder::TypedBuilder;
 use vg_config::http::policy::timeout::TimeoutPolicies;
 use vg_config::http::route::rule::Rule;
-use vg_config::http::route::rule::backend::RuleBackend;
+use vg_config::http::route::rule::backend::{RuleBackend, WeightedBackendRef};
 use vg_config::http::route::rule::filter::RuleFilter;
 use vg_config::http::route::rule::matcher::RequestMatcher;
 use vg_config::http::route::rule::policy::RulePolicies;
@@ -87,7 +87,7 @@ impl TryFrom<HTTPRouteRuleWrapper<'_>> for Rule {
             .retries(None) // TODO: Implement retries conversion
             .build();
 
-        let backends = rule
+        let backend_refs = rule
             .backend_refs
             .iter()
             .flatten()
@@ -97,16 +97,24 @@ impl TryFrom<HTTPRouteRuleWrapper<'_>> for Rule {
                     .namespace(namespace)
                     .backend_ref(be)
                     .build();
-                RuleBackend::try_from(be).map_err(|err| RuleConversionError::Backend(idx, err))
+                // Convert RuleBackend to WeightedBackendRef
+                let rule_backend = RuleBackend::try_from(be)
+                    .map_err(|err| RuleConversionError::Backend(idx, err))?;
+                Ok::<WeightedBackendRef, RuleConversionError>(
+                    WeightedBackendRef::builder()
+                        .backend_ref(rule_backend.ref_().clone())
+                        .weight(rule_backend.weight())
+                        .build(),
+                )
             })
             .collect::<Result<Vec<_>, _>>()?;
 
         let rule = Self::builder()
             .name(None) // TODO: add name
             .matchers(matchers)
+            .backend_refs(backend_refs)
             .filters(filters)
             .policies(policies)
-            .backends(backends)
             .build();
 
         Ok(rule)

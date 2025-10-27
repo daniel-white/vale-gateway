@@ -1,8 +1,8 @@
+use arc_swap::ArcSwap;
 use std::sync::{
     Arc,
     atomic::{AtomicU64, Ordering},
 };
-use arc_swap::ArcSwap;
 use tokio::sync::watch;
 use typed_builder::TypedBuilder;
 
@@ -28,20 +28,17 @@ impl<T: PartialEq + Send + Sync> Observable<T> {
         let subscription = observable.subscribe();
         (observable, subscription)
     }
-    
+
     fn state(&self) -> Arc<State<T>> {
         self.0.clone()
     }
-    
+
     /// Subscribe to change notifications
     pub fn subscribe(&self) -> Subscription<T> {
         let state = self.state();
         let rx = state.tx.subscribe();
-        
-        Subscription::builder()
-            .state(state)
-            .rx(rx)
-            .build()
+
+        Subscription::builder().state(state).rx(rx).build()
     }
 
     /// Apply an update function *optimistically* and retry if stale.
@@ -54,7 +51,7 @@ impl<T: PartialEq + Send + Sync> Observable<T> {
         let state = self.state();
         loop {
             let current = state.arc.load_full(); // snapshot Arc<T>
-            let new_value = f(&current);        // derive candidate next state
+            let new_value = f(&current); // derive candidate next state
 
             if *current == new_value {
                 break; // no observable change → skip notify
@@ -75,7 +72,7 @@ impl<T: PartialEq + Send + Sync> Observable<T> {
     }
 }
 
-impl <T: PartialEq + Send + Sync + Default> Default for Observable<T> {
+impl<T: PartialEq + Send + Sync + Default> Default for Observable<T> {
     fn default() -> Self {
         let (observable, _) = Self::new(T::default());
         observable
@@ -85,17 +82,16 @@ impl <T: PartialEq + Send + Sync + Default> Default for Observable<T> {
 #[derive(TypedBuilder, Clone)]
 pub struct Subscription<T: PartialEq + Send + Sync> {
     state: Arc<State<T>>,
-    rx: watch::Receiver<u64>
+    rx: watch::Receiver<u64>,
 }
 
-impl <T: PartialEq + Send + Sync> Subscription<T> {
+impl<T: PartialEq + Send + Sync> Subscription<T> {
     pub fn current(&self) -> Arc<T> {
         self.state.arc.load_full()
     }
-    
+
     pub async fn changed(&mut self) -> Arc<T> {
         let _ = self.rx.changed().await;
         self.current()
     }
 }
-

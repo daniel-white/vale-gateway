@@ -1,7 +1,7 @@
 use tokio::spawn;
 use typed_builder::TypedBuilder;
 use vg_core::net::topology::TopologyLocation;
-use vg_core::sync::handles::{handles, Handle};
+use vg_core::sync::handles::{Handle, handles};
 use vg_core::sync::observable::{Observable, Subscription};
 
 #[derive(TypedBuilder)]
@@ -21,16 +21,12 @@ impl CurrentLocationConfigurator {
 
     pub fn start(self) -> Handle {
         let (handle, mut stop_handle) = handles();
-        
+
         spawn(async move {
-            self.location.update(|_| {
-                TopologyLocation::builder()
-                    .node(None)
-                    .zone(None)
-                    .build()
-            });
+            self.location
+                .update(|_| TopologyLocation::builder().node(None).zone(None).build());
         });
-        
+
         handle
     }
 }

@@ -1,15 +1,15 @@
 use crate::http::backend::{Backend, BackendRef};
 use crate::http::filter::{SharedFilter, SharedFilterRef};
-use crate::http::listener::{Listener, ListenerRef};
+use crate::http::gateway::{Gateway, GatewayRef};
 use crate::http::route::{Route, RouteRef};
 use async_trait::async_trait;
 
 #[async_trait]
 pub trait ConfigurationProvider: Send + Sync {
-    async fn listener(&self, listener_ref: &ListenerRef) -> Option<Listener>;
+    async fn gateway(&self, gateway_ref: &GatewayRef) -> Option<Gateway>;
 
-    async fn listener_exists(&self, listener_ref: &ListenerRef) -> bool {
-        self.listener(listener_ref).await.is_some()
+    async fn gateway_exists(&self, gateway_ref: &GatewayRef) -> bool {
+        self.gateway(gateway_ref).await.is_some()
     }
 
     async fn route(&self, route_ref: &RouteRef) -> Option<Route>;

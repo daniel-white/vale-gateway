@@ -7,11 +7,10 @@ use std::sync::Arc;
 use typed_builder::TypedBuilder;
 use vg_config::http::backend::Backend;
 use vg_config::http::filter::SharedFilter;
-use vg_config::http::listener::Listener;
 use vg_config::http::route::Route;
 use vg_config::provider::ConfigurationProvider;
 use vg_rpc::{
-    ApiError, ApiServer, GetBackendRequest, GetListenerRequest, GetRouteRequest,
+    ApiError, ApiServer, GetBackendRequest, GetGatewayRequest, GetGatewayResponse, GetRouteRequest,
     GetSharedFilterRequest, SubscribeEventsRequest,
 };
 
@@ -23,13 +22,6 @@ pub struct ApiServerMethods {
 
 #[async_trait]
 impl ApiServer for ApiServerMethods {
-    async fn listener(&self, req: GetListenerRequest) -> Result<Listener, ApiError> {
-        self.configuration
-            .listener(req.listener_ref())
-            .await
-            .ok_or(ApiError::NotFound)
-    }
-
     async fn route(&self, req: GetRouteRequest) -> Result<Route, ApiError> {
         self.configuration
             .route(req.route_ref())
@@ -51,13 +43,23 @@ impl ApiServer for ApiServerMethods {
             .ok_or(ApiError::NotFound)
     }
 
+    async fn gateway(&self, req: GetGatewayRequest) -> Result<GetGatewayResponse, ApiError> {
+        let gateway = self
+            .configuration
+            .gateway(&req.gateway_ref())
+            .await
+            .ok_or(ApiError::NotFound)?;
+
+        Ok(GetGatewayResponse::builder().gateway(gateway).build())
+    }
+
     async fn events(
         &self,
         subscription_sink: PendingSubscriptionSink,
         req: SubscribeEventsRequest,
     ) -> SubscriptionResult {
         let pending_sink = PendingEventSink::builder()
-            .listener_ref(req.listener_ref())
+            .gateway_ref(req.gateway_ref())
             .sink(subscription_sink)
             .build();
 

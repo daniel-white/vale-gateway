@@ -1,15 +1,15 @@
 pub mod filter;
 pub mod policy;
 
-use std::fmt::Display;
-use crate::http::backend::BackendRef;
 use crate::http::filter::SharedFilterRef;
+use crate::http::gateway::{GatewayRef, ListenerProtocol};
 use crate::http::listener::filter::ListenerFilter;
 use crate::http::listener::policy::ListenerPolicies;
 use crate::http::route::RouteRef;
 use derive_more::{Deref, From};
 use getset::{CloneGetters, CopyGetters, Getters};
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 use typed_builder::TypedBuilder;
 use vg_core::collections::{CollectionEvent, NotifyingCollection};
 use vg_core::net::Port;
@@ -24,26 +24,47 @@ impl Display for ListenerRef {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, TypedBuilder, CopyGetters, Clone)]
+/// Transport protocols supported by a listener
+#[derive(
+    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TypedBuilder, Getters, CopyGetters,
+)]
 #[serde(rename_all = "camelCase")]
 pub struct ListenerTransportProtocols {
     #[getset(get_copy = "pub")]
-    #[builder(default, setter(strip_option))]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    http: Option<Port>,
+    #[serde(default = "default_http")]
+    http: bool,
 }
 
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TypedBuilder, Getters, CloneGetters,
-)]
+fn default_http() -> bool {
+    true
+}
+
+impl Default for ListenerTransportProtocols {
+    fn default() -> Self {
+        Self { http: true }
+    }
+}
+
+/// Transport configuration for a listener
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TypedBuilder, Getters)]
 #[serde(rename_all = "camelCase")]
 pub struct ListenerTransport {
-    #[getset(get_clone = "pub")]
+    #[getset(get = "pub")]
+    #[serde(default)]
     protocols: ListenerTransportProtocols,
 }
 
 #[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TypedBuilder, Getters, CloneGetters,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    TypedBuilder,
+    Getters,
+    CloneGetters,
+    CopyGetters,
 )]
 #[serde(rename_all = "camelCase")]
 pub struct Listener {
@@ -52,7 +73,13 @@ pub struct Listener {
     ref_: ListenerRef,
 
     #[getset(get_clone = "pub")]
-    transport: ListenerTransport,
+    gateway_ref: GatewayRef,
+
+    #[getset(get_clone = "pub")]
+    protocol: ListenerProtocol,
+
+    #[getset(get_copy = "pub")]
+    port: Port,
 
     #[getset(get = "pub")]
     #[serde(default, skip_serializing_if = "ListenerPolicies::is_default")]
@@ -69,10 +96,18 @@ pub struct Listener {
     #[getset(get = "pub")]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     route_refs: Vec<RouteRef>,
+}
 
-    #[getset(get = "pub")]
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    backend_refs: Vec<BackendRef>,
+impl Listener {
+    /// Get the transport configuration for this listener
+    pub fn transport(&self) -> ListenerTransport {
+        // Create transport based on the protocol
+        let protocols = ListenerTransportProtocols::builder()
+            .http(matches!(self.protocol, ListenerProtocol::HTTP))
+            .build();
+
+        ListenerTransport::builder().protocols(protocols).build()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

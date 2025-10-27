@@ -22,7 +22,13 @@ pub struct Protocols {
 
 impl From<ListenerTransportProtocols> for Protocols {
     fn from(value: ListenerTransportProtocols) -> Self {
-        Self::builder().http(value.http()).build()
+        let http_port = if value.http() {
+            // Default HTTP port - this should be overridden with actual listener port
+            Some(Port::from(std::num::NonZeroU16::new(80).unwrap()))
+        } else {
+            None
+        };
+        Self::builder().http(http_port).build()
     }
 }
 
@@ -35,7 +41,7 @@ pub struct Transport {
 
 impl From<ListenerTransport> for Transport {
     fn from(value: ListenerTransport) -> Self {
-        Self::builder().protocols(value.protocols()).build()
+        Self::builder().protocols(value.protocols().clone()).build()
     }
 }
 
@@ -90,9 +96,20 @@ impl TryFrom<ListenerConversionContext> for Listener {
 
         let policies: ListenerPolicyHandlers = value.listener.policies().try_into()?;
 
+        // Create transport with the actual listener port
+        let transport_protocols = value.listener.transport().protocols().clone();
+        let protocols = Protocols::builder()
+            .http(if transport_protocols.http() {
+                Some(value.listener.port())
+            } else {
+                None
+            })
+            .build();
+        let transport = Transport::builder().protocols(protocols).build();
+
         let listener = Listener::builder()
             .ref_(value.listener.ref_())
-            .transport(value.listener.transport())
+            .transport(transport)
             .policies(policies)
             .filters(filters)
             .routes(value.routes)

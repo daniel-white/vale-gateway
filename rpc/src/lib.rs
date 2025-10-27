@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
 use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::filter::{SharedFilter, SharedFilterRef};
-use vg_config::http::listener::{Listener, ListenerRef};
+use vg_config::http::gateway::{Gateway, GatewayRef};
 use vg_config::http::route::{Route, RouteRef};
 
 #[derive(FromPrimitive, Debug, Serialize, Deserialize, TryFrom, Clone, Copy)]
@@ -89,7 +89,7 @@ impl AsRef<RequestContext> for RequestContext {
 #[serde(rename_all = "camelCase")]
 pub enum Event {
     Initialize,
-    ListenerChanged,
+    GatewayChanged,
     RouteChanged(RouteRef),
     BackendChanged(BackendRef),
     SharedFilterChanged(SharedFilterRef),
@@ -108,14 +108,7 @@ pub struct EventMessage {
 #[serde(rename_all = "camelCase")]
 pub struct SubscribeEventsRequest {
     #[getset(get_clone = "pub")]
-    listener_ref: ListenerRef,
-}
-
-#[derive(Debug, Serialize, Deserialize, Getters, CloneGetters, Clone, TypedBuilder)]
-#[serde(rename_all = "camelCase")]
-pub struct GetListenerRequest {
-    #[getset(get = "pub")]
-    listener_ref: ListenerRef,
+    gateway_ref: GatewayRef,
 }
 
 #[derive(Debug, Serialize, Deserialize, Getters, CloneGetters, Clone, TypedBuilder)]
@@ -139,13 +132,24 @@ pub struct GetSharedFilterRequest {
     filter_ref: SharedFilterRef,
 }
 
+#[derive(Debug, Serialize, Deserialize, Getters, CloneGetters, Clone, TypedBuilder)]
+#[serde(rename_all = "camelCase")]
+pub struct GetGatewayRequest {
+    #[getset(get_clone = "pub")]
+    gateway_ref: vg_config::http::gateway::GatewayRef,
+}
+
+#[derive(Debug, Serialize, Deserialize, Getters, CloneGetters, Clone, TypedBuilder)]
+#[serde(rename_all = "camelCase")]
+pub struct GetGatewayResponse {
+    #[getset(get_clone = "pub")]
+    gateway: Gateway,
+}
+
 #[rpc(client, server)]
 pub trait Api {
     #[subscription(name = "subscribeEvents" => "events", item = EventMessage)]
     async fn events(&self, req: SubscribeEventsRequest) -> SubscriptionResult;
-
-    #[method(name = "getListener")]
-    async fn listener(&self, req: GetListenerRequest) -> Result<Listener, ApiError>;
 
     #[method(name = "getRoute")]
     async fn route(&self, req: GetRouteRequest) -> Result<Route, ApiError>;
@@ -155,4 +159,7 @@ pub trait Api {
 
     #[method(name = "getSharedFilter")]
     async fn shared_filter(&self, req: GetSharedFilterRequest) -> Result<SharedFilter, ApiError>;
+
+    #[method(name = "getGateway")]
+    async fn gateway(&self, req: GetGatewayRequest) -> Result<GetGatewayResponse, ApiError>;
 }

@@ -7,10 +7,10 @@ use std::sync::Arc;
 use typed_builder::TypedBuilder;
 use vg_config::http::backend::{Backend, BackendRef};
 use vg_config::http::filter::{SharedFilter, SharedFilterRef};
-use vg_config::http::listener::Listener;
+use vg_config::http::gateway::{Gateway, GatewayRef};
 use vg_config::http::route::{Route, RouteRef};
 use vg_rpc::{
-    ApiClient as ApiClientTrait, GetBackendRequest, GetListenerRequest, GetRouteRequest,
+    ApiClient as ApiClientTrait, GetBackendRequest, GetGatewayRequest, GetRouteRequest,
     GetSharedFilterRequest,
 };
 
@@ -28,25 +28,6 @@ pub struct ApiClient {
 }
 
 impl ApiClient {
-    pub async fn listener(&self) -> Result<Arc<Listener>, ApiClientError> {
-        let span = TRACER
-            .span_builder("ConfigurationClient::listener")
-            .with_kind(SpanKind::Client)
-            .start(&*TRACER);
-
-        let Client::Connected(transport_client) = self.transport_client.client() else {
-            return Err(ApiClientError::ServiceUnavailable);
-        };
-
-        let req = GetListenerRequest::builder()
-            .listener_ref(self.transport_client.listener_ref())
-            .build();
-
-        let listener = transport_client.listener(req).await?;
-
-        Ok(Arc::new(listener))
-    }
-
     pub async fn route(&self, route_ref: &RouteRef) -> Result<Arc<Route>, ApiClientError> {
         let Client::Connected(transport_client) = self.transport_client.client() else {
             return Err(ApiClientError::ServiceUnavailable);
@@ -59,6 +40,20 @@ impl ApiClient {
         let route = transport_client.route(req).await?;
 
         Ok(Arc::new(route))
+    }
+
+    pub async fn gateway(&self, gateway_ref: &GatewayRef) -> Result<Arc<Gateway>, ApiClientError> {
+        let Client::Connected(transport_client) = self.transport_client.client() else {
+            return Err(ApiClientError::ServiceUnavailable);
+        };
+
+        let req = GetGatewayRequest::builder()
+            .gateway_ref(gateway_ref.clone())
+            .build();
+
+        let response = transport_client.gateway(req).await?;
+
+        Ok(Arc::new(response.gateway().clone()))
     }
 
     pub async fn routes(&self, route_refs: &[RouteRef]) -> Result<Vec<Arc<Route>>, ApiClientError> {
