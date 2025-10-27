@@ -1,6 +1,7 @@
 pub mod filter;
 pub mod policy;
 
+use std::fmt::Display;
 use crate::http::backend::BackendRef;
 use crate::http::filter::SharedFilterRef;
 use crate::http::listener::filter::ListenerFilter;
@@ -16,6 +17,12 @@ use vg_core::net::Port;
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, Clone, From)]
 #[serde(transparent)]
 pub struct ListenerRef(String);
+
+impl Display for ListenerRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, TypedBuilder, CopyGetters, Clone)]
 #[serde(rename_all = "camelCase")]

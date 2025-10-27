@@ -11,6 +11,7 @@ futures.workspace = true
 getset.workspace = true
 http.workspace = true
 opentelemetry.workspace = true
+pingora.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 typed-builder.workspace = true

@@ -1,6 +1,7 @@
 mod configuration;
 mod http;
 mod instrumentation;
+mod server;
 
 use crate::configuration::location::CurrentLocationConfigurator;
 use crate::configuration::{ConfigurationRegistry, ConfigurationRegistryOptions};
@@ -17,6 +18,7 @@ use vg_core::net::topology::TopologyLocation;
 use vg_rpc_client::api::{ApiClient, ApiClientOptions};
 use vg_rpc_client::events::{EventClient, EventClientOptions};
 use vg_rpc_client::transport::{Transport, TransportOptions};
+use crate::server::{Server, ServerOptions};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -64,6 +66,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .shared_filter_handlers(shared_filter_handlers.handlers())
         .build()
         .into();
+    
+    let server: Server = ServerOptions::builder().services(Vec::new()).build().into();
+    
 
     
     let mut rrx = configuration.routing();
@@ -78,6 +83,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let routes_configurator = routes_configurator.start();
     let source_configuration = configuration.start();
     let event_client = event_client.start();
+    let server = server.start().unwrap();
 
     let mut js = JoinSet::new();
 
@@ -88,6 +94,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     js.spawn(routes_configurator.stopped());
     js.spawn(event_client.stopped());
     js.spawn(source_configuration.stopped());
+    js.spawn(server.stopped());
 
     js.spawn(async move {
         loop {

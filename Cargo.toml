@@ -52,7 +52,7 @@ opentelemetry_sdk = { version = "0.31", features = ["metrics", "logs", "trace"] 
 opentelemetry-semantic-conventions = "0.31"
 opentelemetry-stdout = "0.31"
 paste = "1"
-pingora = "0.6"
+pingora = { version = "0.6", features = ["default", "pingora-proxy", "lb", "rustls"] }
 problemdetails = "0.6"
 regex = { version = "1", features = ["perf", "unicode"] }
 rstest = "0.26"
