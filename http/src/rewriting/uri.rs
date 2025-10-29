@@ -11,7 +11,7 @@ use vg_config::http::rewriting::uri::{
 };
 use vg_core::net::Port;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PathRewrite {
     Full(String),
     PrefixMatch(String),
@@ -26,7 +26,7 @@ impl From<PathRewriteConfig> for PathRewrite {
     }
 }
 
-#[derive(Debug, TypedBuilder)]
+#[derive(Debug, Clone, TypedBuilder)]
 pub struct UriRewriter {
     #[builder(default, setter(into))]
     scheme: Option<Scheme>,

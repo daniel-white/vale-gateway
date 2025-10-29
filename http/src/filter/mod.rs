@@ -1,48 +1,185 @@
-use crate::filter::access_control::AccessControlFilterHandler;
-use crate::filter::static_response::{
-    StaticResponseFilterHandler, StaticResponseFilterHandlerConversionError,
+//! HTTP Filter System
+//!
+//! This module provides a comprehensive HTTP filtering system built on top of the Tower
+//! service ecosystem. It offers simplified patterns for creating, composing, and applying
+//! HTTP filters with strong type safety and performance optimization.
+//!
+//! # Architecture
+//!
+//! The filter system is organized into several key components:
+//!
+//! - **Handlers**: Concrete filter implementations for specific functionality
+//! - **Traits**: Core abstractions and interfaces for filter behavior
+//! - **Types**: Common type aliases and utilities for simplified APIs
+//! - **Factory**: Service creation and composition utilities
+//! - **Layer**: Tower layer implementations for service composition
+//! - **Collection**: Builder patterns for managing multiple filters
+//! - **Examples**: Usage examples and best practices
+//! - **Utils**: Testing and benchmarking utilities
+//!
+//! # Quick Start
+//!
+//! ```rust,no_run
+//! use crate::filter::{FilterCollection, handlers::AccessControlFilterHandler};
+//! use config::http::filter::AccessControlFilter;
+//! use config::http::policy::client_addrs::{AccessControlEffect, IpRef};
+//!
+//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! // Create a filter configuration
+//! let config = AccessControlFilter::builder()
+//!     .effect(AccessControlEffect::Allow)
+//!     .clients(vec![IpRef::Addr("192.168.1.1".parse()?)])
+//!     .build();
+//!
+//! // Create filter handler
+//! let handler = AccessControlFilterHandler::try_from(config)?;
+//!
+//! // Build filter collection
+//! let collection = FilterCollection::builder()
+//!     .add_inbound_request(handler)
+//!     .build();
+//!
+//! // Create services
+//! let services = collection.build_services();
+//! # Ok(())
+//! # }
+//! ```
+
+// Core infrastructure modules
+pub mod error;
+pub mod factory;
+pub mod layer;
+pub mod new_collection;
+pub mod traits;
+pub mod types;
+
+// Filter handler implementations
+pub mod handlers;
+
+// Utility modules
+pub mod utils;
+
+// Usage examples (disabled for now due to configuration API changes)
+// pub mod examples;
+
+// Legacy modules (maintained for backward compatibility during transition)
+pub mod collection;
+pub mod handler;
+pub mod stage_services;
+
+// ============================================================================
+// Public API Exports
+// ============================================================================
+
+// Core traits and interfaces
+pub use traits::{
+    BackendRequestFilter, BackendResponseFilter, FilterHandler, InboundRequestFilter,
+    PreBackendFilter, ResponseGenerationFilter,
 };
-use derive_more::TryUnwrap;
-use std::ops::Deref;
-use std::sync::Arc;
-use thiserror::Error;
-use vg_config::http::filter::SharedFilter;
 
-pub mod access_control;
-pub mod backend_uri_rewriter;
-pub mod header_modifier;
-pub mod redirect_response;
-pub mod static_response;
+// Type aliases and common types
+pub use types::{
+    BoxedFuture, FilterRequest, FilterResponse, FilterResult, FilterServiceBuilder, RequestParts,
+    ResponseParts,
+};
 
-#[derive(Debug, Clone, TryUnwrap)]
+// Error types (unified runtime errors)
+pub use error::FilterError;
+
+// Service creation and composition
+pub use factory::{FilterServiceFactory, StageServices};
+pub use layer::{
+    BackendRequestLayer, BackendResponseLayer, FilterService, InboundRequestLayer, PreBackendLayer,
+    ResponseGenerationLayer,
+};
+
+// Filter collection and builder
+pub use new_collection::{
+    BackendRequestFilterTrait, BackendResponseFilterTrait, FilterCollection,
+    InboundRequestFilterTrait, PreBackendFilterTrait, ResponseGenerationFilterTrait, StageCounts,
+};
+
+// Filter handler implementations
+pub use handlers::{
+    AccessControlFilterHandler, BackendUriRewriterFilterHandler, HeaderModifierFilterHandler,
+    RedirectResponseFilterHandler, StaticResponseFilterHandler,
+};
+
+// Filter-specific error types (for configuration and validation)
+pub use handlers::{
+    AccessControlError, BackendUriRewriterError, HeaderModifierError, RedirectResponseError,
+    StaticResponseError,
+};
+
+// Testing utilities
+pub use utils::test_utils;
+
+// ============================================================================
+// Legacy API Support (Backward Compatibility)
+// ============================================================================
+// These exports are maintained during the transition period to avoid breaking
+// existing code. They will be deprecated and removed in future versions.
+
+pub use collection::{
+    FilterHandlerCollection, FilterHandlerCollectionBuilder, FilterHandlerCollectionError,
+};
+pub use handler::{
+    BackendRequestFilterHandler, BackendRequestFilterLayer, BackendResponseFilterHandler,
+    BackendResponseFilterLayer, InboundRequestFilterHandler, InboundRequestFilterLayer,
+    PreBackendFilterHandler, PreBackendFilterLayer, ResponseGenerationFilterHandler,
+    ResponseGenerationFilterLayer,
+};
+pub use stage_services::{StageServiceBuilder, StageServiceBuilderError};
+
+// Temporary stub for SharedFilterHandler to allow compilation during refactoring
+// This will be properly implemented in subsequent tasks
+#[derive(Debug, Clone)]
 pub enum SharedFilterHandler {
-    AccessControl(Arc<AccessControlFilterHandler>),
-    StaticResponse(Arc<StaticResponseFilterHandler>),
+    AccessControl(AccessControlFilterHandler),
+    HeaderModifier(HeaderModifierFilterHandler),
+    BackendUriRewriter(BackendUriRewriterFilterHandler),
+    RedirectResponse(RedirectResponseFilterHandler),
+    StaticResponse(StaticResponseFilterHandler),
 }
 
-#[derive(Debug, Error)]
-pub enum SharedFilterHandlerConversionError {
-    #[error("Invalid static response filter: {0}")]
-    StaticResponse(
-        #[from]
-        #[source]
-        StaticResponseFilterHandlerConversionError,
-    ),
-    // #[error("Invalid access control filter: {0}")]
-    // AccessControl(#[from] #[source]AccessControlFilterHandler)
-}
+impl SharedFilterHandler {
+    /// Attempt to unwrap as AccessControlFilterHandler
+    pub fn try_unwrap_access_control(self) -> Result<AccessControlFilterHandler, Self> {
+        match self {
+            SharedFilterHandler::AccessControl(handler) => Ok(handler),
+            other => Err(other),
+        }
+    }
 
-impl TryFrom<&SharedFilter> for SharedFilterHandler {
-    type Error = SharedFilterHandlerConversionError;
-    fn try_from(value: &SharedFilter) -> Result<Self, Self::Error> {
-        match value {
-            SharedFilter::AccessControl(_) => {
-                todo!()
-            }
-            SharedFilter::StaticResponse(filter) => {
-                let handler: StaticResponseFilterHandler = filter.deref().try_into()?;
-                Ok(SharedFilterHandler::StaticResponse(Arc::new(handler)))
-            }
+    /// Attempt to unwrap as HeaderModifierFilterHandler
+    pub fn try_unwrap_header_modifier(self) -> Result<HeaderModifierFilterHandler, Self> {
+        match self {
+            SharedFilterHandler::HeaderModifier(handler) => Ok(handler),
+            other => Err(other),
+        }
+    }
+
+    /// Attempt to unwrap as BackendUriRewriterFilterHandler
+    pub fn try_unwrap_backend_uri_rewriter(self) -> Result<BackendUriRewriterFilterHandler, Self> {
+        match self {
+            SharedFilterHandler::BackendUriRewriter(handler) => Ok(handler),
+            other => Err(other),
+        }
+    }
+
+    /// Attempt to unwrap as RedirectResponseFilterHandler
+    pub fn try_unwrap_redirect_response(self) -> Result<RedirectResponseFilterHandler, Self> {
+        match self {
+            SharedFilterHandler::RedirectResponse(handler) => Ok(handler),
+            other => Err(other),
+        }
+    }
+
+    /// Attempt to unwrap as StaticResponseFilterHandler
+    pub fn try_unwrap_static_response(self) -> Result<StaticResponseFilterHandler, Self> {
+        match self {
+            SharedFilterHandler::StaticResponse(handler) => Ok(handler),
+            other => Err(other),
         }
     }
 }

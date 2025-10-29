@@ -1,9 +1,7 @@
 use crate::filter::SharedFilterHandler;
-use crate::filter::access_control::AccessControlFilterHandler;
-use crate::filter::header_modifier::{
-    HeaderModifierFilterHandler, HeaderModifierFilterHandlerConversionError,
-};
-use crate::filter::static_response::StaticResponseFilterHandler;
+use crate::filter::handlers::access_control::AccessControlFilterHandler;
+use crate::filter::handlers::header_modifier::{HeaderModifierError, HeaderModifierFilterHandler};
+use crate::filter::handlers::static_response::StaticResponseFilterHandler;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -13,7 +11,7 @@ use vg_config::http::listener::filter::ListenerFilter;
 
 #[derive(Debug)]
 pub enum ListenerFilterHandler {
-    AccessControl(Arc<AccessControlFilterHandler>),
+    AccessControl(AccessControlFilterHandler),
     RequestHeaderModifier(Arc<HeaderModifierFilterHandler>),
     ResponseHeaderModifier(Arc<HeaderModifierFilterHandler>),
     StaticResponse(Arc<StaticResponseFilterHandler>),
@@ -26,9 +24,9 @@ pub enum ListenerFilterHandlerConversionError {
     #[error("StaticResponse filter not found")]
     StaticResponse,
     #[error("Request header modifier error: {0}")]
-    RequestHeaderModifier(#[source] HeaderModifierFilterHandlerConversionError),
+    RequestHeaderModifier(#[source] HeaderModifierError),
     #[error("Response header modifier error: {0}")]
-    ResponseHeaderModifier(#[source] HeaderModifierFilterHandlerConversionError),
+    ResponseHeaderModifier(#[source] HeaderModifierError),
 }
 
 impl
@@ -78,7 +76,7 @@ impl
                 else {
                     return Err(ListenerFilterHandlerConversionError::StaticResponse);
                 };
-                Ok(ListenerFilterHandler::StaticResponse(filter))
+                Ok(ListenerFilterHandler::StaticResponse(Arc::new(filter)))
             }
         }
     }

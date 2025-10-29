@@ -20,6 +20,7 @@ regex.workspace = true
 serde_json.workspace = true
 strum.workspace = true
 thiserror.workspace = true
+tower = { workspace = true, features = ["util"] }
 tracing.workspace = true
 tracing-opentelemetry.workspace = true
 trusted-proxies.workspace = true
@@ -30,6 +31,9 @@ vg-core = { path = "../core" }
 vg-config = { path = "../config" }
 
 [dev-dependencies]
+criterion.workspace = true
+futures.workspace = true
 mockall.workspace = true
 rstest.workspace = true
 serde_json.workspace = true
+tower-test.workspace = true

@@ -1,15 +1,9 @@
 use crate::filter::SharedFilterHandler;
-use crate::filter::access_control::AccessControlFilterHandler;
-use crate::filter::backend_uri_rewriter::{
-    BackendUriRewriterFilterHandler, BackendUriRewriterFilterHandlerConversionError,
-};
-use crate::filter::header_modifier::{
-    HeaderModifierFilterHandler, HeaderModifierFilterHandlerConversionError,
-};
-use crate::filter::redirect_response::{
-    RedirectResponseFilterHandler, RedirectResponseFilterHandlerConversionError,
-};
-use crate::filter::static_response::StaticResponseFilterHandler;
+use crate::filter::handlers::access_control::AccessControlFilterHandler;
+use crate::filter::handlers::backend_uri_rewriter::BackendUriRewriterFilterHandler;
+use crate::filter::handlers::header_modifier::{HeaderModifierError, HeaderModifierFilterHandler};
+use crate::filter::handlers::redirect_response::RedirectResponseFilterHandler;
+use crate::filter::handlers::static_response::StaticResponseFilterHandler;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -19,7 +13,7 @@ use vg_config::http::route::rule::filter::RuleFilter;
 
 #[derive(Debug)]
 pub enum RuleFilterHandler {
-    AccessControl(Arc<AccessControlFilterHandler>),
+    AccessControl(AccessControlFilterHandler),
     RequestHeaderModifier(Arc<HeaderModifierFilterHandler>),
     ResponseHeaderModifier(Arc<HeaderModifierFilterHandler>),
     RedirectResponse(Arc<RedirectResponseFilterHandler>),
@@ -34,20 +28,20 @@ pub enum RuleFilterHandlerConversionError {
     #[error("StaticResponse filter not found")]
     StaticResponse,
     #[error("Request header modifier error: {0}")]
-    RequestHeaderModifier(#[source] HeaderModifierFilterHandlerConversionError),
+    RequestHeaderModifier(#[source] HeaderModifierError),
     #[error("Response header modifier error: {0}")]
-    ResponseHeaderModifier(#[source] HeaderModifierFilterHandlerConversionError),
+    ResponseHeaderModifier(#[source] HeaderModifierError),
     #[error("Redirect response error: {0}")]
     RedirectResponse(
         #[from]
         #[source]
-        RedirectResponseFilterHandlerConversionError,
+        crate::filter::handlers::redirect_response::RedirectResponseError,
     ),
     #[error("Backend URI rewriter error: {0}")]
     BackendUriRewriter(
         #[from]
         #[source]
-        BackendUriRewriterFilterHandlerConversionError,
+        crate::filter::handlers::backend_uri_rewriter::BackendUriRewriterError,
     ),
 }
 
@@ -93,10 +87,10 @@ impl TryFrom<(&HashMap<SharedFilterRef, SharedFilterHandler>, &RuleFilter)> for 
                 else {
                     return Err(RuleFilterHandlerConversionError::StaticResponse);
                 };
-                Ok(RuleFilterHandler::StaticResponse(filter))
+                Ok(RuleFilterHandler::StaticResponse(Arc::new(filter)))
             }
             RuleFilter::BackendUriRewriter(filter) => {
-                let handler = BackendUriRewriterFilterHandler::try_from(filter.deref())?;
+                let handler = BackendUriRewriterFilterHandler::try_from(filter.deref().clone())?;
                 Ok(RuleFilterHandler::BackendUriRewriter(Arc::new(handler)))
             }
         }
