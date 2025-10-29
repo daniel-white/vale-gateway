@@ -15,7 +15,7 @@ pub struct ProblemDetailFormat {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, From)]
-#[serde(tag = "generator", rename_all = "camelCase")]
+#[serde(tag = "format", rename_all = "camelCase")]
 pub enum Format {
     Empty,
     #[default]

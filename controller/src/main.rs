@@ -13,9 +13,9 @@ use vg_config::http::filter::static_response::{
     StaticResponseFilter, StaticResponseFilterRef, StaticResponseSharedFilter,
 };
 use vg_config::http::filter::{SharedFilter, SharedFilterRef};
-use vg_config::http::gateway::{Gateway, GatewayRef, ListenerProtocol};
+use vg_config::http::gateway::{Gateway, GatewayRef};
 use vg_config::http::listener::policy::ListenerPolicies;
-use vg_config::http::listener::{Listener, ListenerRef};
+use vg_config::http::listener::{Listener, ListenerProtocol, ListenerRef};
 use vg_config::http::route::host::HostMatcher;
 use vg_config::http::route::{Route, RouteRef};
 use vg_config::provider::ConfigurationProvider;
@@ -35,12 +35,9 @@ impl ConfigurationProvider for HttpConfigProvider {
         let f = SharedFilterRef::StaticResponse(f);
         let listener = Listener::builder()
             .ref_(ListenerRef::from("example_listener".to_string()))
-            .gateway_ref(gateway_ref.clone())
-            .protocol(ListenerProtocol::HTTP)
-            .port(Port::HTTP)
+            .protocol(ListenerProtocol::HTTP(Port::HTTP))
             .policies(ListenerPolicies::default())
             .route_refs(vec![r])
-            .shared_filter_refs(vec![f])
             .filters(Vec::new())
             .build();
 
@@ -49,7 +46,7 @@ impl ConfigurationProvider for HttpConfigProvider {
             .ref_(gateway_ref.clone())
             .listeners(vec![Arc::new(listener)])
             .filters(Vec::new())
-            .shared_filter_refs(Vec::new())
+            .shared_filter_refs(vec![f])
             .backend_refs(vec![BackendRef::from("be1".to_string())])
             .route_refs(vec![RouteRef::from("r".to_string())])
             .build();

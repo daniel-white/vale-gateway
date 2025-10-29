@@ -1,12 +1,13 @@
 use crate::http::backend::BackendRef;
 use crate::http::filter::SharedFilterRef;
 use crate::http::listener::Listener;
-use derive_more::From;
+use derive_more::{From, TryUnwrap};
 use getset::{CloneGetters, Getters};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
+use vg_core::net::Port;
 
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, Clone, From)]
 #[serde(transparent)]
@@ -16,12 +17,6 @@ impl Display for GatewayRef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum ListenerProtocol {
-    HTTP,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TypedBuilder, Getters, CloneGetters)]

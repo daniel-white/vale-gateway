@@ -8,42 +8,12 @@ use std::sync::Arc;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
 use vg_config::http::filter::SharedFilterRef;
-use vg_config::http::listener::{ListenerRef, ListenerTransport, ListenerTransportProtocols};
+use vg_config::http::listener::{ListenerRef, ListenerProtocol};
 use vg_core::net::Port;
 
 mod filter;
 pub mod policy;
 
-#[derive(Debug, TypedBuilder, CopyGetters)]
-pub struct Protocols {
-    #[getset(get_copy = "pub")]
-    http: Option<Port>,
-}
-
-impl From<ListenerTransportProtocols> for Protocols {
-    fn from(value: ListenerTransportProtocols) -> Self {
-        let http_port = if value.http() {
-            // Default HTTP port - this should be overridden with actual listener port
-            Some(Port::from(std::num::NonZeroU16::new(80).unwrap()))
-        } else {
-            None
-        };
-        Self::builder().http(http_port).build()
-    }
-}
-
-#[derive(Debug, TypedBuilder, Getters)]
-pub struct Transport {
-    #[getset(get = "pub")]
-    #[builder(setter(into))]
-    protocols: Protocols,
-}
-
-impl From<ListenerTransport> for Transport {
-    fn from(value: ListenerTransport) -> Self {
-        Self::builder().protocols(value.protocols().clone()).build()
-    }
-}
 
 #[derive(Debug, TypedBuilder, Getters)]
 pub struct Listener {
@@ -51,8 +21,7 @@ pub struct Listener {
     ref_: ListenerRef,
 
     #[getset(get_clone = "pub")]
-    #[builder(setter(into))]
-    transport: Transport,
+    protocol: ListenerProtocol,
 
     #[getset(get = "pub")]
     policies: ListenerPolicyHandlers,
@@ -95,21 +64,10 @@ impl TryFrom<ListenerConversionContext> for Listener {
             .collect::<Result<_, _>>()?;
 
         let policies: ListenerPolicyHandlers = value.listener.policies().try_into()?;
-
-        // Create transport with the actual listener port
-        let transport_protocols = value.listener.transport().protocols().clone();
-        let protocols = Protocols::builder()
-            .http(if transport_protocols.http() {
-                Some(value.listener.port())
-            } else {
-                None
-            })
-            .build();
-        let transport = Transport::builder().protocols(protocols).build();
-
+        
         let listener = Listener::builder()
             .ref_(value.listener.ref_())
-            .transport(transport)
+            .protocol(value.listener.protocol().clone())
             .policies(policies)
             .filters(filters)
             .routes(value.routes)

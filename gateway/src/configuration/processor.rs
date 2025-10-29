@@ -63,13 +63,7 @@ impl ConfigurationProcessor {
         let routes = self.api_client.routes(&route_refs).await.map_err(|_| ())?;
 
         // Get shared filters referenced by the gateway and its listeners
-        let mut shared_filter_refs: Vec<_> = gateway.shared_filter_refs().clone();
-        shared_filter_refs.extend(
-            gateway
-                .listeners()
-                .iter()
-                .flat_map(|listener| listener.shared_filter_refs().iter().cloned()),
-        );
+        let shared_filter_refs: Vec<_> = gateway.shared_filter_refs().clone();
 
         let shared_filters = self
             .api_client

@@ -12,11 +12,9 @@ mod test {
     use crate::http::backend::BackendRef;
     use crate::http::filter::SharedFilterRef;
     use crate::http::filter::static_response::StaticResponseFilterRef;
-    use crate::http::gateway::{Gateway, GatewayFilter, GatewayRef, ListenerProtocol};
+    use crate::http::gateway::{Gateway, GatewayFilter, GatewayRef};
     use crate::http::listener::policy::ListenerPolicies;
-    use crate::http::listener::{
-        Listener, ListenerRef, ListenerTransport, ListenerTransportProtocols,
-    };
+    use crate::http::listener::{Listener, ListenerProtocol, ListenerRef};
     use crate::http::route::RouteRef;
     use std::sync::Arc;
     use vg_core::net::Port;
@@ -28,17 +26,11 @@ mod test {
         let r = RouteRef::from("r".to_string());
         let f = StaticResponseFilterRef::from("f".to_string());
         let f = SharedFilterRef::StaticResponse(f);
-        let p = ListenerTransportProtocols::builder()
-            .http(Port::HTTP)
-            .build();
-        let t = ListenerTransport::builder().protocols(p).build();
         let l = Listener::builder()
             .ref_(l.clone())
-            .transport(t)
+            .protocol(ListenerProtocol::HTTP(Port::HTTP))
             .policies(ListenerPolicies::default())
-            .backend_refs(vec![beref])
             .route_refs(vec![r])
-            .shared_filter_refs(vec![f])
             .filters(Vec::new())
             .build();
 
@@ -52,17 +44,11 @@ mod test {
         let backend_ref = BackendRef::from("test-backend".to_string());
 
         let listener_ref = ListenerRef::from("test-listener".to_string());
-        let protocols = ListenerTransportProtocols::builder()
-            .http(Port::HTTP)
-            .build();
-        let transport = ListenerTransport::builder().protocols(protocols).build();
         let listener = Listener::builder()
             .ref_(listener_ref)
-            .transport(transport)
+            .protocol(ListenerProtocol::HTTP(Port::HTTP))
             .policies(ListenerPolicies::default())
-            .backend_refs(vec![])
             .route_refs(vec![])
-            .shared_filter_refs(vec![])
             .filters(vec![])
             .build();
 
@@ -79,6 +65,7 @@ mod test {
             .filters(vec![gateway_filter])
             .shared_filter_refs(vec![shared_filter])
             .backend_refs(vec![backend_ref])
+            .route_refs(vec![])
             .build();
 
         assert_eq!(gateway.ref_(), gateway_ref);
@@ -95,15 +82,5 @@ mod test {
         assert_eq!(deserialized.filters().len(), 1);
         assert_eq!(deserialized.shared_filter_refs().len(), 1);
         assert_eq!(deserialized.backend_refs().len(), 1);
-    }
-
-    #[test]
-    fn should_create_listener_protocol() {
-        let protocol = ListenerProtocol::HTTP;
-        let json = serde_json::to_string(&protocol).unwrap();
-        assert_eq!(json, "\"hTTP\"");
-
-        let deserialized: ListenerProtocol = serde_json::from_str(&json).unwrap();
-        assert_eq!(protocol, deserialized);
     }
 }
