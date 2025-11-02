@@ -1,4 +1,4 @@
-use crate::http::policy::client_addrs::ClientAddressesPolicy;
+use crate::http::policy::client_addrs::ClientAddrPolicy;
 use crate::http::policy::error_response::ErrorResponsePolicy;
 use crate::http::policy::retry::RetryPolicy;
 use crate::http::policy::timeout::TimeoutPolicies;
@@ -37,7 +37,7 @@ pub struct ListenerPolicies {
         skip_serializing_if = "Option::is_none"
     )]
     #[builder(default)]
-    client_addresses: Option<ClientAddressesPolicy>,
+    client_addresses: Option<ClientAddrPolicy>,
 
     #[getset(get = "pub")]
     #[builder(default)]
@@ -57,6 +57,6 @@ impl ListenerPolicies {
     }
 }
 
-fn default_client_addresses_policy() -> Option<ClientAddressesPolicy> {
-    Some(ClientAddressesPolicy::default())
+fn default_client_addresses_policy() -> Option<ClientAddrPolicy> {
+    Some(ClientAddrPolicy::default())
 }

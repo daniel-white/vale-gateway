@@ -11,7 +11,7 @@ use vg_core::net::IpRef;
     Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
 )]
 #[serde(rename_all = "camelCase")]
-pub struct TrustedHeaderClientAddressExtractor {
+pub struct TrustedHeaderClientAddrExtractor {
     #[getset(get_clone = "pub")]
     #[serde(with = "http_serde_ext::header_name")]
     trusted_header: HeaderName,
@@ -41,7 +41,7 @@ impl From<TrustedProxyHeaderName> for HeaderName {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, TypedBuilder)]
 #[serde(rename_all = "camelCase")]
-pub struct TrustedProxiesClientAddressExtractor {
+pub struct TrustedProxiesClientAddrExtractor {
     #[getset(get = "pub")]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     trusted_headers: Vec<TrustedProxyHeaderName>,
@@ -51,7 +51,7 @@ pub struct TrustedProxiesClientAddressExtractor {
     proxies: Vec<IpRef>,
 }
 
-impl TrustedProxiesClientAddressExtractor {
+impl TrustedProxiesClientAddrExtractor {
     pub fn trust_forwarded_header(&self) -> bool {
         self.trusted_headers
             .contains(&TrustedProxyHeaderName::Forwarded)
@@ -80,11 +80,11 @@ impl TrustedProxiesClientAddressExtractor {
 
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, From)]
 #[serde(tag = "extractor", rename_all = "camelCase")]
-pub enum ClientAddressExtractor {
+pub enum ClientAddrExtractor {
     #[default]
     Direct,
-    TrustedHeader(TrustedHeaderClientAddressExtractor),
-    TrustedProxies(TrustedProxiesClientAddressExtractor),
+    TrustedHeader(TrustedHeaderClientAddrExtractor),
+    TrustedProxies(TrustedProxiesClientAddrExtractor),
 }
 
 #[derive(
@@ -100,11 +100,11 @@ pub enum ClientAddressExtractor {
     CloneGetters,
 )]
 #[serde(rename_all = "camelCase")]
-pub struct ClientAddressesPolicy {
+pub struct ClientAddrPolicy {
     #[getset(get = "pub")]
     #[builder(default, setter(into))]
     #[serde(flatten)]
-    extractor: ClientAddressExtractor,
+    extractor: ClientAddrExtractor,
 
     #[getset(get_clone = "pub")]
     #[builder(setter(into))]
@@ -116,9 +116,9 @@ pub struct ClientAddressesPolicy {
     backend_header: Option<HeaderName>,
 }
 
-impl ClientAddressesPolicy {
+impl ClientAddrPolicy {
     pub fn is_default(&self) -> bool {
-        self == &ClientAddressesPolicy::default() && self.backend_header.is_none()
+        self == &ClientAddrPolicy::default() && self.backend_header.is_none()
     }
 }
 
@@ -131,8 +131,8 @@ mod tests {
 
     #[test]
     fn test_serialize_client_addr_direct() {
-        let policy = ClientAddressesPolicy::builder()
-            .extractor(ClientAddressExtractor::Direct)
+        let policy = ClientAddrPolicy::builder()
+            .extractor(ClientAddrExtractor::Direct)
             .backend_header(Some(HeaderName::from_static("x-client-ip")))
             .build();
 
@@ -145,10 +145,10 @@ mod tests {
 
     #[test]
     fn test_serialize_client_addr_header() {
-        let extractor = TrustedHeaderClientAddressExtractor::builder()
+        let extractor = TrustedHeaderClientAddrExtractor::builder()
             .trusted_header(HeaderName::from_static("x-real-ip"))
             .build();
-        let policy = ClientAddressesPolicy::builder()
+        let policy = ClientAddrPolicy::builder()
             .extractor(extractor)
             .backend_header(Some(HeaderName::from_static("x-client-ip")))
             .build();
@@ -165,14 +165,14 @@ mod tests {
         let addr = IpAddr::from([192, 168, 1, 1]);
         let ip1 = IpRef::Addr(addr);
         let ip2 = IpRef::Net(IpNet::new(addr, 24).unwrap());
-        let extractor = TrustedProxiesClientAddressExtractor::builder()
+        let extractor = TrustedProxiesClientAddrExtractor::builder()
             .trusted_headers(vec![
                 TrustedProxyHeaderName::XForwardedFor,
                 TrustedProxyHeaderName::Forwarded,
             ])
             .proxies(vec![ip1, ip2])
             .build();
-        let policy = ClientAddressesPolicy::builder()
+        let policy = ClientAddrPolicy::builder()
             .extractor(extractor)
             .backend_header(Some(HeaderName::from_static("x-real-ip")))
             .build();

@@ -6,9 +6,8 @@ use http::HeaderName;
 use http::header::InvalidHeaderName;
 use thiserror::Error;
 use vg_config::http::policy::client_addrs::{
-    ClientAddressExtractor, ClientAddressesPolicy as ClientAddressesPolicyConfig,
-    TrustedHeaderClientAddressExtractor, TrustedProxiesClientAddressExtractor,
-    TrustedProxyHeaderName,
+    ClientAddrExtractor, ClientAddrPolicy as ClientAddressesPolicyConfig,
+    TrustedHeaderClientAddrExtractor, TrustedProxiesClientAddrExtractor, TrustedProxyHeaderName,
 };
 use vg_core::net::IpRef;
 
@@ -57,13 +56,13 @@ impl TryFrom<&ClientAddressesPolicy> for ClientAddressesPolicyConfig {
                 unreachable!("layers")
             }
             (ClientAddressesPolicySource::DirectConnection, None, None) => {
-                builder.extractor(ClientAddressExtractor::Direct)
+                builder.extractor(ClientAddrExtractor::Direct)
             }
             (ClientAddressesPolicySource::Header, Some(header), None) => {
                 let trusted_header = header
                     .parse()
                     .map_err(ClientAddressesPolicyConversionError::Header)?;
-                let extractor = TrustedHeaderClientAddressExtractor::builder()
+                let extractor = TrustedHeaderClientAddrExtractor::builder()
                     .trusted_header(trusted_header)
                     .build();
                 builder.extractor(extractor)
@@ -72,7 +71,7 @@ impl TryFrom<&ClientAddressesPolicy> for ClientAddressesPolicyConfig {
                 return Err(ClientAddressesPolicyConversionError::MissingHeader);
             }
             (ClientAddressesPolicySource::Proxies, _, Some(proxies)) => {
-                let extractor: TrustedProxiesClientAddressExtractor = proxies.try_into()?;
+                let extractor: TrustedProxiesClientAddrExtractor = proxies.try_into()?;
                 builder.extractor(extractor)
             }
             (ClientAddressesPolicySource::Proxies, _, None) => {
@@ -91,7 +90,7 @@ impl TryFrom<&ClientAddressesPolicy> for ClientAddressesPolicyConfig {
 pub enum TrustedProxiesClientAddrExtractorConversionError {}
 
 #[allow(clippy::infallible_try_from)]
-impl TryFrom<&ClientAddressesPolicyProxies> for TrustedProxiesClientAddressExtractor {
+impl TryFrom<&ClientAddressesPolicyProxies> for TrustedProxiesClientAddrExtractor {
     type Error = TrustedProxiesClientAddrExtractorConversionError;
 
     fn try_from(value: &ClientAddressesPolicyProxies) -> Result<Self, Self::Error> {

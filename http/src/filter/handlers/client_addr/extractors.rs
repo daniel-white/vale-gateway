@@ -1,3 +1,4 @@
+use derive_more::From;
 use http::HeaderName;
 use http::request::Parts;
 use std::collections::HashSet;
@@ -5,24 +6,24 @@ use std::net::{IpAddr, SocketAddr};
 use thiserror::Error;
 use typed_builder::TypedBuilder;
 use vg_config::http::policy::client_addrs::{
-    ClientAddressExtractor as ClientAddressExtractorConfig,
-    TrustedHeaderClientAddressExtractor as TrustedHeaderClientAddressExtractorConfig,
-    TrustedProxiesClientAddressExtractor as TrustedProxiesClientAddressExtractorConfig,
+    ClientAddrExtractor as ClientAddrExtractorConfig,
+    TrustedHeaderClientAddrExtractor as TrustedHeaderClientAddrExtractorConfig,
+    TrustedProxiesClientAddrExtractor as TrustedProxiesClientAddrExtractorConfig,
 };
 use vg_core::net::IpRef;
 
-trait Extractor: Into<ClientAddressExtractor> {
+trait Extractor: Into<ClientAddrExtractor> {
     fn extract(&self, client_addr: SocketAddr, req: &Parts) -> Option<IpAddr>;
 }
 
-#[derive(Debug)]
-pub enum ClientAddressExtractor {
+#[derive(Debug, From)]
+pub enum ClientAddrExtractor {
     Direct,
-    TrustedHeader(TrustedHeaderClientAddressExtractor),
-    TrustedProxies(TrustedProxiesClientAddressExtractor),
+    TrustedHeader(TrustedHeaderClientAddrExtractor),
+    TrustedProxies(TrustedProxiesClientAddrExtractor),
 }
 
-impl ClientAddressExtractor {
+impl ClientAddrExtractor {
     pub fn extract(&self, client_addr: SocketAddr, req: &Parts) -> Option<IpAddr> {
         match self {
             Self::Direct => Some(client_addr.ip()),
@@ -33,32 +34,32 @@ impl ClientAddressExtractor {
 }
 
 #[derive(Debug, Error)]
-pub enum ClientAddressExtractorConversionError {
+pub enum ClientAddrExtractorConversionError {
     #[error("Unable to convert trusted header extractor: {0}")]
     TrustedHeader(
         #[from]
         #[source]
-        TrustedHeaderClientAddressExtractorConversionError,
+        TrustedHeaderClientAddrExtractorConversionError,
     ),
     #[error("Unable to convert trusted header extractor: {0}")]
     TrustedProxies(
         #[from]
         #[source]
-        TrustedProxiesClientAddressExtractorConversionError,
+        TrustedProxiesClientAddrExtractorConversionError,
     ),
 }
 
-impl TryFrom<&ClientAddressExtractorConfig> for ClientAddressExtractor {
-    type Error = ClientAddressExtractorConversionError;
+impl TryFrom<&ClientAddrExtractorConfig> for ClientAddrExtractor {
+    type Error = ClientAddrExtractorConversionError;
 
-    fn try_from(value: &ClientAddressExtractorConfig) -> Result<Self, Self::Error> {
+    fn try_from(value: &ClientAddrExtractorConfig) -> Result<Self, Self::Error> {
         let extractor = match value {
-            ClientAddressExtractorConfig::Direct => Self::Direct,
-            ClientAddressExtractorConfig::TrustedHeader(config) => {
-                TrustedHeaderClientAddressExtractor::try_from(config)?.into()
+            ClientAddrExtractorConfig::Direct => Self::Direct,
+            ClientAddrExtractorConfig::TrustedHeader(config) => {
+                TrustedHeaderClientAddrExtractor::try_from(config)?.into()
             }
-            ClientAddressExtractorConfig::TrustedProxies(config) => {
-                TrustedProxiesClientAddressExtractor::try_from(config)?.into()
+            ClientAddrExtractorConfig::TrustedProxies(config) => {
+                TrustedProxiesClientAddrExtractor::try_from(config)?.into()
             }
         };
 
@@ -67,19 +68,19 @@ impl TryFrom<&ClientAddressExtractorConfig> for ClientAddressExtractor {
 }
 
 #[derive(Debug, TypedBuilder)]
-pub struct TrustedHeaderClientAddressExtractor {
+pub struct TrustedHeaderClientAddrExtractor {
     #[builder(setter(into))]
     trusted_header: HeaderName,
 }
 
 #[derive(Debug, Error)]
-pub enum TrustedHeaderClientAddressExtractorConversionError {}
+pub enum TrustedHeaderClientAddrExtractorConversionError {}
 
 #[allow(clippy::infallible_try_from)]
-impl TryFrom<&TrustedHeaderClientAddressExtractorConfig> for TrustedHeaderClientAddressExtractor {
-    type Error = TrustedHeaderClientAddressExtractorConversionError;
+impl TryFrom<&TrustedHeaderClientAddrExtractorConfig> for TrustedHeaderClientAddrExtractor {
+    type Error = TrustedHeaderClientAddrExtractorConversionError;
 
-    fn try_from(value: &TrustedHeaderClientAddressExtractorConfig) -> Result<Self, Self::Error> {
+    fn try_from(value: &TrustedHeaderClientAddrExtractorConfig) -> Result<Self, Self::Error> {
         let extractor = Self::builder()
             .trusted_header(value.trusted_header())
             .build();
@@ -88,7 +89,7 @@ impl TryFrom<&TrustedHeaderClientAddressExtractorConfig> for TrustedHeaderClient
     }
 }
 
-impl Extractor for TrustedHeaderClientAddressExtractor {
+impl Extractor for TrustedHeaderClientAddrExtractor {
     fn extract(&self, _client_addr: SocketAddr, req: &Parts) -> Option<IpAddr> {
         req.headers
             .get(&self.trusted_header)
@@ -97,45 +98,33 @@ impl Extractor for TrustedHeaderClientAddressExtractor {
     }
 }
 
-impl From<TrustedHeaderClientAddressExtractor> for ClientAddressExtractor {
-    fn from(val: TrustedHeaderClientAddressExtractor) -> Self {
-        Self::TrustedHeader(val)
-    }
-}
-
 #[derive(Debug, TypedBuilder)]
-pub struct TrustedProxiesClientAddressExtractor {
+pub struct TrustedProxiesClientAddrExtractor {
     #[builder(setter(into))]
     config: trusted_proxies::Config,
 }
 
-impl Extractor for TrustedProxiesClientAddressExtractor {
+impl Extractor for TrustedProxiesClientAddrExtractor {
     fn extract(&self, client_addr: SocketAddr, req: &Parts) -> Option<IpAddr> {
         let trusted_ip = trusted_proxies::Trusted::from(client_addr.ip(), req, &self.config).ip();
         Some(trusted_ip)
     }
 }
 
-impl From<TrustedProxiesClientAddressExtractor> for ClientAddressExtractor {
-    fn from(val: TrustedProxiesClientAddressExtractor) -> Self {
-        Self::TrustedProxies(val)
-    }
-}
-
 #[derive(Debug, Error)]
-pub enum TrustedProxiesClientAddressExtractorConversionError {
+pub enum TrustedProxiesClientAddrExtractorConversionError {
     #[error("No trusted proxies or headers configured")]
     NoTrustedProxiesOrHeaders,
 }
 
-impl TryFrom<&TrustedProxiesClientAddressExtractorConfig> for TrustedProxiesClientAddressExtractor {
-    type Error = TrustedProxiesClientAddressExtractorConversionError;
+impl TryFrom<&TrustedProxiesClientAddrExtractorConfig> for TrustedProxiesClientAddrExtractor {
+    type Error = TrustedProxiesClientAddrExtractorConversionError;
 
-    fn try_from(value: &TrustedProxiesClientAddressExtractorConfig) -> Result<Self, Self::Error> {
+    fn try_from(value: &TrustedProxiesClientAddrExtractorConfig) -> Result<Self, Self::Error> {
         let proxies: HashSet<IpRef> = value.proxies().iter().copied().collect();
         if proxies.is_empty() && value.trusted_headers().is_empty() {
             return Err(
-                TrustedProxiesClientAddressExtractorConversionError::NoTrustedProxiesOrHeaders,
+                TrustedProxiesClientAddrExtractorConversionError::NoTrustedProxiesOrHeaders,
             );
         }
 
@@ -214,7 +203,7 @@ mod tests {
         let socket_addr = SocketAddr::from_str("192.168.1.100:12345").unwrap();
         let request_parts = create_empty_parts();
 
-        let extractor = ClientAddressExtractor::Direct;
+        let extractor = ClientAddrExtractor::Direct;
         let result = extractor.extract(socket_addr, &request_parts);
 
         // Direct extractor returns the socket address IP
@@ -227,7 +216,7 @@ mod tests {
         let socket_addr = SocketAddr::from_str("[2001:db8::1]:8080").unwrap();
         let request_parts = create_empty_parts();
 
-        let extractor = ClientAddressExtractor::Direct;
+        let extractor = ClientAddrExtractor::Direct;
         let result = extractor.extract(socket_addr, &request_parts);
 
         // Direct extractor returns the socket address IP (IPv6)
@@ -246,7 +235,7 @@ mod tests {
             .headers
             .insert("X-Real-IP", HeaderValue::from_static("198.51.100.1"));
 
-        let extractor = ClientAddressExtractor::Direct;
+        let extractor = ClientAddrExtractor::Direct;
         let result = extractor.extract(socket_addr, &request_parts);
 
         // Direct extractor always returns the socket address IP, ignoring headers
@@ -267,7 +256,7 @@ mod tests {
             .trust_x_forwarded_by_header(false)
             .build();
 
-        let extractor = TrustedProxiesClientAddressExtractor::builder()
+        let extractor = TrustedProxiesClientAddrExtractor::builder()
             .config(trusted_proxies::Config::from(config))
             .build();
 
@@ -298,7 +287,7 @@ mod tests {
             .trust_x_forwarded_by_header(false)
             .build();
 
-        let extractor = TrustedProxiesClientAddressExtractor::builder()
+        let extractor = TrustedProxiesClientAddrExtractor::builder()
             .config(trusted_proxies::Config::from(config))
             .build();
 
@@ -317,7 +306,7 @@ mod tests {
     #[tokio::test]
     async fn test_extractor_invalid_ip_handling() {
         // Test handling of invalid IP addresses in headers
-        let extractor = TrustedHeaderClientAddressExtractor::builder()
+        let extractor = TrustedHeaderClientAddrExtractor::builder()
             .trusted_header(X_FORWARDED_FOR)
             .build();
 
@@ -335,7 +324,7 @@ mod tests {
     #[tokio::test]
     async fn test_extractor_ipv6_support() {
         // Test IPv6 address extraction
-        let extractor = TrustedHeaderClientAddressExtractor::builder()
+        let extractor = TrustedHeaderClientAddrExtractor::builder()
             .trusted_header(X_FORWARDED_FOR)
             .build();
 
@@ -367,7 +356,7 @@ mod tests {
             .trust_x_forwarded_by_header(false)
             .build();
 
-        let extractor = TrustedProxiesClientAddressExtractor::builder()
+        let extractor = TrustedProxiesClientAddrExtractor::builder()
             .config(trusted_proxies::Config::from(config))
             .build();
 
@@ -397,7 +386,7 @@ mod tests {
             .trust_x_forwarded_by_header(false)
             .build();
 
-        let extractor = TrustedProxiesClientAddressExtractor::builder()
+        let extractor = TrustedProxiesClientAddrExtractor::builder()
             .config(trusted_proxies::Config::from(config))
             .build();
 
@@ -416,7 +405,7 @@ mod tests {
     #[tokio::test]
     async fn test_extractor_header_case_insensitive() {
         // Test that header matching is case-insensitive in TrustedHeaderClientAddressExtractor
-        let extractor = TrustedHeaderClientAddressExtractor::builder()
+        let extractor = TrustedHeaderClientAddrExtractor::builder()
             .trusted_header(X_FORWARDED_FOR)
             .build();
 
@@ -434,7 +423,7 @@ mod tests {
     #[tokio::test]
     async fn test_extractor_multiple_header_values() {
         // Test handling multiple values in the same header
-        let extractor = TrustedHeaderClientAddressExtractor::builder()
+        let extractor = TrustedHeaderClientAddrExtractor::builder()
             .trusted_header(X_FORWARDED_FOR)
             .build();
 
@@ -471,7 +460,7 @@ mod tests {
             .trust_x_forwarded_by_header(true)
             .build();
 
-        let extractor = TrustedProxiesClientAddressExtractor::builder()
+        let extractor = TrustedProxiesClientAddrExtractor::builder()
             .config(trusted_proxies::Config::from(config))
             .build();
 
@@ -489,11 +478,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_extractor_type_enum() {
-        let header_extractor: ClientAddressExtractor =
-            TrustedHeaderClientAddressExtractor::builder()
-                .trusted_header(HeaderName::from_static("x-real-ip"))
-                .build()
-                .into();
+        let header_extractor: ClientAddrExtractor = TrustedHeaderClientAddrExtractor::builder()
+            .trusted_header(HeaderName::from_static("x-real-ip"))
+            .build()
+            .into();
 
         let mut proxies: HashSet<IpRef> = HashSet::new();
         proxies.insert(IpRef::Net(IpNet::from_str("192.168.1.1/24").unwrap()));
@@ -507,11 +495,10 @@ mod tests {
             .trust_x_forwarded_by_header(false)
             .build();
 
-        let proxies_extractor: ClientAddressExtractor =
-            TrustedProxiesClientAddressExtractor::builder()
-                .config(trusted_proxies::Config::from(config))
-                .build()
-                .into();
+        let proxies_extractor: ClientAddrExtractor = TrustedProxiesClientAddrExtractor::builder()
+            .config(trusted_proxies::Config::from(config))
+            .build()
+            .into();
 
         let socket_addr = SocketAddr::from_str("192.168.1.1:80").unwrap();
         let mut request_parts = create_empty_parts();
@@ -543,7 +530,7 @@ mod tests {
             let socket_addr = SocketAddr::from_str(socket_str).unwrap();
             let request_parts = create_empty_parts();
 
-            let extractor = ClientAddressExtractor::Direct;
+            let extractor = ClientAddrExtractor::Direct;
             let result = extractor.extract(socket_addr, &request_parts);
 
             assert_some_eq_x!(result, IpAddr::from_str(expected_ip_str).unwrap());
@@ -557,7 +544,7 @@ mod tests {
         let ipv6_loopback = SocketAddr::from_str("[::1]:3000").unwrap();
         let request_parts = create_empty_parts();
 
-        let extractor = ClientAddressExtractor::Direct;
+        let extractor = ClientAddrExtractor::Direct;
 
         // Test IPv4 loopback
         let ipv4_result = extractor.extract(ipv4_loopback, &request_parts);
@@ -582,7 +569,7 @@ mod tests {
             let socket_addr = SocketAddr::from_str(socket_str).unwrap();
             let request_parts = create_empty_parts();
 
-            let extractor = ClientAddressExtractor::Direct;
+            let extractor = ClientAddrExtractor::Direct;
             let result = extractor.extract(socket_addr, &request_parts);
 
             assert_some_eq_x!(result, IpAddr::from_str(expected_ip_str).unwrap());
@@ -595,7 +582,7 @@ mod tests {
         let socket_addr = SocketAddr::from_str("198.51.100.42:9000").unwrap();
         let request_parts = create_empty_parts();
 
-        let extractor = ClientAddressExtractor::Direct;
+        let extractor = ClientAddrExtractor::Direct;
         let expected_ip = IpAddr::from_str("198.51.100.42").unwrap();
 
         // Call extract multiple times and verify consistent results

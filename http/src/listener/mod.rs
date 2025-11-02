@@ -8,12 +8,11 @@ use std::sync::Arc;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
 use vg_config::http::filter::SharedFilterRef;
-use vg_config::http::listener::{ListenerRef, ListenerProtocol};
+use vg_config::http::listener::{ListenerProtocol, ListenerRef};
 use vg_core::net::Port;
 
 mod filter;
 pub mod policy;
-
 
 #[derive(Debug, TypedBuilder, Getters)]
 pub struct Listener {
@@ -64,7 +63,7 @@ impl TryFrom<ListenerConversionContext> for Listener {
             .collect::<Result<_, _>>()?;
 
         let policies: ListenerPolicyHandlers = value.listener.policies().try_into()?;
-        
+
         let listener = Listener::builder()
             .ref_(value.listener.ref_())
             .protocol(value.listener.protocol().clone())

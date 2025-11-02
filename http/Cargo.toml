@@ -8,6 +8,7 @@ assertables.workspace = true
 async-trait.workspace = true
 derive_more.workspace = true
 bytes.workspace = true
+futures.workspace = true
 getset.workspace = true
 heck.workspace = true
 hickory-proto.workspace = true

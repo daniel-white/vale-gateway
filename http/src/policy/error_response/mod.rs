@@ -1,5 +1,5 @@
 pub mod error_codes;
-mod generators;
+pub mod generators;
 
 use crate::policy::error_response::error_codes::ErrorResponseCode;
 use crate::policy::error_response::generators::{
@@ -11,7 +11,7 @@ use thiserror::Error;
 use typed_builder::TypedBuilder;
 use vg_config::http::policy::error_response::ErrorResponsePolicy;
 
-#[derive(Debug, TypedBuilder)]
+#[derive(Debug, Clone, TypedBuilder)]
 pub struct ErrorResponsePolicyHandler {
     #[builder(setter(into))]
     generator: ErrorResponseGenerator,

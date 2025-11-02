@@ -14,7 +14,7 @@ use typed_builder::TypedBuilder;
 use vg_config::http::policy::error_response::{Format, ProblemDetailFormat};
 use vg_core::http::content_type::{ContentType, HTML, PROBLEM_DETAIL};
 
-#[derive(Debug, From)]
+#[derive(Debug, Clone, From)]
 #[allow(private_interfaces)]
 pub enum ErrorResponseGenerator {
     Empty(EmptyErrorResponseGenerator),
@@ -32,7 +32,7 @@ impl ErrorResponseGenerator {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Clone, Error)]
 #[allow(private_interfaces)]
 pub enum ErrorResponseGeneratorConversionError {
     #[error("Failed to convert problem detail generator: {0}")]
@@ -96,12 +96,12 @@ trait Generator: Into<ErrorResponseGenerator> {
     }
 }
 
-#[derive(Debug, TypedBuilder)]
+#[derive(Debug, Clone, TypedBuilder)]
 struct EmptyErrorResponseGenerator {}
 
 impl Generator for EmptyErrorResponseGenerator {}
 
-#[derive(Debug, TypedBuilder)]
+#[derive(Debug, Clone, TypedBuilder)]
 struct HtmlErrorResponseGenerator {}
 
 impl Generator for HtmlErrorResponseGenerator {
@@ -112,7 +112,7 @@ impl Generator for HtmlErrorResponseGenerator {
     }
 }
 
-#[derive(Debug, TypedBuilder)]
+#[derive(Debug, Clone, TypedBuilder)]
 struct ProblemDetailErrorResponseGenerator {
     authority: Option<Uri>,
 }
@@ -147,7 +147,7 @@ impl Generator for ProblemDetailErrorResponseGenerator {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Clone, Error)]
 enum ProblemDetailErrorResponseGeneratorConversionError {}
 
 #[allow(clippy::infallible_try_from)]

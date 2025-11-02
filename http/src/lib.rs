@@ -121,42 +121,6 @@ pub mod filters {
     pub use crate::filter::utils::test_utils;
 }
 
-// ============================================================================
-// Legacy API Support (Backward Compatibility)
-// ============================================================================
-
-/// Legacy filter system exports for backward compatibility
-///
-/// These exports are maintained during the transition period. New code should
-/// use the [`filters`] module instead.
-pub use filter::{
-    // Legacy layer types
-    BackendRequestFilterHandler as LegacyBackendRequestFilterHandler,
-    BackendRequestFilterLayer as LegacyBackendRequestFilterLayer,
-    BackendResponseFilterHandler as LegacyBackendResponseFilterHandler,
-    BackendResponseFilterLayer as LegacyBackendResponseFilterLayer,
-    // Legacy collection and handler types
-    FilterHandlerCollection,
-    FilterHandlerCollectionBuilder,
-    FilterHandlerCollectionError,
-    InboundRequestFilterHandler as LegacyInboundRequestFilterHandler,
-    InboundRequestFilterLayer as LegacyInboundRequestFilterLayer,
-    PreBackendFilterHandler as LegacyPreBackendFilterHandler,
-    PreBackendFilterLayer as LegacyPreBackendFilterLayer,
-    ResponseGenerationFilterHandler as LegacyResponseGenerationFilterHandler,
-    ResponseGenerationFilterLayer as LegacyResponseGenerationFilterLayer,
-    // Shared filter handler enum
-    SharedFilterHandler,
-    // Legacy service builder
-    StageServiceBuilder,
-    StageServiceBuilderError,
-};
-
-// ============================================================================
-// Top-Level Convenience Re-exports
-// ============================================================================
-
-// Most commonly used filter system components at the top level for convenience
 pub use filter::{
     FilterCollection, FilterError, FilterHandler, FilterRequest, FilterResponse, FilterResult,
     FilterServiceFactory,

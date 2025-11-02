@@ -1,5 +1,5 @@
-use crate::policy::client_addrs::{
-    ClientAddressesPolicyHandler, ClientAddressesPolicyHandlerConversionError,
+use crate::filter::handlers::client_addr::{
+    ClientAddrFilterHandler, ClientAddrFilterHandlerLayerError,
 };
 use crate::policy::error_response::{
     ErrorResponsePolicyHandler, ErrorResponsePolicyHandlerConversionError,
@@ -20,7 +20,7 @@ pub struct ListenerPolicyHandlers {
     retries: Option<RetryPolicyHandler>,
 
     #[getset(get = "pub")]
-    client_addresses: Option<ClientAddressesPolicyHandler>,
+    client_addresses: Option<ClientAddrFilterHandler>,
 
     #[getset(get = "pub")]
     error_responses: ErrorResponsePolicyHandler,
@@ -33,7 +33,7 @@ pub enum ListenerPolicyHandlersConversionError {
     #[error(transparent)]
     Retries(#[from] RetryPolicyHandlerConversionError),
     #[error(transparent)]
-    ClientAddresses(#[from] ClientAddressesPolicyHandlerConversionError),
+    ClientAddresses(#[from] ClientAddrFilterHandlerLayerError),
     #[error(transparent)]
     ErrorResponses(#[from] ErrorResponsePolicyHandlerConversionError),
 }
@@ -51,7 +51,7 @@ impl TryFrom<&ListenerPolicies> for ListenerPolicyHandlers {
         let client_addresses = value
             .client_addresses()
             .as_ref()
-            .map(ClientAddressesPolicyHandler::try_from)
+            .map(ClientAddrFilterHandler::try_from)
             .transpose()?;
         let error_responses = value.error_responses().try_into()?;
 

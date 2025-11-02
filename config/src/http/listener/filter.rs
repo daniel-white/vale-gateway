@@ -1,5 +1,7 @@
 use crate::http::filter::access_control::AccessControlFilterRef;
-use crate::http::filter::header_modifier::HeaderModifierFilter;
+use crate::http::filter::header_modifier::{
+    HeaderModifierFilter, RequestHeaderModifierFilter, ResponseHeaderModifierFilter,
+};
 use crate::http::filter::static_response::StaticResponseFilterRef;
 use derive_more::{Deref, From};
 use getset::{CloneGetters, Getters};
@@ -28,11 +30,11 @@ pub struct AccessControlListenerFilter {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Deref, From)]
 #[serde(transparent)]
-pub struct RequestHeaderModifierListenerFilter(HeaderModifierFilter);
+pub struct RequestHeaderModifierListenerFilter(RequestHeaderModifierFilter);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Deref, From)]
 #[serde(transparent)]
-pub struct ResponseHeaderModifierListenerFilter(HeaderModifierFilter);
+pub struct ResponseHeaderModifierListenerFilter(ResponseHeaderModifierFilter);
 
 #[derive(
     Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,

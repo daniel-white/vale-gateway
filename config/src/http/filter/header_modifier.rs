@@ -1,3 +1,4 @@
+use derive_more::{Deref, From};
 use getset::{CloneGetters, Getters};
 use http::{HeaderMap, HeaderName};
 use serde::{Deserialize, Serialize};
@@ -30,3 +31,11 @@ pub struct HeaderModifierFilter {
     )]
     remove: Vec<HeaderName>,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Deref, From)]
+#[serde(transparent)]
+pub struct RequestHeaderModifierFilter(HeaderModifierFilter);
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Deref, From)]
+#[serde(transparent)]
+pub struct ResponseHeaderModifierFilter(HeaderModifierFilter);

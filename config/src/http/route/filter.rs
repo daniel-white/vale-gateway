@@ -1,6 +1,8 @@
 use crate::http::filter::access_control::AccessControlFilterRef;
 use crate::http::filter::backend_uri_rewriter::BackendUriRewriterFilter;
-use crate::http::filter::header_modifier::HeaderModifierFilter;
+use crate::http::filter::header_modifier::{
+    HeaderModifierFilter, RequestHeaderModifierFilter, ResponseHeaderModifierFilter,
+};
 use crate::http::filter::redirect_response::RedirectResponseFilter;
 use crate::http::filter::static_response::StaticResponseFilterRef;
 use derive_more::{Deref, From};
@@ -33,11 +35,11 @@ pub struct AccessControlRouteFilter {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Deref, From)]
 #[serde(transparent)]
-pub struct RequestHeaderModifierRouteFilter(HeaderModifierFilter);
+pub struct RequestHeaderModifierRouteFilter(RequestHeaderModifierFilter);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Deref, From)]
 #[serde(transparent)]
-pub struct ResponseHeaderModifierRouteFilter(HeaderModifierFilter);
+pub struct ResponseHeaderModifierRouteFilter(ResponseHeaderModifierFilter);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Deref, From)]
 #[serde(transparent)]

@@ -11,7 +11,7 @@ use vg_config::http::rewriting::uri::{
 };
 use vg_core::net::Port;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum PathRewrite {
     Full(String),
     PrefixMatch(String),
@@ -26,7 +26,7 @@ impl From<PathRewriteConfig> for PathRewrite {
     }
 }
 
-#[derive(Debug, Clone, TypedBuilder)]
+#[derive(Debug, TypedBuilder)]
 pub struct UriRewriter {
     #[builder(default, setter(into))]
     scheme: Option<Scheme>,
@@ -46,7 +46,7 @@ pub enum UriRewriterConversionError {
     #[error("No fields set in UriRewriter")]
     Unset,
     #[error("Invalid host: {0}")]
-    InvalidHost(
+    Host(
         #[from]
         #[source]
         ProtoError,

@@ -59,37 +59,13 @@ pub struct Body {
     content: BodyContent,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, From)]
 #[serde(tag = "type", content = "value", rename_all = "camelCase")]
 pub enum BodyContent {
     Text(String),
-    Binary(Arc<[u8]>),
+    Binary(Vec<u8>),
     #[serde(with = "http_serde_ext::uri")]
     Remote(Uri),
-}
-
-impl From<String> for BodyContent {
-    fn from(value: String) -> Self {
-        Self::Text(value)
-    }
-}
-
-impl From<Arc<[u8]>> for BodyContent {
-    fn from(value: Arc<[u8]>) -> Self {
-        Self::Binary(value)
-    }
-}
-
-impl From<&[u8]> for BodyContent {
-    fn from(value: &[u8]) -> Self {
-        Self::Binary(Arc::from(value))
-    }
-}
-
-impl From<Uri> for BodyContent {
-    fn from(value: Uri) -> Self {
-        Self::Remote(value)
-    }
 }
 
 #[derive(
