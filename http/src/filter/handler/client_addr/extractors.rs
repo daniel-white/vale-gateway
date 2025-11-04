@@ -373,7 +373,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_extractor_max_proxy_depth() {
-        // Test proxy chain handling with TrustedProxiesExtractor
+        // Test proxy stage handling with TrustedProxiesExtractor
         let mut proxies: HashSet<IpRef> = HashSet::new();
         proxies.insert(IpRef::Net(IpNet::from_str("192.168.1.1/24").unwrap()));
         proxies.insert(IpRef::Net(IpNet::from_str("198.51.100.5/24").unwrap()));

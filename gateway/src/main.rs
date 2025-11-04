@@ -118,7 +118,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     println!("fully resolved backend: {:?}", brx.current());
                 }
                 Ok(_) = sfhx.changed() => {
-                    println!("fully resolved handlers: {:?}", sfhx.current());
+                    println!("fully resolved handler: {:?}", sfhx.current());
                 }
             }
         }

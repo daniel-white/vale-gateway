@@ -1,6 +1,6 @@
 use crate::http::filter::access_control::AccessControlFilterRef;
 use crate::http::filter::header_modifier::{
-    HeaderModifierFilter, RequestHeaderModifierFilter, ResponseHeaderModifierFilter,
+    RequestHeaderModifierFilter, ResponseHeaderModifierFilter,
 };
 use crate::http::filter::static_response::StaticResponseFilterRef;
 use derive_more::{Deref, From};

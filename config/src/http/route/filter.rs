@@ -1,7 +1,7 @@
 use crate::http::filter::access_control::AccessControlFilterRef;
 use crate::http::filter::backend_uri_rewriter::BackendUriRewriterFilter;
 use crate::http::filter::header_modifier::{
-    HeaderModifierFilter, RequestHeaderModifierFilter, ResponseHeaderModifierFilter,
+    RequestHeaderModifierFilter, ResponseHeaderModifierFilter,
 };
 use crate::http::filter::redirect_response::RedirectResponseFilter;
 use crate::http::filter::static_response::StaticResponseFilterRef;

@@ -1,4 +1,4 @@
-use crate::filter::SharedFilterHandler;
+use crate::filter::SharedFilterHandlerLayer;
 use crate::route::host::{HostMatcher, HostMatcherConversionError};
 use crate::route::rule::{Rule, RuleConversionError};
 use getset::{CloneGetters, Getters};
@@ -32,12 +32,17 @@ pub enum RouteConversionError {
     Rule(usize, #[source] RuleConversionError),
 }
 
-impl TryFrom<(&HashMap<SharedFilterRef, SharedFilterHandler>, &RouteConfig)> for Route {
+impl
+    TryFrom<(
+        &HashMap<SharedFilterRef, SharedFilterHandlerLayer>,
+        &RouteConfig,
+    )> for Route
+{
     type Error = RouteConversionError;
 
     fn try_from(
         (shared_filter_handlers, route): (
-            &HashMap<SharedFilterRef, SharedFilterHandler>,
+            &HashMap<SharedFilterRef, SharedFilterHandlerLayer>,
             &RouteConfig,
         ),
     ) -> Result<Self, Self::Error> {

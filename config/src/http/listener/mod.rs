@@ -1,8 +1,6 @@
 pub mod filter;
 pub mod policy;
 
-use crate::http::filter::SharedFilterRef;
-use crate::http::gateway::GatewayRef;
 use crate::http::listener::filter::ListenerFilter;
 use crate::http::listener::policy::ListenerPolicies;
 use crate::http::route::RouteRef;

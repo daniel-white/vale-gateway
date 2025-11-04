@@ -3,7 +3,6 @@ use getset::{CloneGetters, CopyGetters, Getters};
 use http::{StatusCode, Uri};
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
-use std::sync::Arc;
 use typed_builder::TypedBuilder;
 use vg_core::http::content_type::ContentTypeBuf;
 

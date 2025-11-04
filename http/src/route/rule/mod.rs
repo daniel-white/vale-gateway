@@ -1,6 +1,5 @@
-use self::filter::RuleFilterHandler;
-use crate::filter::SharedFilterHandler;
-use crate::route::rule::filter::RuleFilterHandlerConversionError;
+use crate::filter::SharedFilterHandlerLayer;
+use crate::route::rule::filter::RuleFilterHandlerLayerError;
 use crate::route::rule::matcher::request::{RequestMatcher, RequestMatcherConversionError};
 use crate::route::rule::policy::{RulePoliciesConversionError, RulePolicyHandlers};
 use getset::Getters;
@@ -23,7 +22,7 @@ pub struct Rule {
     matchers: Vec<RequestMatcher>,
 
     #[getset(get = "pub")]
-    filters: Vec<RuleFilterHandler>,
+    filters: Vec<()>,
 
     #[getset(get = "pub")]
     policies: RulePolicyHandlers,
@@ -35,7 +34,7 @@ pub enum RuleConversionError {
     Matcher(usize, #[source] RequestMatcherConversionError),
 
     #[error("filter at index {0} is invalid: {1}")]
-    Filter(usize, #[source] RuleFilterHandlerConversionError),
+    Filter(usize, #[source] RuleFilterHandlerLayerError),
 
     #[error("policies are invalid: {0}")]
     Policies(
@@ -45,12 +44,17 @@ pub enum RuleConversionError {
     ),
 }
 
-impl TryFrom<(&HashMap<SharedFilterRef, SharedFilterHandler>, &RuleConfig)> for Rule {
+impl
+    TryFrom<(
+        &HashMap<SharedFilterRef, SharedFilterHandlerLayer>,
+        &RuleConfig,
+    )> for Rule
+{
     type Error = RuleConversionError;
 
     fn try_from(
         (shared_filter_handlers, rule): (
-            &HashMap<SharedFilterRef, SharedFilterHandler>,
+            &HashMap<SharedFilterRef, SharedFilterHandlerLayer>,
             &RuleConfig,
         ),
     ) -> Result<Self, Self::Error> {
@@ -64,22 +68,22 @@ impl TryFrom<(&HashMap<SharedFilterRef, SharedFilterHandler>, &RuleConfig)> for 
             })
             .collect::<Result<_, _>>()?;
 
-        let filters = rule
-            .filters()
-            .iter()
-            .enumerate()
-            .map(|(idx, filter)| {
-                RuleFilterHandler::try_from((shared_filter_handlers, filter))
-                    .map_err(|err| RuleConversionError::Filter(idx, err))
-            })
-            .collect::<Result<_, _>>()?;
+        // let filters = rule
+        //     .filters()
+        //     .iter()
+        //     .enumerate()
+        //     .map(|(idx, filter)| {
+        //         RuleFilterHandler::try_from((shared_filter_handlers, filter))
+        //             .map_err(|err| RuleConversionError::Filter(idx, err))
+        //     })
+        //     .collect::<Result<_, _>>()?;
 
         let policies = rule.policies().try_into()?;
 
         let rule = Self::builder()
             .name(rule.name())
             .matchers(matchers)
-            .filters(filters)
+            .filters(Vec::new())
             .policies(policies)
             .build();
 

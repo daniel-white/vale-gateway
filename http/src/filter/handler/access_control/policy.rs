@@ -1,4 +1,4 @@
-use crate::filter::handlers::client_addr::extensions::TrustedClientIpAddr;
+use crate::extensions::TrustedClientIpAddr;
 use getset::CopyGetters;
 use ipnet::IpNet;
 use std::net::IpAddr;
@@ -103,10 +103,10 @@ impl From<&AccessControlFilter> for AccessControlPolicyHandler {
 
 #[cfg(test)]
 mod tests {
-    use crate::filter::handlers::access_control::policy::{
+    use crate::extensions::TrustedClientIpAddr;
+    use crate::filter::handler::access_control::policy::{
         AccessControlPolicyHandler, EvaluationResult, Matcher,
     };
-    use crate::filter::handlers::access_control::*;
     use ipnet::IpNet;
     use std::net::IpAddr;
     use std::str::FromStr;

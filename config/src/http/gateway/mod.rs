@@ -1,13 +1,12 @@
 use crate::http::backend::BackendRef;
 use crate::http::filter::SharedFilterRef;
 use crate::http::listener::Listener;
-use derive_more::{From, TryUnwrap};
+use derive_more::From;
 use getset::{CloneGetters, Getters};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
-use vg_core::net::Port;
 
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, Clone, From)]
 #[serde(transparent)]

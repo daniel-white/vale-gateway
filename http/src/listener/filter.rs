@@ -1,82 +1,78 @@
-use crate::filter::SharedFilterHandler;
-use crate::filter::handlers::access_control::AccessControlFilterHandler;
-use crate::filter::handlers::header_modifier::{HeaderModifierError, HeaderModifierFilterHandler};
-use crate::filter::handlers::static_response::StaticResponseFilterHandler;
+use crate::filter::SharedFilterHandlerLayer;
+use crate::filter::handler::{
+    AccessControlFilterHandlerLayer, HeaderModifierFilterHandlerLayer,
+    HeaderModifierFilterHandlerLayerError, StaticResponseFilterHandlerLayer,
+};
 use std::collections::HashMap;
 use std::ops::Deref;
-use std::sync::Arc;
 use thiserror::Error;
 use vg_config::http::filter::SharedFilterRef;
 use vg_config::http::listener::filter::ListenerFilter;
 
-#[derive(Debug)]
-pub enum ListenerFilterHandler {
-    AccessControl(AccessControlFilterHandler),
-    RequestHeaderModifier(Arc<HeaderModifierFilterHandler>),
-    ResponseHeaderModifier(Arc<HeaderModifierFilterHandler>),
-    StaticResponse(Arc<StaticResponseFilterHandler>),
+#[derive(Debug, Clone)]
+pub enum ListenerFilterHandlerLayer {
+    AccessControl(AccessControlFilterHandlerLayer),
+    RequestHeaderModifier(HeaderModifierFilterHandlerLayer),
+    ResponseHeaderModifier(HeaderModifierFilterHandlerLayer),
+    StaticResponse(StaticResponseFilterHandlerLayer),
 }
 
 #[derive(Debug, Error)]
-pub enum ListenerFilterHandlerConversionError {
+pub enum ListenerFilterHandlerLayerError {
     #[error("AccessControl filter not found")]
     AccessControl,
     #[error("StaticResponse filter not found")]
     StaticResponse,
     #[error("Request header modifier error: {0}")]
-    RequestHeaderModifier(#[source] HeaderModifierError),
+    RequestHeaderModifier(#[source] HeaderModifierFilterHandlerLayerError),
     #[error("Response header modifier error: {0}")]
-    ResponseHeaderModifier(#[source] HeaderModifierError),
+    ResponseHeaderModifier(#[source] HeaderModifierFilterHandlerLayerError),
 }
 
 impl
     TryFrom<(
-        &HashMap<SharedFilterRef, SharedFilterHandler>,
+        &HashMap<SharedFilterRef, SharedFilterHandlerLayer>,
         &ListenerFilter,
-    )> for ListenerFilterHandler
+    )> for ListenerFilterHandlerLayer
 {
-    type Error = ListenerFilterHandlerConversionError;
+    type Error = ListenerFilterHandlerLayerError;
 
     fn try_from(
-        (shared_filter_handlers, filter): (
-            &HashMap<SharedFilterRef, SharedFilterHandler>,
+        (shared_layers, filter): (
+            &HashMap<SharedFilterRef, SharedFilterHandlerLayer>,
             &ListenerFilter,
         ),
     ) -> Result<Self, Self::Error> {
         match filter {
             ListenerFilter::AccessControl(filter) => {
                 let ref_ = SharedFilterRef::AccessControl(filter.ref_());
-                let Some(filter) = shared_filter_handlers
+                let Some(layer) = shared_layers
                     .get(&ref_)
                     .and_then(|handler| handler.clone().try_unwrap_access_control().ok())
                 else {
-                    return Err(ListenerFilterHandlerConversionError::AccessControl);
+                    return Err(ListenerFilterHandlerLayerError::AccessControl);
                 };
-                Ok(ListenerFilterHandler::AccessControl(filter))
+                Ok(ListenerFilterHandlerLayer::AccessControl(layer))
             }
             ListenerFilter::RequestHeaderModifier(filter) => {
-                let handler = HeaderModifierFilterHandler::try_from(filter.deref())
-                    .map_err(ListenerFilterHandlerConversionError::RequestHeaderModifier)?;
-                Ok(ListenerFilterHandler::RequestHeaderModifier(Arc::new(
-                    handler,
-                )))
+                let layer = HeaderModifierFilterHandlerLayer::try_from(filter.deref().deref())
+                    .map_err(ListenerFilterHandlerLayerError::RequestHeaderModifier)?;
+                Ok(ListenerFilterHandlerLayer::RequestHeaderModifier(layer))
             }
             ListenerFilter::ResponseHeaderModifier(filter) => {
-                let handler = HeaderModifierFilterHandler::try_from(filter.deref())
-                    .map_err(ListenerFilterHandlerConversionError::ResponseHeaderModifier)?;
-                Ok(ListenerFilterHandler::ResponseHeaderModifier(Arc::new(
-                    handler,
-                )))
+                let layer = HeaderModifierFilterHandlerLayer::try_from(filter.deref().deref())
+                    .map_err(ListenerFilterHandlerLayerError::ResponseHeaderModifier)?;
+                Ok(ListenerFilterHandlerLayer::ResponseHeaderModifier(layer))
             }
             ListenerFilter::StaticResponse(filter) => {
                 let ref_ = SharedFilterRef::StaticResponse(filter.ref_());
-                let Some(filter) = shared_filter_handlers
+                let Some(layer) = shared_layers
                     .get(&ref_)
                     .and_then(|handler| handler.clone().try_unwrap_static_response().ok())
                 else {
-                    return Err(ListenerFilterHandlerConversionError::StaticResponse);
+                    return Err(ListenerFilterHandlerLayerError::StaticResponse);
                 };
-                Ok(ListenerFilterHandler::StaticResponse(Arc::new(filter)))
+                Ok(ListenerFilterHandlerLayer::StaticResponse(layer))
             }
         }
     }

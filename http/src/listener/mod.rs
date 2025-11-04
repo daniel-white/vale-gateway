@@ -1,15 +1,14 @@
-use crate::filter::SharedFilterHandler;
-use crate::listener::filter::{ListenerFilterHandler, ListenerFilterHandlerConversionError};
+use crate::filter::SharedFilterHandlerLayer;
+use crate::listener::filter::{ListenerFilterHandlerLayer, ListenerFilterHandlerLayerError};
 use crate::listener::policy::{ListenerPolicyHandlers, ListenerPolicyHandlersConversionError};
 use crate::route::Route;
-use getset::{CopyGetters, Getters};
+use getset::Getters;
 use std::collections::HashMap;
 use std::sync::Arc;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
 use vg_config::http::filter::SharedFilterRef;
 use vg_config::http::listener::{ListenerProtocol, ListenerRef};
-use vg_core::net::Port;
 
 mod filter;
 pub mod policy;
@@ -26,7 +25,7 @@ pub struct Listener {
     policies: ListenerPolicyHandlers,
 
     #[getset(get = "pub")]
-    filters: Vec<ListenerFilterHandler>,
+    filters: Vec<ListenerFilterHandlerLayer>,
 
     #[getset(get = "pub")]
     routes: Vec<Arc<Route>>,
@@ -37,13 +36,13 @@ pub enum ListenerConversionError {
     #[error(transparent)]
     Policies(#[from] ListenerPolicyHandlersConversionError),
     #[error("Invalid filter at index {0}: {1}")]
-    Filter(usize, ListenerFilterHandlerConversionError),
+    Filter(usize, ListenerFilterHandlerLayerError),
 }
 
 #[derive(TypedBuilder)]
 pub struct ListenerConversionContext {
     listener: Arc<vg_config::http::listener::Listener>,
-    shared_filters: Arc<HashMap<SharedFilterRef, SharedFilterHandler>>,
+    shared_filters: Arc<HashMap<SharedFilterRef, SharedFilterHandlerLayer>>,
     routes: Vec<Arc<Route>>,
 }
 
@@ -57,7 +56,7 @@ impl TryFrom<ListenerConversionContext> for Listener {
             .iter()
             .enumerate()
             .map(|(idx, filter)| {
-                ListenerFilterHandler::try_from((value.shared_filters.as_ref(), filter))
+                ListenerFilterHandlerLayer::try_from((value.shared_filters.as_ref(), filter))
                     .map_err(|err| ListenerConversionError::Filter(idx, err))
             })
             .collect::<Result<_, _>>()?;
