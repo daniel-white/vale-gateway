@@ -8,9 +8,9 @@ use std::task::{Context, Poll};
 use tower::Service;
 
 #[derive(Debug, Clone, Constructor)]
-pub struct InboundRequestFilterChainFinalizer;
+pub struct RoutedRequestFilterChainFinalizer;
 
-impl Service<http::request::Parts> for InboundRequestFilterChainFinalizer {
+impl Service<http::request::Parts> for RoutedRequestFilterChainFinalizer {
     type Response = InboundRequestFilterResult;
     type Error = InboundRequestFilterError;
 
@@ -20,7 +20,7 @@ impl Service<http::request::Parts> for InboundRequestFilterChainFinalizer {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, _req: http::request::Parts) -> Self::Future {
-        Box::pin(ready(Ok(InboundRequestFilterResult::Continue)))
+    fn call(&mut self, req: http::request::Parts) -> Self::Future {
+        Box::pin(ready(Ok(req.into())))
     }
 }

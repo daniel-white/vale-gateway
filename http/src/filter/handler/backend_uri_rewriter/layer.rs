@@ -39,5 +39,5 @@ impl Layer<BackendRequestFilter> for BackendUriRewriterFilterHandlerLayer {
 #[derive(Debug, Error)]
 pub enum BackendUriRewriterFilterHandlerLayerError {
     #[error(transparent)]
-    Rewriter(#[from] UriRewriterConversionError),
+    UriRewriter(#[from] UriRewriterConversionError),
 }

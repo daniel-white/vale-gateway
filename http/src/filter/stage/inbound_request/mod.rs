@@ -1,26 +1,21 @@
-use crate::filter::handler::{
-    AccessControlFilterHandlerLayer, ClientAddrFilterHandlerLayer, HeaderModifierFilterHandlerLayer,
-};
 use crate::policy::error_response::error_codes::ErrorResponseCode;
 use bytes::Bytes;
-use derive_more::From;
+use derive_more::{Deref, DerefMut, From};
 use thiserror::Error;
 use tower::Service;
 use tower::util::BoxCloneService;
-use typed_builder::TypedBuilder;
 
-pub mod factory;
-mod finalizer;
+pub use crate::filter::stage::pre_routing_request::factory::*;
 
-trait InboundRequestFilterService:
+trait InboundRequestFilterTrait:
     Service<http::request::Parts, Response = InboundRequestFilterResult>
 {
 }
 
 #[derive(Debug, From)]
 pub enum InboundRequestFilterResult {
-    Continue,
-    Reject(ErrorResponseCode),
+    Continue(http::request::Parts),
+    ErrorResponse(ErrorResponseCode),
     Respond(http::Response<Option<Bytes>>),
 }
 
@@ -28,7 +23,7 @@ pub enum InboundRequestFilterResult {
 #[error("Inbound request filter error")]
 pub struct InboundRequestFilterError;
 
-impl<T> InboundRequestFilterService for T where
+impl<T> InboundRequestFilterTrait for T where
     T: Service<
             http::request::Parts,
             Response = InboundRequestFilterResult,
@@ -40,13 +35,5 @@ impl<T> InboundRequestFilterService for T where
 pub type InboundRequestFilterHandler =
     BoxCloneService<http::request::Parts, InboundRequestFilterResult, InboundRequestFilterError>;
 
-pub type InboundRequestFilterChain = InboundRequestFilterHandler;
-
-#[derive(Debug, TypedBuilder)]
-pub struct EarlyInboundRequestFilterChainFactory {
-    client_addr: ClientAddrFilterHandlerLayer,
-    #[builder(default)]
-    access_control: Option<AccessControlFilterHandlerLayer>,
-    #[builder(default)]
-    header_modifiers: Vec<HeaderModifierFilterHandlerLayer>,
-}
+#[derive(Debug, Deref, DerefMut, From)]
+pub struct InboundRequestFilterChain(InboundRequestFilterHandler);

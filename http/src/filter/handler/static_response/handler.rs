@@ -12,7 +12,7 @@ use std::task::{Context, Poll};
 use tower::Service;
 use typed_builder::TypedBuilder;
 
-#[derive(Debug, TypedBuilder)]
+#[derive(Debug, Clone, TypedBuilder)]
 pub struct StaticResponseFilterHandler {
     inner: InboundRequestFilterHandler,
     status_code: StatusCode,
