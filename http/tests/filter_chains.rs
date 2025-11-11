@@ -10,8 +10,8 @@ use vg_config::http::policy::client_addrs::{ClientAddrExtractor, ClientAddrPolic
 use vg_config::http::route::rule::filter::RuleBackendFilter::RequestHeaderModifier;
 use vg_http::extensions::RequestSocketAddr;
 use vg_http::filter::SharedFilterHandlerLayer::HeaderModifier;
-use vg_http::filter::stage::inbound_request::PreRoutingRequestFilterChainFactory;
-use vg_http::filter::stage::pre_routing_request::PreRoutingRequestFilterChain;
+use vg_http::stage::inbound_request::PreRoutingRequestFilterChainFactory;
+use vg_http::stage::pre_routing_request::PreRoutingRequestFilterChain;
 
 #[tokio::test]
 pub async fn early_factory() -> Result<(), Box<dyn Error>> {
@@ -32,7 +32,7 @@ pub async fn early_factory() -> Result<(), Box<dyn Error>> {
         .effect(AccessControlEffect::Deny)
         .clients(vec![])
         .build();
-    
+
     let mut hm = HeaderMap::new();
     hm.insert("foo", HeaderValue::from_static("bar"));
     let hm = HeaderModifierFilter::builder()
@@ -40,14 +40,15 @@ pub async fn early_factory() -> Result<(), Box<dyn Error>> {
         .remove(Vec::default())
         .set(HeaderMap::new())
         .build();
-    
+
     let hm: RequestHeaderModifierFilter = hm.into();
     let hm: RequestHeaderModifierListenerFilter = hm.into();
 
-    let mut chain: PreRoutingRequestFilterChain = PreRoutingRequestFilterChainFactory::with_client_addr(&client_addr)?
-        .add_access_control(&access_control)?
-        .add_header_modifier(&hm)?
-        .into();
+    let mut chain: PreRoutingRequestFilterChain =
+        PreRoutingRequestFilterChainFactory::with_client_addr(&client_addr)?
+            .add_access_control(&access_control)?
+            .add_header_modifier(&hm)?
+            .into();
 
     let r = chain.call(req).await;
     println!("{:?}", r);

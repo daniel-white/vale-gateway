@@ -2,7 +2,7 @@
 ctlptl = "latest"
 #hk = "1.15"
 minikube = "1.30"
-rust = { version = "1.91", profile = "default" }
+rust = { version = "1.91.1", profile = "default" }
 tilt = "0.35"
 
 # =============================================================================

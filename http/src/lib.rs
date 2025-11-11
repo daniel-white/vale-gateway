@@ -5,3 +5,6 @@ pub mod listener;
 pub mod policy;
 pub mod rewriting;
 pub mod route;
+// Filter handler implementations
+pub mod handler;
+pub mod stage;

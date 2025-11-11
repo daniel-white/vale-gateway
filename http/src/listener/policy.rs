@@ -1,6 +1,4 @@
-use crate::policy::error_response::{
-    ErrorResponsePolicyHandler, ErrorResponsePolicyHandlerConversionError,
-};
+
 use crate::policy::retry::{RetryPolicyHandler, RetryPolicyHandlerConversionError};
 use crate::policy::timeout::{TimeoutPolicyHandlers, TimeoutPolicyHandlersConversionError};
 use getset::{CloneGetters, Getters};
@@ -14,9 +12,6 @@ pub struct ListenerPolicyHandlers {
 
     #[getset(get = "pub")]
     retries: Option<RetryPolicyHandler>,
-
-    #[getset(get = "pub")]
-    error_responses: ErrorResponsePolicyHandler,
 }
 
 #[derive(Debug, Error)]
@@ -25,8 +20,6 @@ pub enum ListenerPolicyHandlersConversionError {
     Timeouts(#[from] TimeoutPolicyHandlersConversionError),
     #[error(transparent)]
     Retries(#[from] RetryPolicyHandlerConversionError),
-    #[error(transparent)]
-    ErrorResponses(#[from] ErrorResponsePolicyHandlerConversionError),
 }
 
 impl TryFrom<&ListenerPolicies> for ListenerPolicyHandlers {
@@ -39,12 +32,10 @@ impl TryFrom<&ListenerPolicies> for ListenerPolicyHandlers {
             .as_ref()
             .map(RetryPolicyHandler::try_from)
             .transpose()?;
-        let error_responses = value.error_responses().try_into()?;
 
         let handlers = Self::builder()
             .timeouts(timeouts)
             .retries(retries)
-            .error_responses(error_responses)
             .build();
 
         Ok(handlers)

@@ -1,5 +1,5 @@
 use crate::filter::SharedFilterHandlerLayer;
-use crate::filter::handler::{
+use crate::handler::{
     AccessControlFilterHandlerLayer, BackendUriRewriterFilterHandlerLayer,
     BackendUriRewriterFilterHandlerLayerError, HeaderModifierFilterHandlerLayer,
     HeaderModifierFilterHandlerLayerError, RedirectResponseFilterHandlerLayer,

@@ -60,7 +60,7 @@ pub enum BodyConversionError {
     MissingText,
     #[error("Missing `binary` for 'binary' format")]
     MissingBinary,
-    #[error("Invalid base64 encoding: {0}")]
+    #[error(transparent)]
     Base64(#[from] base64ct::Error),
 }
 

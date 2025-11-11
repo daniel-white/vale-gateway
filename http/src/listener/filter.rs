@@ -1,5 +1,5 @@
 use crate::filter::SharedFilterHandlerLayer;
-use crate::filter::handler::{
+use crate::handler::{
     AccessControlFilterHandlerLayer, HeaderModifierFilterHandlerLayer,
     HeaderModifierFilterHandlerLayerError, StaticResponseFilterHandlerLayer,
 };
