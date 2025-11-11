@@ -1,11 +1,7 @@
+use std::sync::Arc;
 use super::RoutedRequestFilterChain;
 use super::finalizer::RoutedRequestFilterChainFinalizer;
-use crate::filter::handler::{
-    AccessControlFilterHandlerLayer, AccessControlFilterHandlerLayerError,
-    HeaderModifierFilterHandlerLayer, HeaderModifierFilterHandlerLayerError,
-    RedirectResponseFilterHandlerLayer, RedirectResponseFilterHandlerLayerError,
-    StaticResponseFilterHandlerLayer, StaticResponseFilterHandlerLayerError,
-};
+use crate::filter::handler::{AccessControlFilterHandlerLayer, AccessControlFilterHandlerLayerError, ErrorResponseHandlerLayer, HeaderModifierFilterHandlerLayer, HeaderModifierFilterHandlerLayerError, RedirectResponseFilterHandlerLayer, RedirectResponseFilterHandlerLayerError, StaticResponseFilterHandlerLayer, StaticResponseFilterHandlerLayerError};
 use thiserror::Error;
 use tower::{Layer, ServiceExt};
 use typed_builder::TypedBuilder;
@@ -14,10 +10,12 @@ use vg_config::http::filter::header_modifier::{HeaderModifierFilter};
 use vg_config::http::filter::redirect_response::RedirectResponseFilter;
 use vg_config::http::filter::static_response::StaticResponseFilter;
 use vg_config::http::route::rule::filter::RequestHeaderModifierRuleFilter;
+use crate::policy::error_response::generators::ErrorResponseGenerator;
 
 #[derive(Debug, TypedBuilder)]
 #[builder(builder_method(vis = ""), builder_type(vis = ""))]
 pub struct RoutedRequestFilterChainFactory {
+    error_response_generator: Arc<ErrorResponseGenerator>,
     access_control: Vec<AccessControlFilterHandlerLayer>,
     header_modifiers: Vec<HeaderModifierFilterHandlerLayer>,
     static_responses: Vec<StaticResponseFilterHandlerLayer>,
@@ -39,10 +37,21 @@ pub enum RoutedRequestFilterChainFactoryError {
 impl RoutedRequestFilterChainFactory {
     pub fn new() -> Self {
         Self::builder()
+            .error_response_generator(Arc::new(ErrorResponseGenerator::default()))
             .access_control(Vec::new())
             .header_modifiers(Vec::new())
             .static_responses(Vec::new())
             .redirect_responses(Vec::new())
+            .build()
+    }
+
+    pub fn error_response_generator(self, error_response_generator: Arc<ErrorResponseGenerator>) -> Self {
+        Self::builder()
+            .error_response_generator(error_response_generator)
+            .access_control(self.access_control)
+            .header_modifiers(self.header_modifiers)
+            .static_responses(self.static_responses)
+            .redirect_responses(self.redirect_responses)
             .build()
     }
 
@@ -56,6 +65,7 @@ impl RoutedRequestFilterChainFactory {
         access_control.push(layer);
 
         let builder = Self::builder()
+            .error_response_generator(self.error_response_generator)
             .access_control(access_control)
             .header_modifiers(self.header_modifiers)
             .static_responses(self.static_responses)
@@ -76,6 +86,7 @@ impl RoutedRequestFilterChainFactory {
         header_modifiers.push(layer);
 
         let builder = Self::builder()
+            .error_response_generator(self.error_response_generator)
             .access_control(self.access_control)
             .header_modifiers(header_modifiers)
             .static_responses(self.static_responses)
@@ -95,6 +106,7 @@ impl RoutedRequestFilterChainFactory {
         static_responses.push(layer);
 
         let builder = Self::builder()
+            .error_response_generator(self.error_response_generator)
             .access_control(self.access_control)
             .header_modifiers(self.header_modifiers)
             .static_responses(static_responses)
@@ -114,6 +126,7 @@ impl RoutedRequestFilterChainFactory {
         redirect_responses.push(layer);
 
         let builder = Self::builder()
+            .error_response_generator(self.error_response_generator)
             .access_control(self.access_control)
             .header_modifiers(self.header_modifiers)
             .static_responses(self.static_responses)
@@ -125,6 +138,8 @@ impl RoutedRequestFilterChainFactory {
 
     pub fn chain(self) -> RoutedRequestFilterChain {
         let mut service = RoutedRequestFilterChainFinalizer::new().boxed_clone();
+
+        service = ErrorResponseHandlerLayer::builder().generator(self.error_response_generator).build().layer(service).boxed_clone();
 
         for redirect_responses in self.redirect_responses.into_iter().rev() {
             service = redirect_responses.layer(service).boxed_clone();

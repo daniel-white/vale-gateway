@@ -14,9 +14,10 @@ use typed_builder::TypedBuilder;
 use vg_config::http::policy::error_response::{Format, ProblemDetailFormat};
 use vg_core::http::content_type::{ContentType, HTML, PROBLEM_DETAIL};
 
-#[derive(Debug, Clone, From)]
+#[derive(Debug, Default, Clone, From)]
 #[allow(private_interfaces)]
 pub enum ErrorResponseGenerator {
+    #[default]
     Empty(EmptyErrorResponseGenerator),
     Html(HtmlErrorResponseGenerator),
     ProblemDetail(ProblemDetailErrorResponseGenerator),
@@ -96,7 +97,7 @@ trait Generator: Into<ErrorResponseGenerator> {
     }
 }
 
-#[derive(Debug, Clone, TypedBuilder)]
+#[derive(Debug, Default, Clone, TypedBuilder)]
 struct EmptyErrorResponseGenerator {}
 
 impl Generator for EmptyErrorResponseGenerator {}
@@ -243,11 +244,11 @@ mod tests {
 
         if let Some(body) = response.body() {
             let body_str = String::from_utf8_lossy(body);
-            // Should contain the error code in SCREAMING_SNAKE_CASE
+            // Should contain the error_response code in SCREAMING_SNAKE_CASE
             assert!(body_str.contains("INVALID_CONFIGURATION"));
             // Should contain the custom authority URL
             assert!(body_str.contains("https://api.example.com/problems/"));
-            // Should contain the error message
+            // Should contain the error_response message
             assert!(body_str.contains("Invalid configuration"));
         }
     }
@@ -298,7 +299,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_error_response_internationalization() {
-        // Test different error messages for different error codes
+        // Test different error_response messages for different error_response codes
         let generator = HtmlErrorResponseGenerator::builder().build();
 
         let no_route_response = generator.generate_response(ErrorResponseCode::NoRoute);
@@ -307,7 +308,7 @@ mod tests {
         assert_eq!(no_route_response.status(), StatusCode::NOT_FOUND);
         assert_eq!(access_denied_response.status(), StatusCode::FORBIDDEN);
 
-        // Different error codes should produce different messages
+        // Different error_response codes should produce different messages
         if let (Some(no_route_body), Some(access_denied_body)) =
             (no_route_response.body(), access_denied_response.body())
         {
@@ -322,7 +323,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_error_response_security_headers() {
-        // Test that error response generators include appropriate headers
+        // Test that error_response response generators include appropriate headers
         let generator = HtmlErrorResponseGenerator::builder().build();
 
         let response = generator.generate_response(ErrorResponseCode::NoRoute);
@@ -332,17 +333,17 @@ mod tests {
         assert!(response.headers().contains_key("content-length"));
 
         // Security headers would be added by higher-level middleware
-        // The generator focuses on the error content
+        // The generator focuses on the error_response content
     }
 
     #[tokio::test]
     async fn test_error_response_rate_limit_info() {
-        // Test rate limit error response format
+        // Test rate limit error_response response format
         let generator = ProblemDetailErrorResponseGenerator::builder()
             .authority(None)
             .build();
 
-        // Using a generic error code (rate limiting would be a custom error code)
+        // Using a generic error_response code (rate limiting would be a custom error_response code)
         let response = generator.generate_response(ErrorResponseCode::AccessDenied);
 
         assert_eq!(response.status(), StatusCode::FORBIDDEN);

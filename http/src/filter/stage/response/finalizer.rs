@@ -1,4 +1,4 @@
-use crate::filter::stage::response::ResponseFilterError;
+use crate::filter::stage::response::{ResponseFilterError, ResponseFilterResult};
 use derive_more::Constructor;
 use futures::future::BoxFuture;
 use std::future::ready;
@@ -9,7 +9,7 @@ use tower::Service;
 pub struct ResponseFilterChainFinalizer;
 
 impl Service<http::response::Parts> for ResponseFilterChainFinalizer {
-    type Response = ();
+    type Response = ResponseFilterResult;
     type Error = ResponseFilterError;
 
     type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
@@ -18,7 +18,7 @@ impl Service<http::response::Parts> for ResponseFilterChainFinalizer {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: http::response::Parts) -> Self::Future {
-        Box::pin(ready(Ok(())))
+    fn call(&mut self, res: http::response::Parts) -> Self::Future {
+        Box::pin(ready(Ok(res.into())))
     }
 }

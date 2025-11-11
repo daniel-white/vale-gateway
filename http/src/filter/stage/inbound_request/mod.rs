@@ -20,7 +20,7 @@ pub enum InboundRequestFilterResult {
 }
 
 #[derive(Debug, Error)]
-#[error("Inbound request filter error")]
+#[error("Inbound request filter error_response")]
 pub struct InboundRequestFilterError;
 
 impl<T> InboundRequestFilterTrait for T where

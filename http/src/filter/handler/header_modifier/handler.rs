@@ -1,8 +1,8 @@
-use crate::filter::stage::backend_request::{BackendRequestFilter, BackendRequestFilterError};
+use crate::filter::stage::backend_request::{BackendRequestFilter, BackendRequestFilterError, BackendRequestFilterResult};
 use crate::filter::stage::inbound_request::{
     InboundRequestFilterError, InboundRequestFilterHandler, InboundRequestFilterResult,
 };
-use crate::filter::stage::response::{ResponseFilter, ResponseFilterError};
+use crate::filter::stage::response::{ResponseFilter, ResponseFilterError, ResponseFilterResult};
 use futures::future::BoxFuture;
 use http::{HeaderMap, HeaderName};
 use std::collections::HashSet;
@@ -33,7 +33,7 @@ impl Service<http::request::Parts> for HeaderModifierFilterHandler<InboundReques
 }
 
 impl Service<http::request::Parts> for HeaderModifierFilterHandler<BackendRequestFilter> {
-    type Response = ();
+    type Response = BackendRequestFilterResult;
     type Error = BackendRequestFilterError;
     type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
 
@@ -48,7 +48,7 @@ impl Service<http::request::Parts> for HeaderModifierFilterHandler<BackendReques
 }
 
 impl Service<http::response::Parts> for HeaderModifierFilterHandler<ResponseFilter> {
-    type Response = ();
+    type Response = ResponseFilterResult;
     type Error = ResponseFilterError;
     type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
 

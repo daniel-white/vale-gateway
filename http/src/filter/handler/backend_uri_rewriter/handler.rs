@@ -1,5 +1,5 @@
 use crate::extensions::routing::RequestMatch;
-use crate::filter::stage::backend_request::{BackendRequestFilter, BackendRequestFilterError};
+use crate::filter::stage::backend_request::{BackendRequestFilter, BackendRequestFilterError, BackendRequestFilterResult};
 use crate::rewriting::uri::UriRewriter;
 use futures::future::BoxFuture;
 use http::request::Parts;
@@ -15,7 +15,7 @@ pub struct BackendUriRewriterFilterHandler {
 }
 
 impl Service<Parts> for BackendUriRewriterFilterHandler {
-    type Response = ();
+    type Response = BackendRequestFilterResult;
     type Error = BackendRequestFilterError;
     type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
 
