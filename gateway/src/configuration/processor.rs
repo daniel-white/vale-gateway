@@ -83,17 +83,10 @@ impl ConfigurationProcessor {
             })
             .collect();
 
-        let backends = self
-            .api_client
-            .backends(&backend_refs)
-            .await
-            .map_err(|_| ())?;
+        let backends = self.api_client.backends(&backend_refs).await.map_err(|_| ())?;
 
         self.gateway.update(|_| {
-            let routes = routes
-                .iter()
-                .map(|route| (route.ref_(), route.clone()))
-                .collect();
+            let routes = routes.iter().map(|route| (route.ref_(), route.clone())).collect();
             let shared_filters = shared_filters
                 .iter()
                 .map(|filter| (filter.ref_(), filter.clone()))
@@ -136,11 +129,7 @@ impl ConfigurationProcessor {
     }
 
     async fn sync_shared_filter(&self, filter_ref: SharedFilterRef) -> Result<(), ()> {
-        let shared_filter = self
-            .api_client
-            .shared_filter(&filter_ref)
-            .await
-            .map_err(|_| ())?;
+        let shared_filter = self.api_client.shared_filter(&filter_ref).await.map_err(|_| ())?;
 
         self.gateway.update(|config| {
             let mut shared_filters = config.shared_filters().clone();
@@ -157,11 +146,7 @@ impl ConfigurationProcessor {
     }
 
     async fn sync_backend(&self, backend_ref: BackendRef) -> Result<(), ()> {
-        let backend = self
-            .api_client
-            .backend(&backend_ref)
-            .await
-            .map_err(|_| ())?;
+        let backend = self.api_client.backend(&backend_ref).await.map_err(|_| ())?;
 
         self.backends.update(|backends| {
             let mut backends = backends.backends().clone();

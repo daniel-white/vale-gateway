@@ -33,22 +33,18 @@ pub struct EventBroker {
 impl From<EventBrokerOptions> for EventBroker {
     fn from(value: EventBrokerOptions) -> Self {
         let (sender, receiver) = channel(value.capacity);
-        let sinks = EventSinkRegistry::builder()
-            .configuration(value.configuration)
-            .build();
-        Self::builder()
-            .sinks(sinks)
-            .sender(sender)
-            .receiver(receiver)
-            .build()
+        let sinks = EventSinkRegistry::builder().configuration(value.configuration).build();
+        Self::builder().sinks(sinks).sender(sender).receiver(receiver).build()
     }
 }
 
 impl EventBroker {
+    #[must_use] 
     pub fn sender(&self) -> EventSender {
         EventSender::builder().sender(self.sender.clone()).build()
     }
 
+    #[must_use] 
     pub fn start(self) -> Handle {
         let (handle, mut stop_handle) = handles();
 
@@ -77,7 +73,7 @@ impl EventBroker {
                             None => break
                         }
                     }
-                    _ = stop_handle.stopped() => {
+                    () = stop_handle.stopped() => {
                         break;
                     }
                 }
@@ -101,13 +97,8 @@ impl EventSender {
             .with_kind(SpanKind::Producer)
             .start(&*TRACER);
         let context = Context::current().with_span(span);
-        if let Err(err) = self
-            .sender
-            .send((gateway_ref, event))
-            .with_context(context)
-            .await
-        {
-            println!("Error sending: {:?}", err)
+        if let Err(err) = self.sender.send((gateway_ref, event)).with_context(context).await {
+            println!("Error sending: {err:?}");
         }
     }
 }

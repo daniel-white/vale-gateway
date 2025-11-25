@@ -7,6 +7,9 @@ edition = "2024"
 name = "vg_kube"
 path = "src/lib.rs"
 
+[lints]
+workspace = true
+
 [features]
 default = ["config"]
 config = [

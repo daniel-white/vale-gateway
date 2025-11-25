@@ -1,6 +1,4 @@
-use crate::stage::backend_request::{
-    BackendRequestFilter, BackendRequestFilterError, BackendRequestFilterResult,
-};
+use crate::stage::backend_request::{BackendRequestFilter, BackendRequestFilterError, BackendRequestFilterResult};
 use crate::stage::inbound_request::{
     InboundRequestFilterError, InboundRequestFilterHandler, InboundRequestFilterResult,
 };
@@ -74,17 +72,17 @@ pub struct HeaderMapModifier {
 impl HeaderMapModifier {
     pub fn apply(&self, headers: &mut HeaderMap) {
         // Remove headers first
-        for name in self.remove.iter() {
+        for name in &self.remove {
             headers.remove(name);
         }
 
         // Set headers (overwrite existing)
-        for (name, value) in self.set.iter() {
+        for (name, value) in &self.set {
             headers.insert(name, value.clone());
         }
 
         // Add headers (append to existing)
-        for (name, value) in self.add.iter() {
+        for (name, value) in &self.add {
             headers.append(name, value.clone());
         }
     }

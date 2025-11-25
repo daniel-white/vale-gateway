@@ -14,6 +14,7 @@ impl<T> Receiver<T> {
         self.rx.changed().await
     }
 
+    #[must_use] 
     pub fn current(&self) -> Option<Arc<T>> {
         self.rx.borrow().clone()
     }
@@ -29,16 +30,19 @@ impl<T> Sender<T> {
         self.tx.send(Some(val.clone())).map_err(|_| SendError(val))
     }
 
+    #[must_use] 
     pub fn current(&self) -> Option<Arc<T>> {
         self.tx.borrow().clone()
     }
 
+    #[must_use] 
     pub fn subscribe(&self) -> Receiver<T> {
         let rx = self.tx.subscribe();
         Receiver::builder().rx(rx).build()
     }
 }
 
+#[must_use] 
 pub fn channel<T>() -> (Sender<T>, Receiver<T>) {
     let (tx, rx) = tokio::sync::watch::channel(None);
 

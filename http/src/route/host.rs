@@ -28,16 +28,14 @@ impl TryFrom<&HostMatcherConfig> for HostMatcher {
     fn try_from(config: &HostMatcherConfig) -> Result<Self, Self::Error> {
         match config {
             HostMatcherConfig::Exact(name) => {
-                let name = Name::from_utf8(name)
-                    .map_err(|_| HostMatcherConversionError::InvalidDnsName)?;
+                let name = Name::from_utf8(name).map_err(|_| HostMatcherConversionError::InvalidDnsName)?;
                 if !name.is_fqdn() {
                     return Err(HostMatcherConversionError::NotFullyQualifiedDnsName);
                 }
                 Ok(Self::Exact(name.into()))
             }
             HostMatcherConfig::InZone(zone) => {
-                let zone = Name::from_utf8(zone)
-                    .map_err(|_| HostMatcherConversionError::InvalidDnsName)?;
+                let zone = Name::from_utf8(zone).map_err(|_| HostMatcherConversionError::InvalidDnsName)?;
                 Ok(Self::InZone(zone.into()))
             }
         }

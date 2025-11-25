@@ -48,6 +48,7 @@ impl<T: Clone> Deref for Traced<T> {
 pub struct Receiver<T: Clone>(tokio::sync::broadcast::Receiver<WithContext<T>>);
 
 impl<T: Clone> Receiver<T> {
+    #[must_use] 
     pub fn is_closed(&self) -> bool {
         self.0.is_closed()
     }
@@ -72,16 +73,16 @@ impl<T: Clone> Sender<T> {
             .with_kind(SpanKind::Producer)
             .start(&*TRACER);
         let context = Context::current().with_span(span).attach();
-        self.0
-            .send(value.into())
-            .map_err(|err| SendError(err.0.value))
+        self.0.send(value.into()).map_err(|err| SendError(err.0.value))
     }
 
+    #[must_use] 
     pub fn subscribe(&self) -> Receiver<T> {
         Receiver(self.0.subscribe())
     }
 }
 
+#[must_use] 
 pub fn channel<T: Clone>(capacity: usize) -> (Sender<T>, Receiver<T>) {
     let (tx, rx) = tokio::sync::broadcast::channel(capacity);
 

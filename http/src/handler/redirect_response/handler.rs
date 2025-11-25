@@ -33,10 +33,7 @@ impl Service<Parts> for RedirectResponseFilterHandler {
         let rewriter = self.rewriter.clone();
 
         Box::pin(async move {
-            let request_match = req
-                .extensions
-                .get::<RequestMatch>()
-                .expect("missing request match");
+            let request_match = req.extensions.get::<RequestMatch>().expect("missing request match");
 
             let redirect_uri = rewriter.rewrite(&req.uri, request_match);
 

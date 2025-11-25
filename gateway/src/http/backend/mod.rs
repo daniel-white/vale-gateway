@@ -48,17 +48,11 @@ impl From<(&TopologyLocation, &BackendConfig)> for Backend {
                     .zone(endpoint.zone().clone())
                     .build();
                 let location_match = TopologyLocationMatch::matches(current_location, &location);
-                (
-                    location_match,
-                    HashSet::from_iter(endpoint.addrs().iter().cloned()),
-                )
+                (location_match, HashSet::from_iter(endpoint.addrs().iter().cloned()))
             })
             .collect();
 
-        Self::builder()
-            .ref_(value.ref_())
-            .endpoints(endpoints)
-            .build()
+        Self::builder().ref_(value.ref_()).endpoints(endpoints).build()
     }
 }
 

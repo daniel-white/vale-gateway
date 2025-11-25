@@ -148,9 +148,7 @@ macro_rules! await_ready {
             $r3.get().await.as_ref(),
             $r4.get().await.as_ref(),
         ) {
-            (Some(val1), Some(val2), Some(val3), Some(val4)) => {
-                ReadyState::Ready((val1, val2, val3, val4))
-            }
+            (Some(val1), Some(val2), Some(val3), Some(val4)) => ReadyState::Ready((val1, val2, val3, val4)),
             _ => ReadyState::NotReady,
         }
     };
@@ -196,15 +194,9 @@ macro_rules! await_ready {
             $r6.get().await.as_ref(),
             $r7.get().await.as_ref(),
         ) {
-            (
-                Some(val1),
-                Some(val2),
-                Some(val3),
-                Some(val4),
-                Some(val5),
-                Some(val6),
-                Some(val7),
-            ) => ReadyState::Ready((val1, val2, val3, val4, val5, val6, val7)),
+            (Some(val1), Some(val2), Some(val3), Some(val4), Some(val5), Some(val6), Some(val7)) => {
+                ReadyState::Ready((val1, val2, val3, val4, val5, val6, val7))
+            }
             _ => ReadyState::NotReady,
         }
     };
@@ -220,16 +212,9 @@ macro_rules! await_ready {
             $r7.get().await.as_ref(),
             $r8.get().await.as_ref(),
         ) {
-            (
-                Some(val1),
-                Some(val2),
-                Some(val3),
-                Some(val4),
-                Some(val5),
-                Some(val6),
-                Some(val7),
-                Some(val8),
-            ) => ReadyState::Ready((val1, val2, val3, val4, val5, val6, val7, val8)),
+            (Some(val1), Some(val2), Some(val3), Some(val4), Some(val5), Some(val6), Some(val7), Some(val8)) => {
+                ReadyState::Ready((val1, val2, val3, val4, val5, val6, val7, val8))
+            }
             _ => ReadyState::NotReady,
         }
     };

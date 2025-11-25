@@ -14,6 +14,10 @@ members = [
     "rpc-server",
 ]
 
+[workspace.lints.clippy]
+pedantic = "deny"
+unwrap_used = "deny"
+
 [workspace.dependencies]
 arc-swap = "1"
 assertables = "9"

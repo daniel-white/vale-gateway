@@ -16,9 +16,7 @@ pub enum AccessControlEffect {
     Deny,
 }
 
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder)]
 #[serde(rename_all = "camelCase")]
 pub struct AccessControlFilter {
     #[getset(get_clone = "pub")]
@@ -29,9 +27,7 @@ pub struct AccessControlFilter {
     clients: Vec<IpRef>,
 }
 
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder)]
 #[serde(rename_all = "camelCase")]
 pub struct AccessControlSharedFilter {
     #[getset(get_clone = "pub")]

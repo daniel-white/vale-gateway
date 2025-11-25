@@ -1,13 +1,10 @@
 use crate::handler::error_response::generator::ErrorResponseGenerator;
-use crate::stage::backend_request::{
-    BackendRequestFilter, BackendRequestFilterError, BackendRequestFilterResult,
-};
+use crate::stage::backend_request::{BackendRequestFilter, BackendRequestFilterError, BackendRequestFilterResult};
 use crate::stage::inbound_request::{
     InboundRequestFilterError, InboundRequestFilterHandler, InboundRequestFilterResult,
 };
 use crate::stage::response::{ResponseFilter, ResponseFilterError, ResponseFilterResult};
 use futures::future::BoxFuture;
-use std::sync::Arc;
 use std::task::{Context, Poll};
 use tower::Service;
 use typed_builder::TypedBuilder;

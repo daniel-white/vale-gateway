@@ -51,10 +51,7 @@ pub struct ClientAddressesPolicyProxies {
     #[schemars(schema_with = "crate::api::v1::schemars::cidr_array")]
     pub trusted_ranges: Vec<IpNet>,
 
-    #[serde(
-        default = "trusted_headers_default",
-        skip_serializing_if = "Vec::is_empty"
-    )]
+    #[serde(default = "trusted_headers_default", skip_serializing_if = "Vec::is_empty")]
     pub trusted_headers: Vec<ClientAddressesPolicyProxiesTrustedHeaders>,
 }
 

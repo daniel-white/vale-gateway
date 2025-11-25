@@ -69,6 +69,7 @@ pub enum StaticResponseFilterConditionType {
 }
 
 impl StaticResponseFilterConditionType {
+    #[must_use] 
     pub fn as_str(&self) -> &'static str {
         match self {
             StaticResponseFilterConditionType::Accepted => "Accepted",
@@ -96,6 +97,7 @@ pub enum StaticResponseFilterConditionReason {
 }
 
 impl StaticResponseFilterConditionReason {
+    #[must_use] 
     pub fn as_str(&self) -> &'static str {
         match self {
             StaticResponseFilterConditionReason::Accepted => "Accepted",

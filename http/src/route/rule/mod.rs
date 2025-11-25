@@ -44,27 +44,18 @@ pub enum RuleConversionError {
     ),
 }
 
-impl
-    TryFrom<(
-        &HashMap<SharedFilterRef, SharedFilterHandlerLayer>,
-        &RuleConfig,
-    )> for Rule
-{
+impl TryFrom<(&HashMap<SharedFilterRef, SharedFilterHandlerLayer>, &RuleConfig)> for Rule {
     type Error = RuleConversionError;
 
     fn try_from(
-        (shared_filter_handlers, rule): (
-            &HashMap<SharedFilterRef, SharedFilterHandlerLayer>,
-            &RuleConfig,
-        ),
+        (shared_filter_handlers, rule): (&HashMap<SharedFilterRef, SharedFilterHandlerLayer>, &RuleConfig),
     ) -> Result<Self, Self::Error> {
         let matchers = rule
             .matchers()
             .iter()
             .enumerate()
             .map(|(idx, matcher)| {
-                RequestMatcher::try_from(matcher)
-                    .map_err(|err| RuleConversionError::Matcher(idx, err))
+                RequestMatcher::try_from(matcher).map_err(|err| RuleConversionError::Matcher(idx, err))
             })
             .collect::<Result<_, _>>()?;
 

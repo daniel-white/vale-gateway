@@ -75,6 +75,7 @@ impl<T> Sender<T> {
     }
 }
 
+#[must_use] 
 pub fn channel<T>(buffer: usize) -> (Sender<T>, Receiver<T>) {
     let (tx, rx) = tokio::sync::mpsc::channel(buffer);
     (Sender(tx), Receiver(rx))

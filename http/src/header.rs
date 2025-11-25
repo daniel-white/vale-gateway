@@ -28,13 +28,11 @@ impl HeaderModifier for pingora::http::RequestHeader {
     }
 
     fn insert(&mut self, header: &HeaderName, value: &HeaderValue) {
-        self.insert_header(header, value)
-            .expect("Invalid header value");
+        self.insert_header(header, value).expect("Invalid header value");
     }
 
     fn append(&mut self, header: &HeaderName, value: &HeaderValue) {
-        self.append_header(header, value)
-            .expect("Invalid header value");
+        self.append_header(header, value).expect("Invalid header value");
     }
 }
 
@@ -44,12 +42,10 @@ impl HeaderModifier for pingora::http::ResponseHeader {
     }
 
     fn insert(&mut self, header: &HeaderName, value: &HeaderValue) {
-        self.insert_header(header, value)
-            .expect("Invalid header value");
+        self.insert_header(header, value).expect("Invalid header value");
     }
 
     fn append(&mut self, header: &HeaderName, value: &HeaderValue) {
-        self.append_header(header, value)
-            .expect("Invalid header value");
+        self.append_header(header, value).expect("Invalid header value");
     }
 }

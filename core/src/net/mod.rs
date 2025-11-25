@@ -10,9 +10,7 @@ use std::str::FromStr;
 use std::sync::OnceLock;
 use thiserror::Error;
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, From,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, From)]
 #[serde(transparent)]
 pub struct Port(NonZeroU16);
 

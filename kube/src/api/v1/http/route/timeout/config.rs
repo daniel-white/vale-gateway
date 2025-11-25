@@ -35,10 +35,9 @@ impl TryFrom<HTTPRouteTimeoutWrapper<'_>> for TimeoutPolicies {
             }))
         }
 
-        let request = convert(value.request.as_deref())
-            .map_err(TimeoutPoliciesConversionError::RequestTimeout)?;
-        let backend_request = convert(value.backend_request.as_deref())
-            .map_err(TimeoutPoliciesConversionError::BackendRequestTimeout)?;
+        let request = convert(value.request.as_deref()).map_err(TimeoutPoliciesConversionError::RequestTimeout)?;
+        let backend_request =
+            convert(value.backend_request.as_deref()).map_err(TimeoutPoliciesConversionError::BackendRequestTimeout)?;
 
         let policies = Self::builder()
             .request(request)

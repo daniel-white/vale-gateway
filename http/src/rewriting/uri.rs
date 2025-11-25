@@ -6,9 +6,7 @@ use http::uri::{Authority, Scheme};
 use std::str::FromStr;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
-use vg_config::http::rewriting::uri::{
-    PathRewrite as PathRewriteConfig, UriRewriter as UriRewriterConfig,
-};
+use vg_config::http::rewriting::uri::{PathRewrite as PathRewriteConfig, UriRewriter as UriRewriterConfig};
 use vg_core::net::Port;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -83,11 +81,11 @@ impl UriRewriter {
         let original_query = original_parts
             .path_and_query
             .as_ref()
-            .and_then(|pq| pq.query().map(|q| q.to_string()));
+            .and_then(|pq| pq.query().map(std::string::ToString::to_string));
         if new_path.contains('?') {
             new_path.to_string()
         } else if let Some(q) = original_query {
-            format!("{}?{}", new_path, q)
+            format!("{new_path}?{q}")
         } else {
             new_path.to_string()
         }
@@ -113,12 +111,12 @@ impl UriRewriter {
             if suffix.is_empty() {
                 "/".to_string()
             } else {
-                format!("/{}", suffix)
+                format!("/{suffix}")
             }
         } else if suffix.is_empty() {
-            format!("/{}/", normalized_new)
+            format!("/{normalized_new}/")
         } else {
-            format!("/{}/{}", normalized_new, suffix)
+            format!("/{normalized_new}/{suffix}")
         };
         Some(new_path)
     }
@@ -152,9 +150,7 @@ impl UriRewriter {
                 parts.path_and_query = Some(final_path.parse().unwrap());
             }
             (Some(PathRewrite::PrefixMatch(new_prefix)), Some(matched_prefix)) => {
-                if let Some(new_path) =
-                    Self::apply_prefix_rewrite(&parts, matched_prefix.as_str(), new_prefix)
-                {
+                if let Some(new_path) = Self::apply_prefix_rewrite(&parts, matched_prefix.as_str(), new_prefix) {
                     // Note: prefix rewriting drops query (documented by tests)
                     parts.path_and_query = Some(new_path.parse().unwrap());
                 }
@@ -205,14 +201,8 @@ mod tests {
     #[case("http://h/a", "/new", "/new")]
     #[case("http://h/a?x=1", "/new/?", "/new/?")]
     #[case("http://h/a?x=1", "/new?p=9", "/new?p=9")]
-    fn full_path_query_preservation(
-        #[case] original: &str,
-        #[case] new_path: &str,
-        #[case] expected: &str,
-    ) {
-        let r = UriRewriter::builder()
-            .path(PathRewrite::Full(new_path.into()))
-            .build();
+    fn full_path_query_preservation(#[case] original: &str, #[case] new_path: &str, #[case] expected: &str) {
+        let r = UriRewriter::builder().path(PathRewrite::Full(new_path.into())).build();
         let ctx = MockMatchContext { prefix: None };
         let out = r.rewrite(&Uri::from_str(original).unwrap(), &ctx);
         assert_eq!(out.path_and_query().unwrap().as_str(), expected);
@@ -239,9 +229,7 @@ mod tests {
 
     #[test]
     fn port_only_adds_port() {
-        let r = UriRewriter::builder()
-            .port(Port::try_from(8443).unwrap())
-            .build();
+        let r = UriRewriter::builder().port(Port::try_from(8443).unwrap()).build();
         let u = Uri::from_str("http://svc/path").unwrap();
         let out = r.rewrite(&u, &MockMatchContext { prefix: None });
         assert_eq!(out.authority().unwrap().as_str(), "svc:8443");
@@ -259,30 +247,9 @@ mod tests {
     }
 
     #[rstest]
-    #[case(
-        "http://h:8080/p",
-        Some(Scheme::HTTPS),
-        None,
-        None,
-        "h:8080",
-        Some("https")
-    )]
-    #[case(
-        "http://h:8080/p",
-        None,
-        Some("new."),
-        None,
-        "new.",
-        Some("configuration")
-    )]
-    #[case(
-        "http://h:8080/p",
-        None,
-        None,
-        Some(9001),
-        "h:9001",
-        Some("configuration")
-    )]
+    #[case("http://h:8080/p", Some(Scheme::HTTPS), None, None, "h:8080", Some("https"))]
+    #[case("http://h:8080/p", None, Some("new."), None, "new.", Some("configuration"))]
+    #[case("http://h:8080/p", None, None, Some(9001), "h:9001", Some("configuration"))]
     #[case(
         "http://h:8080/p",
         Some(Scheme::HTTPS),
@@ -305,10 +272,7 @@ mod tests {
             port: port.map(Port::try_from).transpose().unwrap(),
             path: None,
         };
-        let out = r.rewrite(
-            &Uri::from_str(original).unwrap(),
-            &MockMatchContext { prefix: None },
-        );
+        let out = r.rewrite(&Uri::from_str(original).unwrap(), &MockMatchContext { prefix: None });
         assert_eq!(out.authority().unwrap().as_str(), expected_authority);
         assert_eq!(out.scheme_str(), expected_scheme);
     }

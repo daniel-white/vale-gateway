@@ -1,13 +1,11 @@
 use crate::handler::{
-    BackendUriRewriterFilterHandlerLayer, BackendUriRewriterFilterHandlerLayerError,
-    ErrorResponseHandlerLayer, ErrorResponseHandlerLayerError, HeaderModifierFilterHandlerLayer,
-    HeaderModifierFilterHandlerLayerError,
+    BackendUriRewriterFilterHandlerLayer, BackendUriRewriterFilterHandlerLayerError, ErrorResponseHandlerLayer,
+    ErrorResponseHandlerLayerError, HeaderModifierFilterHandlerLayer, HeaderModifierFilterHandlerLayerError,
 };
 use crate::stage::backend_request::finalizer::BackendRequestFilterChainFinalizer;
 use crate::stage::backend_request::{
-    BackendRequestFilter, BackendRequestFilterChain, BackendRequestFilterError, factory,
+    BackendRequestFilter, BackendRequestFilterChain, BackendRequestFilterError,
 };
-use std::sync::Arc;
 use thiserror::Error;
 use tower::util::BoxCloneServiceLayer;
 use tower::{Layer, ServiceExt};
@@ -38,7 +36,14 @@ pub enum BackendRequestFilterChainFactoryError {
     HeaderModifier(#[from] HeaderModifierFilterHandlerLayerError),
 }
 
+impl Default for BackendRequestFilterChainFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BackendRequestFilterChainFactory {
+    #[must_use] 
     pub fn new() -> Self {
         Self::builder()
             .error_response(Default::default())
@@ -47,10 +52,7 @@ impl BackendRequestFilterChainFactory {
             .build()
     }
 
-    pub fn error_response(
-        self,
-        policy: &ErrorResponsePolicy,
-    ) -> Result<Self, BackendRequestFilterChainFactoryError> {
+    pub fn error_response(self, policy: &ErrorResponsePolicy) -> Result<Self, BackendRequestFilterChainFactoryError> {
         let layer: ErrorResponseHandlerLayer = policy.try_into()?;
         let factory = Self::builder()
             .error_response(layer)

@@ -82,16 +82,8 @@ impl TryFrom<&RequestMatcherConfig> for RequestMatcher {
     type Error = RequestMatcherConversionError;
 
     fn try_from(value: &RequestMatcherConfig) -> Result<Self, Self::Error> {
-        let method = value
-            .method()
-            .as_ref()
-            .map(MethodMatcher::try_from)
-            .transpose()?;
-        let path = value
-            .path()
-            .as_ref()
-            .map(PathMatcher::try_from)
-            .transpose()?;
+        let method = value.method().as_ref().map(MethodMatcher::try_from).transpose()?;
+        let path = value.path().as_ref().map(PathMatcher::try_from).transpose()?;
         let headers: HeadersMatcher = value.headers().try_into()?;
         let query_params: QueryParamsMatcher = value.query_params().try_into()?;
 
@@ -114,10 +106,12 @@ pub enum RequestMatcherResult {
 }
 
 impl RequestMatcherResult {
+    #[must_use] 
     pub fn is_matched(&self) -> bool {
         matches!(self, Self::Matched { .. })
     }
 
+    #[must_use] 
     pub fn score(&self) -> Option<&RequestMatchScore> {
         match self {
             Self::Matched(score) => Some(score),
@@ -128,7 +122,7 @@ impl RequestMatcherResult {
 
 impl RequestMatchDetails for RequestMatcherResult {
     fn path_prefix(&self) -> Option<String> {
-        self.score().and_then(|s| s.path_prefix())
+        self.score().and_then(super::RequestMatchDetails::path_prefix)
     }
 }
 
@@ -151,26 +145,19 @@ mod tests {
             .version(Version::HTTP_11)
             .body(())
             .unwrap();
-        let (parts, _) = request.into_parts();
+        let (parts, ()) = request.into_parts();
         parts
     }
 
-    fn create_request_parts_with_headers(
-        method: Method,
-        uri: &str,
-        headers: &[(&str, &str)],
-    ) -> Parts {
-        let mut request_builder = Request::builder()
-            .method(method)
-            .uri(uri)
-            .version(Version::HTTP_11);
+    fn create_request_parts_with_headers(method: Method, uri: &str, headers: &[(&str, &str)]) -> Parts {
+        let mut request_builder = Request::builder().method(method).uri(uri).version(Version::HTTP_11);
 
         for (key, value) in headers {
             request_builder = request_builder.header(*key, *value);
         }
 
         let request = request_builder.body(()).unwrap();
-        let (parts, _) = request.into_parts();
+        let (parts, ()) = request.into_parts();
         parts
     }
 
@@ -195,9 +182,7 @@ mod tests {
     fn headers_matcher_single() -> HeadersMatcher {
         let header_value = HeaderValue::from_static("application/json");
         let header_matcher = HeaderMatcher::new_exact(CONTENT_TYPE, header_value);
-        HeadersMatcher::builder()
-            .matchers(vec![header_matcher])
-            .build()
+        HeadersMatcher::builder().matchers(vec![header_matcher]).build()
     }
 
     #[fixture]
@@ -205,17 +190,13 @@ mod tests {
         let header_value = HeaderValue::from_static("application/json");
         let header1 = HeaderMatcher::new_exact(CONTENT_TYPE, header_value.clone());
         let header2 = HeaderMatcher::new_exact(ACCEPT, header_value);
-        HeadersMatcher::builder()
-            .matchers(vec![header1, header2])
-            .build()
+        HeadersMatcher::builder().matchers(vec![header1, header2]).build()
     }
 
     #[fixture]
     fn query_params_matcher() -> QueryParamsMatcher {
         let param_matcher = QueryParamMatcher::new_exact("version", "v1");
-        QueryParamsMatcher::builder()
-            .matchers(vec![param_matcher])
-            .build()
+        QueryParamsMatcher::builder().matchers(vec![param_matcher]).build()
     }
 
     // Tests for matching behavior with no matcher (should always match)
@@ -430,10 +411,7 @@ mod tests {
         let parts = create_request_parts_with_headers(
             Method::GET,
             "http://example.com/test",
-            &[
-                ("content-type", "application/json"),
-                ("accept", "application/json"),
-            ],
+            &[("content-type", "application/json"), ("accept", "application/json")],
         );
         let result = matcher.matches(&parts);
 
@@ -722,10 +700,7 @@ mod tests {
             .query_params(None)
             .build();
 
-        let parts = create_request_parts(
-            Method::GET,
-            "http://example.com/api/users?page=1&limit=10#section",
-        );
+        let parts = create_request_parts(Method::GET, "http://example.com/api/users?page=1&limit=10#section");
         let result = matcher.matches(&parts);
 
         assert!(result.is_matched());
@@ -764,10 +739,7 @@ mod tests {
             .query_params(None)
             .build();
 
-        let parts = create_request_parts(
-            Method::GET,
-            "http://example.com/api/users/user-123_test.json",
-        );
+        let parts = create_request_parts(Method::GET, "http://example.com/api/users/user-123_test.json");
         let result = matcher.matches(&parts);
 
         assert!(result.is_matched());
@@ -786,10 +758,7 @@ mod tests {
         let parts = create_request_parts_with_headers(
             Method::GET,
             "http://example.com/api/v1/test?version=v1",
-            &[
-                ("content-type", "application/json"),
-                ("accept", "application/json"),
-            ],
+            &[("content-type", "application/json"), ("accept", "application/json")],
         );
         let result = matcher.matches(&parts);
 
@@ -832,8 +801,8 @@ mod tests {
             .build();
 
         let uuid = "550e8400-e29b-41d4-a716-446655440000";
-        let valid_path = format!("/api/v1/users/{}/edit", uuid);
-        let parts = create_request_parts(Method::GET, &format!("http://example.com{}", valid_path));
+        let valid_path = format!("/api/v1/users/{uuid}/edit");
+        let parts = create_request_parts(Method::GET, &format!("http://example.com{valid_path}"));
 
         let result = matcher.matches(&parts);
         assert!(result.is_matched());
@@ -848,9 +817,7 @@ mod tests {
         let method_matcher: MethodMatcher = Method::GET.into();
         let bearer_token = HeaderValue::from_static("Bearer token123");
         let auth_header = HeaderMatcher::new_exact(AUTHORIZATION, bearer_token);
-        let headers_matcher = HeadersMatcher::builder()
-            .matchers(vec![auth_header])
-            .build();
+        let headers_matcher = HeadersMatcher::builder().matchers(vec![auth_header]).build();
 
         let matcher = RequestMatcher::builder()
             .path(Some(path_matcher))
@@ -877,9 +844,7 @@ mod tests {
         let method_matcher: MethodMatcher = Method::POST.into();
         let content_type = HeaderValue::from_static("application/json");
         let content_type_header = HeaderMatcher::new_exact(CONTENT_TYPE, content_type);
-        let headers_matcher = HeadersMatcher::builder()
-            .matchers(vec![content_type_header])
-            .build();
+        let headers_matcher = HeadersMatcher::builder().matchers(vec![content_type_header]).build();
 
         let matcher = RequestMatcher::builder()
             .path(Some(path_matcher))

@@ -7,17 +7,7 @@ use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
 
 #[derive(
-    Default,
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    Getters,
-    CopyGetters,
-    CloneGetters,
-    TypedBuilder,
+    Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CopyGetters, CloneGetters, TypedBuilder,
 )]
 #[serde(rename_all = "camelCase")]
 pub struct ListenerPolicies {
@@ -32,10 +22,7 @@ pub struct ListenerPolicies {
     retries: Option<RetryPolicy>,
 
     #[getset(get = "pub")]
-    #[serde(
-        default = "default_client_addresses_policy",
-        skip_serializing_if = "Option::is_none"
-    )]
+    #[serde(default = "default_client_addresses_policy", skip_serializing_if = "Option::is_none")]
     #[builder(default)]
     client_addresses: Option<ClientAddrPolicy>,
 
@@ -49,10 +36,7 @@ impl ListenerPolicies {
     pub fn is_default(&self) -> bool {
         self.timeouts.is_none()
             && self.retries.is_none()
-            && self
-                .client_addresses
-                .as_ref()
-                .is_some_and(|p| p.is_default())
+            && self.client_addresses.as_ref().is_some_and(super::super::policy::client_addrs::ClientAddrPolicy::is_default)
             && self.error_responses.is_default()
     }
 }

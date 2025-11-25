@@ -34,10 +34,7 @@ impl From<ApiServerOptions> for ApiServer {
             .event_sinks(value.event_sinks)
             .build();
 
-        Self::builder()
-            .binding(value.binding)
-            .methods(methods)
-            .build()
+        Self::builder().binding(value.binding).methods(methods).build()
     }
 }
 
@@ -46,7 +43,7 @@ pub struct ApiServerStopHandle(ServerHandle);
 
 impl ApiServerStopHandle {
     pub async fn stopped(self) {
-        self.0.stopped().await
+        self.0.stopped().await;
     }
 }
 

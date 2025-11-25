@@ -1,4 +1,3 @@
-
 use crate::policy::retry::{RetryPolicyHandler, RetryPolicyHandlerConversionError};
 use crate::policy::timeout::{TimeoutPolicyHandlers, TimeoutPolicyHandlersConversionError};
 use getset::{CloneGetters, Getters};
@@ -27,16 +26,9 @@ impl TryFrom<&ListenerPolicies> for ListenerPolicyHandlers {
 
     fn try_from(value: &ListenerPolicies) -> Result<Self, Self::Error> {
         let timeouts = value.timeouts().try_into()?;
-        let retries = value
-            .retries()
-            .as_ref()
-            .map(RetryPolicyHandler::try_from)
-            .transpose()?;
+        let retries = value.retries().as_ref().map(RetryPolicyHandler::try_from).transpose()?;
 
-        let handlers = Self::builder()
-            .timeouts(timeouts)
-            .retries(retries)
-            .build();
+        let handlers = Self::builder().timeouts(timeouts).retries(retries).build();
 
         Ok(handlers)
     }

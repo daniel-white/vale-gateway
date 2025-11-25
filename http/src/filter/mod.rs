@@ -1,7 +1,6 @@
 use crate::handler::{
-    AccessControlFilterHandlerLayer, BackendUriRewriterFilterHandlerLayer,
-    HeaderModifierFilterHandlerLayer, RedirectResponseFilterHandlerLayer,
-    StaticResponseFilterHandlerLayer,
+    AccessControlFilterHandlerLayer, BackendUriRewriterFilterHandlerLayer, HeaderModifierFilterHandlerLayer,
+    RedirectResponseFilterHandlerLayer, StaticResponseFilterHandlerLayer,
 };
 use derive_more::TryUnwrap;
 

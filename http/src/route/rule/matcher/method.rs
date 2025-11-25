@@ -63,7 +63,7 @@ mod tests {
             .version(Version::HTTP_11)
             .body(())
             .unwrap();
-        let (parts, _) = request.into_parts();
+        let (parts, ()) = request.into_parts();
         parts
     }
 
@@ -119,8 +119,7 @@ mod tests {
         // Assert
         assert_eq!(
             result, expected_match,
-            "MethodMatcher should return {} for matcher method vs request method comparison",
-            expected_match
+            "MethodMatcher should return {expected_match} for matcher method vs request method comparison"
         );
     }
 
@@ -138,10 +137,7 @@ mod tests {
         let post_parts = create_request_parts(Method::POST);
 
         assert!(matcher.matches(&scorer, &get_parts), "Should match GET");
-        assert!(
-            !matcher.matches(&scorer, &post_parts),
-            "Should not match POST"
-        );
+        assert!(!matcher.matches(&scorer, &post_parts), "Should not match POST");
     }
 
     #[test]
@@ -199,7 +195,7 @@ mod tests {
         let result = matcher.matches(&scorer, &parts);
 
         // Assert
-        assert!(result, "MethodMatcher should match {} method", method_str);
+        assert!(result, "MethodMatcher should match {method_str} method");
     }
 
     #[test]

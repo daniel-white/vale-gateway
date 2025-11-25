@@ -22,18 +22,7 @@ impl Display for ListenerRef {
     }
 }
 
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    TypedBuilder,
-    Getters,
-    CloneGetters,
-    CopyGetters,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TypedBuilder, Getters, CloneGetters, CopyGetters)]
 #[serde(rename_all = "camelCase")]
 pub struct Listener {
     #[getset(get_clone = "pub")]
@@ -77,6 +66,7 @@ impl From<CollectionEvent<ListenerRef, Listener>> for ListenerCollectionEvent {
 pub struct ListenerCollection(NotifyingCollection<ListenerRef, Listener, ListenerCollectionEvent>);
 
 impl ListenerCollection {
+    #[must_use] 
     pub fn new(channel_capacity: usize) -> Self {
         NotifyingCollection::new(channel_capacity).into()
     }

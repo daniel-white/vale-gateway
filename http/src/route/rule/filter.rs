@@ -1,8 +1,7 @@
 use crate::filter::SharedFilterHandlerLayer;
 use crate::handler::{
-    AccessControlFilterHandlerLayer, BackendUriRewriterFilterHandlerLayer,
-    BackendUriRewriterFilterHandlerLayerError, HeaderModifierFilterHandlerLayer,
-    HeaderModifierFilterHandlerLayerError, RedirectResponseFilterHandlerLayer,
+    AccessControlFilterHandlerLayer, BackendUriRewriterFilterHandlerLayer, BackendUriRewriterFilterHandlerLayerError,
+    HeaderModifierFilterHandlerLayer, HeaderModifierFilterHandlerLayerError, RedirectResponseFilterHandlerLayer,
     RedirectResponseFilterHandlerLayerError, StaticResponseFilterHandlerLayer,
 };
 use std::collections::HashMap;
@@ -37,19 +36,11 @@ pub enum RuleFilterHandlerLayerError {
     BackendUriRewriter(#[from] BackendUriRewriterFilterHandlerLayerError),
 }
 
-impl
-    TryFrom<(
-        &HashMap<SharedFilterRef, SharedFilterHandlerLayer>,
-        &RuleFilter,
-    )> for RuleFilterHandlerLayer
-{
+impl TryFrom<(&HashMap<SharedFilterRef, SharedFilterHandlerLayer>, &RuleFilter)> for RuleFilterHandlerLayer {
     type Error = RuleFilterHandlerLayerError;
 
     fn try_from(
-        (shared_layers, filter): (
-            &HashMap<SharedFilterRef, SharedFilterHandlerLayer>,
-            &RuleFilter,
-        ),
+        (shared_layers, filter): (&HashMap<SharedFilterRef, SharedFilterHandlerLayer>, &RuleFilter),
     ) -> Result<Self, Self::Error> {
         match filter {
             RuleFilter::AccessControl(filter) => {

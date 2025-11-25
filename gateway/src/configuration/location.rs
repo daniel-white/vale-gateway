@@ -20,7 +20,7 @@ impl CurrentLocationConfigurator {
     }
 
     pub fn start(self) -> Handle {
-        let (handle, mut stop_handle) = handles();
+        let (handle, _) = handles();
 
         spawn(async move {
             self.location

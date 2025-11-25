@@ -1,15 +1,11 @@
-use hickory_proto::rr::rdata::opt::EdnsCode::Chain;
 use http::{HeaderMap, HeaderValue, Request};
 use std::error::Error;
 use tower::Service;
 use vg_config::http::filter::access_control::{AccessControlEffect, AccessControlFilter};
 use vg_config::http::filter::header_modifier::{HeaderModifierFilter, RequestHeaderModifierFilter};
 use vg_config::http::listener::filter::RequestHeaderModifierListenerFilter;
-use vg_config::http::policy::client_addrs::TrustedProxyHeaderName::XForwardedBy;
 use vg_config::http::policy::client_addrs::{ClientAddrExtractor, ClientAddrPolicy};
-use vg_config::http::route::rule::filter::RuleBackendFilter::RequestHeaderModifier;
 use vg_http::extensions::RequestSocketAddr;
-use vg_http::filter::SharedFilterHandlerLayer::HeaderModifier;
 use vg_http::stage::inbound_request::PreRoutingRequestFilterChainFactory;
 use vg_http::stage::pre_routing_request::PreRoutingRequestFilterChain;
 
@@ -21,7 +17,7 @@ pub async fn early_factory() -> Result<(), Box<dyn Error>> {
 
     let req = Request::builder().extension(req_ip).body(()).unwrap();
 
-    let (req, _) = req.into_parts();
+    let (req, ()) = req.into_parts();
 
     let client_addr = ClientAddrPolicy::builder()
         .extractor(ClientAddrExtractor::Direct)
@@ -44,13 +40,12 @@ pub async fn early_factory() -> Result<(), Box<dyn Error>> {
     let hm: RequestHeaderModifierFilter = hm.into();
     let hm: RequestHeaderModifierListenerFilter = hm.into();
 
-    let mut chain: PreRoutingRequestFilterChain =
-        PreRoutingRequestFilterChainFactory::with_client_addr(&client_addr)?
-            .add_access_control(&access_control)?
-            .add_header_modifier(&hm)?
-            .into();
+    let mut chain: PreRoutingRequestFilterChain = PreRoutingRequestFilterChainFactory::with_client_addr(&client_addr)?
+        .add_access_control(&access_control)?
+        .add_header_modifier(&hm)?
+        .into();
 
     let r = chain.call(req).await;
-    println!("{:?}", r);
+    println!("{r:?}");
     Ok(())
 }

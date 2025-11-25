@@ -1,8 +1,6 @@
 use crate::http::filter::access_control::AccessControlFilterRef;
 use crate::http::filter::backend_uri_rewriter::BackendUriRewriterFilter;
-use crate::http::filter::header_modifier::{
-    RequestHeaderModifierFilter, ResponseHeaderModifierFilter,
-};
+use crate::http::filter::header_modifier::{RequestHeaderModifierFilter, ResponseHeaderModifierFilter};
 use crate::http::filter::redirect_response::RedirectResponseFilter;
 use crate::http::filter::static_response::StaticResponseFilterRef;
 use derive_more::{Deref, From};
@@ -10,7 +8,7 @@ use getset::{CloneGetters, Getters};
 use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
 
-/// RouteFilter represents filters that can be applied at the Route level
+/// `RouteFilter` represents filters that can be applied at the Route level
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, From)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum RouteFilter {
@@ -22,9 +20,7 @@ pub enum RouteFilter {
     BackendUriRewriter(BackendUriRewriterRouteFilter),
 }
 
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder)]
 #[serde(rename_all = "camelCase")]
 pub struct AccessControlRouteFilter {
     #[getset(get_clone = "pub")]
@@ -45,9 +41,7 @@ pub struct ResponseHeaderModifierRouteFilter(ResponseHeaderModifierFilter);
 #[serde(transparent)]
 pub struct RedirectResponseRouteFilter(RedirectResponseFilter);
 
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder)]
 #[serde(rename_all = "camelCase")]
 pub struct StaticResponseRouteFilter {
     #[getset(get_clone = "pub")]

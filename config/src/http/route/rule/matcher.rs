@@ -12,9 +12,7 @@ pub enum HeaderValueMatcher {
     RegularExpression(String),
 }
 
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder)]
 #[serde(rename_all = "camelCase")]
 pub struct HeaderMatcher {
     #[getset(get_clone = "pub")]

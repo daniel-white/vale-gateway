@@ -16,23 +16,22 @@ pub enum ErrorResponseCode {
 
 // Custom implementation to handle StatusCode canonical reasons
 impl ErrorResponseCode {
+    #[must_use] 
     pub fn to_str(&self) -> Cow<'static, str> {
-        match self {
-            Self::StatusCode(status) => status
-                .canonical_reason()
-                .unwrap_or("Unknown Error")
-                .chars()
-                .filter(|c| c.is_alphanumeric() || c.is_whitespace())
-                .collect::<String>()
-                .to_shouty_snake_case()
-                .into(),
-            _ => {
-                let str: &'static str = self.into();
-                str.into()
-            }
+        if let Self::StatusCode(status) = self { status
+        .canonical_reason()
+        .unwrap_or("Unknown Error")
+        .chars()
+        .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+        .collect::<String>()
+        .to_shouty_snake_case()
+        .into() } else {
+            let str: &'static str = self.into();
+            str.into()
         }
     }
 
+    #[must_use] 
     pub fn message(&self) -> Cow<'static, str> {
         match self {
             Self::NoRoute => "No matching route found".into(),
@@ -40,10 +39,7 @@ impl ErrorResponseCode {
             Self::MissingConfiguration => "Missing configuration".into(),
             Self::BackendUnavailable => "Backend unavailable".into(),
             Self::InvalidConfiguration => "Invalid configuration".into(),
-            Self::StatusCode(status) => status
-                .canonical_reason()
-                .unwrap_or("Unknown status code")
-                .into(),
+            Self::StatusCode(status) => status.canonical_reason().unwrap_or("Unknown status code").into(),
         }
     }
 }
@@ -69,15 +65,9 @@ mod tests {
     #[rstest]
     #[case(ErrorResponseCode::NoRoute, StatusCode::NOT_FOUND)]
     #[case(ErrorResponseCode::AccessDenied, StatusCode::FORBIDDEN)]
-    #[case(
-        ErrorResponseCode::MissingConfiguration,
-        StatusCode::INTERNAL_SERVER_ERROR
-    )]
+    #[case(ErrorResponseCode::MissingConfiguration, StatusCode::INTERNAL_SERVER_ERROR)]
     #[case(ErrorResponseCode::BackendUnavailable, StatusCode::SERVICE_UNAVAILABLE)]
-    #[case(
-        ErrorResponseCode::InvalidConfiguration,
-        StatusCode::INTERNAL_SERVER_ERROR
-    )]
+    #[case(ErrorResponseCode::InvalidConfiguration, StatusCode::INTERNAL_SERVER_ERROR)]
     fn test_error_code_mapping_to_http_status(
         #[case] error_code: ErrorResponseCode,
         #[case] expected_status: StatusCode,
@@ -91,10 +81,7 @@ mod tests {
     #[case(ErrorResponseCode::MissingConfiguration, "Missing configuration")]
     #[case(ErrorResponseCode::BackendUnavailable, "Backend unavailable")]
     #[case(ErrorResponseCode::InvalidConfiguration, "Invalid configuration")]
-    fn test_error_code_descriptions(
-        #[case] error_code: ErrorResponseCode,
-        #[case] expected_message: &str,
-    ) {
+    fn test_error_code_descriptions(#[case] error_code: ErrorResponseCode, #[case] expected_message: &str) {
         assert_eq!(error_code.message(), expected_message);
     }
 
@@ -102,10 +89,7 @@ mod tests {
     #[case(StatusCode::BAD_REQUEST, StatusCode::BAD_REQUEST)]
     #[case(StatusCode::UNAUTHORIZED, StatusCode::UNAUTHORIZED)]
     #[case(StatusCode::BAD_GATEWAY, StatusCode::BAD_GATEWAY)]
-    fn test_status_code_variant_mapping(
-        #[case] input_status: StatusCode,
-        #[case] expected_status: StatusCode,
-    ) {
+    fn test_status_code_variant_mapping(#[case] input_status: StatusCode, #[case] expected_status: StatusCode) {
         let error_code = ErrorResponseCode::StatusCode(input_status);
         assert_eq!(StatusCode::from(error_code), expected_status);
     }
@@ -114,10 +98,7 @@ mod tests {
     #[case(StatusCode::BAD_REQUEST, "Bad Request")]
     #[case(StatusCode::UNAUTHORIZED, "Unauthorized")]
     #[case(StatusCode::IM_A_TEAPOT, "I'm a teapot")]
-    fn test_status_code_variant_descriptions(
-        #[case] input_status: StatusCode,
-        #[case] expected_message: &str,
-    ) {
+    fn test_status_code_variant_descriptions(#[case] input_status: StatusCode, #[case] expected_message: &str) {
         let error_code = ErrorResponseCode::StatusCode(input_status);
         assert_eq!(error_code.message(), expected_message);
     }
@@ -136,10 +117,7 @@ mod tests {
     #[case(ErrorResponseCode::MissingConfiguration, "MISSING_CONFIGURATION")]
     #[case(ErrorResponseCode::BackendUnavailable, "BACKEND_UNAVAILABLE")]
     #[case(ErrorResponseCode::InvalidConfiguration, "INVALID_CONFIGURATION")]
-    fn test_to_str_error_variants(
-        #[case] error_code: ErrorResponseCode,
-        #[case] expected_str: &str,
-    ) {
+    fn test_to_str_error_variants(#[case] error_code: ErrorResponseCode, #[case] expected_str: &str) {
         assert_eq!(error_code.to_str(), expected_str);
     }
 
@@ -149,10 +127,7 @@ mod tests {
     #[case(StatusCode::IM_A_TEAPOT, "IM_A_TEAPOT")]
     #[case(StatusCode::NOT_FOUND, "NOT_FOUND")]
     #[case(StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR")]
-    fn test_to_str_status_code_variants(
-        #[case] status_code: StatusCode,
-        #[case] expected_str: &str,
-    ) {
+    fn test_to_str_status_code_variants(#[case] status_code: StatusCode, #[case] expected_str: &str) {
         let error_code = ErrorResponseCode::StatusCode(status_code);
         assert_eq!(error_code.to_str(), expected_str);
     }

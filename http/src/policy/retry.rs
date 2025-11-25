@@ -33,9 +33,7 @@ impl TryFrom<&RetryPolicy> for RetryPolicyHandler {
             .collect::<Result<_, _>>()?;
 
         if value.max_attempts() < 1 {
-            return Err(RetryPolicyHandlerConversionError::MaxAttempts(
-                value.max_attempts(),
-            ));
+            return Err(RetryPolicyHandlerConversionError::MaxAttempts(value.max_attempts()));
         }
 
         if value.backoff() <= Duration::ZERO {
@@ -53,6 +51,7 @@ impl TryFrom<&RetryPolicy> for RetryPolicyHandler {
 }
 
 impl RetryPolicyHandler {
+    #[must_use] 
     pub fn should_retry(&self, code: StatusCode, current_attempt: usize) -> bool {
         self.codes.contains(&code) && current_attempt < self.max_attempts
     }

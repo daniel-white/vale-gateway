@@ -12,6 +12,7 @@ pub struct Builder {
 }
 
 impl Builder {
+    #[must_use] 
     pub fn new_task(&self, name: &'static str) -> Spawner {
         Spawner {
             name,
@@ -48,12 +49,7 @@ impl Spawner {
         F: Future<Output = ()>,
         F: Send + 'static,
     {
-        let result = self
-            .join_set
-            .borrow_mut()
-            .build_task()
-            .name(self.name)
-            .spawn(task);
+        let result = self.join_set.borrow_mut().build_task().name(self.name).spawn(task);
 
         if let Err(err) = result {
             error!("Failed to spawn task '{}': {}", self.name, err);

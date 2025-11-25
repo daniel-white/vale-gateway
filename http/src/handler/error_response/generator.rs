@@ -59,9 +59,7 @@ impl TryFrom<&Format> for ErrorResponseGenerator {
         let generator = match value {
             Format::Empty => EmptyErrorResponseGenerator::builder().build().into(),
             Format::Html => HtmlErrorResponseGenerator::builder().build().into(),
-            Format::ProblemDetail(format) => {
-                ProblemDetailErrorResponseGenerator::try_from(format)?.into()
-            }
+            Format::ProblemDetail(format) => ProblemDetailErrorResponseGenerator::try_from(format)?.into(),
         };
 
         Ok(generator)
@@ -84,9 +82,7 @@ trait Generator: Into<ErrorResponseGenerator> {
                     .body(Some(body))
                     .expect("Failed to build error response")
             }
-            None => response
-                .body(None)
-                .expect("Failed to build error response"),
+            None => response.body(None).expect("Failed to build error response"),
         }
     }
 
@@ -98,10 +94,10 @@ trait Generator: Into<ErrorResponseGenerator> {
         let span = Span::current();
         let context = span.context();
         let trace_id = context.span().span_context().trace_id();
-        if trace_id != TraceId::INVALID {
-            Some(trace_id.to_string())
-        } else {
+        if trace_id == TraceId::INVALID {
             None
+        } else {
+            Some(trace_id.to_string())
         }
     }
 }
@@ -138,9 +134,7 @@ impl Generator for ProblemDetailErrorResponseGenerator {
             .with_type(format!(
                 "{}{}",
                 self.authority
-                    .as_ref()
-                    .map(|uri| uri.to_string())
-                    .unwrap_or_else(|| "http://vale-gateway.whitefamily.in/errors/".to_string()),
+                    .as_ref().map_or_else(|| { "http://vale-gateway.whitefamily.in/errors/".to_string() }, std::string::ToString::to_string),
                 code_str
             ))
             .with_detail(message);
@@ -180,17 +174,12 @@ mod tests {
     #[tokio::test]
     async fn test_json_error_response_generator() {
         // Test the actual ProblemDetailErrorResponseGenerator (JSON format)
-        let generator = ProblemDetailErrorResponseGenerator::builder()
-            .authority(None)
-            .build();
+        let generator = ProblemDetailErrorResponseGenerator::builder().authority(None).build();
 
         let response = generator.generate_response(ErrorResponseCode::BackendUnavailable);
 
         assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
-        assert_eq!(
-            response.headers()["content-type"],
-            PROBLEM_DETAIL.to_string()
-        );
+        assert_eq!(response.headers()["content-type"], PROBLEM_DETAIL.to_string());
 
         if let Some(body) = response.body() {
             let body_str = String::from_utf8_lossy(body);
@@ -246,10 +235,7 @@ mod tests {
         let response = generator.generate_response(ErrorResponseCode::InvalidConfiguration);
 
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
-        assert_eq!(
-            response.headers()["content-type"],
-            PROBLEM_DETAIL.to_string()
-        );
+        assert_eq!(response.headers()["content-type"], PROBLEM_DETAIL.to_string());
 
         if let Some(body) = response.body() {
             let body_str = String::from_utf8_lossy(body);
@@ -286,9 +272,7 @@ mod tests {
     #[tokio::test]
     async fn test_error_response_with_correlation_id() {
         // Test that trace ID is included when available in tracing context
-        let generator = ProblemDetailErrorResponseGenerator::builder()
-            .authority(None)
-            .build();
+        let generator = ProblemDetailErrorResponseGenerator::builder().authority(None).build();
 
         // Create a tracing span to test trace ID functionality
         let span = tracing::info_span!("test_span");
@@ -297,10 +281,7 @@ mod tests {
         let response = generator.generate_response(ErrorResponseCode::MissingConfiguration);
 
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
-        assert_eq!(
-            response.headers()["content-type"],
-            PROBLEM_DETAIL.to_string()
-        );
+        assert_eq!(response.headers()["content-type"], PROBLEM_DETAIL.to_string());
 
         // Response should be generated successfully (trace ID inclusion depends on active span)
         assert!(response.body().is_some());
@@ -348,18 +329,13 @@ mod tests {
     #[tokio::test]
     async fn test_error_response_rate_limit_info() {
         // Test rate limit error_response response format
-        let generator = ProblemDetailErrorResponseGenerator::builder()
-            .authority(None)
-            .build();
+        let generator = ProblemDetailErrorResponseGenerator::builder().authority(None).build();
 
         // Using a generic error_response code (rate limiting would be a custom error_response code)
         let response = generator.generate_response(ErrorResponseCode::AccessDenied);
 
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
-        assert_eq!(
-            response.headers()["content-type"],
-            PROBLEM_DETAIL.to_string()
-        );
+        assert_eq!(response.headers()["content-type"], PROBLEM_DETAIL.to_string());
 
         // Rate limit specific headers would be added by higher-level middleware
         assert!(response.body().is_some());

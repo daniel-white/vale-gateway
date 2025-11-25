@@ -1,14 +1,12 @@
 use gateway_api::common::{HeaderMatch, HeaderMatchType};
-use gateway_api::httproutes::{
-    HTTPMethodMatch, HTTPRouteRulesMatchesPathType, PathMatch, RouteMatch,
-};
+use gateway_api::httproutes::{HTTPMethodMatch, HTTPRouteRulesMatchesPathType, PathMatch, RouteMatch};
 use http::Method;
 use http::header::{InvalidHeaderName, InvalidHeaderValue};
 use regex::Regex;
 use thiserror::Error;
 use vg_config::http::route::rule::matcher::{
-    HeaderMatcher, HeaderValueMatcher, HeadersMatcher, MethodMatcher, PathMatcher,
-    QueryParamMatcher, QueryParamValueMatcher, QueryParamsMatcher, RequestMatcher,
+    HeaderMatcher, HeaderValueMatcher, HeadersMatcher, MethodMatcher, PathMatcher, QueryParamMatcher,
+    QueryParamValueMatcher, QueryParamsMatcher, RequestMatcher,
 };
 use vg_core::internal_wrapper;
 
@@ -150,17 +148,13 @@ impl TryFrom<QueryParamMatchWrapper<'_>> for QueryParamMatcher {
 
     fn try_from(param: QueryParamMatchWrapper) -> Result<Self, Self::Error> {
         let value = match &param.r#type {
-            None | Some(HeaderMatchType::Exact) => {
-                QueryParamValueMatcher::Exact(param.value.clone())
+            None | Some(HeaderMatchType::Exact) => QueryParamValueMatcher::Exact(param.value.clone()),
+            Some(HeaderMatchType::RegularExpression) => {
+                Regex::new(&param.value).map(|_| QueryParamValueMatcher::RegularExpression(param.value.clone()))?
             }
-            Some(HeaderMatchType::RegularExpression) => Regex::new(&param.value)
-                .map(|_| QueryParamValueMatcher::RegularExpression(param.value.clone()))?,
         };
 
-        let matcher = Self::builder()
-            .name(param.name.clone())
-            .value(value)
-            .build();
+        let matcher = Self::builder().name(param.name.clone()).value(value).build();
 
         Ok(matcher)
     }
@@ -178,8 +172,7 @@ impl TryFrom<HeaderMatchesWrapper<'_>> for HeadersMatcher {
             .map(HeaderMatchWrapper)
             .enumerate()
             .map(|(idx, header)| {
-                HeaderMatcher::try_from(header)
-                    .map_err(|err| RequestMatcherConversionError::Header(idx, err))
+                HeaderMatcher::try_from(header).map_err(|err| RequestMatcherConversionError::Header(idx, err))
             })
             .collect::<Result<Vec<_>, _>>()?;
 

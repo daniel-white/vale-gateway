@@ -4,18 +4,7 @@ use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
 use vg_core::net::Port;
 
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    TypedBuilder,
-    Serialize,
-    Deserialize,
-    Getters,
-    CopyGetters,
-    CloneGetters,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, TypedBuilder, Serialize, Deserialize, Getters, CopyGetters, CloneGetters)]
 #[serde(rename_all = "camelCase")]
 pub struct UriRewriter {
     #[builder(setter(into))]
@@ -43,6 +32,7 @@ pub struct UriRewriter {
 }
 
 impl UriRewriter {
+    #[must_use] 
     pub fn is_unset(&self) -> bool {
         self.scheme.is_none() && self.host.is_none() && self.port.is_none() && self.path.is_none()
     }

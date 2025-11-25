@@ -13,12 +13,9 @@ use gateway_api::httproutes::{HTTPRouteBackendFilter, HTTPRouteFilter};
 use thiserror::Error;
 use typed_builder::TypedBuilder;
 use vg_config::http::filter::backend_uri_rewriter::BackendUriRewriterFilter;
-use vg_config::http::filter::header_modifier::HeaderModifierFilter;
+use vg_config::http::filter::header_modifier::{HeaderModifierFilter, RequestHeaderModifierFilter, ResponseHeaderModifierFilter};
 use vg_config::http::filter::redirect_response::RedirectResponseFilter;
-use vg_config::http::route::rule::filter::{
-    AccessControlRuleFilter, BackendUriRewriterRuleFilter, RedirectResponseRuleFilter,
-    RequestHeaderModifierRuleFilter, RuleBackendFilter, RuleFilter, StaticResponseRuleFilter,
-};
+use vg_config::http::route::rule::filter::{AccessControlRuleFilter, BackendUriRewriterRuleFilter, RedirectResponseRuleFilter, RequestHeaderModifierRuleFilter, ResponseHeaderModifierRuleFilter, RuleBackendFilter, RuleFilter, StaticResponseRuleFilter};
 
 type ExtensionRef = GatewayInfrastructureParametersReference;
 
@@ -105,33 +102,20 @@ impl TryFrom<HTTPRouteFilterWrapper<'_>> for RuleFilter {
                     .build();
                 Self::try_from(extension_ref).map_err(RuleFilterConversionError::Extension)
             }
-            (
-                HTTPFilterType::RequestHeaderModifier,
-                None,
-                Some(request_header_modifier),
-                None,
-                None,
-                None,
-            ) => {
+            (HTTPFilterType::RequestHeaderModifier, None, Some(request_header_modifier), None, None, None) => {
                 let request_header_modifier: HeaderModifierWrapper = request_header_modifier.into();
                 let filter = HeaderModifierFilter::try_from(request_header_modifier)
                     .map_err(RuleFilterConversionError::RequestHeaderModifier)?;
+                let filter: RequestHeaderModifierFilter = filter.into();
                 let filter: RequestHeaderModifierRuleFilter = filter.into();
                 Ok(filter.into())
             }
-            (
-                HTTPFilterType::ResponseHeaderModifier,
-                None,
-                None,
-                Some(response_header_modifier),
-                None,
-                None,
-            ) => {
-                let response_header_modifier: HeaderModifierWrapper =
-                    response_header_modifier.into();
+            (HTTPFilterType::ResponseHeaderModifier, None, None, Some(response_header_modifier), None, None) => {
+                let response_header_modifier: HeaderModifierWrapper = response_header_modifier.into();
                 let filter = HeaderModifierFilter::try_from(response_header_modifier)
                     .map_err(RuleFilterConversionError::ResponseHeaderModifier)?;
-                let filter: RequestHeaderModifierRuleFilter = filter.into();
+                let filter: ResponseHeaderModifierFilter = filter.into();
+                let filter: ResponseHeaderModifierRuleFilter = filter.into();
                 Ok(filter.into())
             }
             (HTTPFilterType::RequestRedirect, None, None, None, Some(request_redirect), None) => {
@@ -146,9 +130,7 @@ impl TryFrom<HTTPRouteFilterWrapper<'_>> for RuleFilter {
                 let filter: BackendUriRewriterRuleFilter = filter.into();
                 Ok(filter.into())
             }
-            (type_, None, None, None, None, None) => {
-                Err(RuleFilterConversionError::UnsupportedType(type_.clone()))
-            }
+            (type_, None, None, None, None, None) => Err(RuleFilterConversionError::UnsupportedType(type_.clone())),
             _ => Err(RuleFilterConversionError::InvalidConfiguration),
         }
     }
@@ -170,20 +152,16 @@ impl TryFrom<HTTPRouteBackendFilterWrapper<'_>> for RuleBackendFilter {
                 let request_header_modifier: HeaderModifierWrapper = request_header_modifier.into();
                 let filter = HeaderModifierFilter::try_from(request_header_modifier)
                     .map_err(RuleBackendFilterConversionError::RequestHeaderModifier)?;
+                let filter: RequestHeaderModifierFilter = filter.into();
                 let filter: RequestHeaderModifierRuleFilter = filter.into();
                 Ok(filter.into())
             }
-            (
-                HTTPFilterType::ResponseHeaderModifier,
-                None,
-                Some(response_header_modifier),
-                None,
-            ) => {
-                let response_header_modifier: HeaderModifierWrapper =
-                    response_header_modifier.into();
+            (HTTPFilterType::ResponseHeaderModifier, None, Some(response_header_modifier), None) => {
+                let response_header_modifier: HeaderModifierWrapper = response_header_modifier.into();
                 let filter = HeaderModifierFilter::try_from(response_header_modifier)
                     .map_err(RuleBackendFilterConversionError::ResponseHeaderModifier)?;
-                let filter: RequestHeaderModifierRuleFilter = filter.into();
+                let filter: ResponseHeaderModifierFilter = filter.into();
+                let filter: ResponseHeaderModifierRuleFilter = filter.into();
                 Ok(filter.into())
             }
             (HTTPFilterType::UrlRewrite, None, None, Some(url_rewrite)) => {
@@ -192,9 +170,7 @@ impl TryFrom<HTTPRouteBackendFilterWrapper<'_>> for RuleBackendFilter {
                 let filter: BackendUriRewriterRuleFilter = filter.into();
                 Ok(filter.into())
             }
-            (type_, None, None, None) => Err(RuleBackendFilterConversionError::UnsupportedType(
-                type_.clone(),
-            )),
+            (type_, None, None, None) => Err(RuleBackendFilterConversionError::UnsupportedType(type_.clone())),
             _ => Err(RuleBackendFilterConversionError::InvalidConfiguration),
         }
     }
@@ -242,8 +218,7 @@ impl TryFrom<&ExtensionRefWrapper<'_>> for AccessControlFilterRef {
         if value.extension_ref.group == "vale-gateway.whitefamily.io"
             && value.extension_ref.name == "AccessControlFilter"
         {
-            let ref_ =
-                AccessControlFilterRef::new(value.namespace, value.extension_ref.name.as_str());
+            let ref_ = AccessControlFilterRef::new(value.namespace, value.extension_ref.name.as_str());
             Ok(ref_)
         } else {
             Err(())
@@ -258,8 +233,7 @@ impl TryFrom<&ExtensionRefWrapper<'_>> for StaticResponseFilterRef {
         if value.extension_ref.group == "vale-gateway.whitefamily.io"
             && value.extension_ref.name == "StaticResponseFilter"
         {
-            let ref_ =
-                StaticResponseFilterRef::new(value.namespace, value.extension_ref.name.as_str());
+            let ref_ = StaticResponseFilterRef::new(value.namespace, value.extension_ref.name.as_str());
 
             Ok(ref_)
         } else {

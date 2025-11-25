@@ -1,7 +1,7 @@
 use crate::filter::SharedFilterHandlerLayer;
 use crate::handler::{
-    AccessControlFilterHandlerLayer, HeaderModifierFilterHandlerLayer,
-    HeaderModifierFilterHandlerLayerError, StaticResponseFilterHandlerLayer,
+    AccessControlFilterHandlerLayer, HeaderModifierFilterHandlerLayer, HeaderModifierFilterHandlerLayerError,
+    StaticResponseFilterHandlerLayer,
 };
 use std::collections::HashMap;
 use std::ops::Deref;
@@ -29,19 +29,11 @@ pub enum ListenerFilterHandlerLayerError {
     ResponseHeaderModifier(#[source] HeaderModifierFilterHandlerLayerError),
 }
 
-impl
-    TryFrom<(
-        &HashMap<SharedFilterRef, SharedFilterHandlerLayer>,
-        &ListenerFilter,
-    )> for ListenerFilterHandlerLayer
-{
+impl TryFrom<(&HashMap<SharedFilterRef, SharedFilterHandlerLayer>, &ListenerFilter)> for ListenerFilterHandlerLayer {
     type Error = ListenerFilterHandlerLayerError;
 
     fn try_from(
-        (shared_layers, filter): (
-            &HashMap<SharedFilterRef, SharedFilterHandlerLayer>,
-            &ListenerFilter,
-        ),
+        (shared_layers, filter): (&HashMap<SharedFilterRef, SharedFilterHandlerLayer>, &ListenerFilter),
     ) -> Result<Self, Self::Error> {
         match filter {
             ListenerFilter::AccessControl(filter) => {

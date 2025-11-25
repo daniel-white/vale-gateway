@@ -43,8 +43,8 @@ impl Service<Parts> for ClientAddrFilterHandler {
 
             req.extensions.insert(extension);
             if let Some(header) = self.backend_header.as_ref() {
-                let header_value = HeaderValue::from_str(&ip_addr.to_string())
-                    .expect("Failed to convert IP to HeaderValue");
+                let header_value =
+                    HeaderValue::from_str(&ip_addr.to_string()).expect("Failed to convert IP to HeaderValue");
                 req.headers.insert(header, header_value);
             }
         }

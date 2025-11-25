@@ -11,18 +11,7 @@ pub mod filter;
 pub mod matcher;
 pub mod policy;
 
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    Getters,
-    CopyGetters,
-    CloneGetters,
-    TypedBuilder,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CopyGetters, CloneGetters, TypedBuilder)]
 #[serde(rename_all = "camelCase")]
 pub struct Rule {
     #[getset(get_clone = "pub")]

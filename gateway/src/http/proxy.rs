@@ -34,8 +34,7 @@ impl From<ProxyService> for Box<dyn Service> {
     fn from(value: ProxyService) -> Self {
         let conf = Arc::new(ServerConf::default());
         let proxy = HttpProxy;
-        let mut service =
-            http_proxy_service_with_name(&conf, proxy, value.listener_ref.to_string().as_str());
+        let mut service = http_proxy_service_with_name(&conf, proxy, value.listener_ref.to_string().as_str());
         service.add_tcp(format!("0.0.0.0:{}", value.port).as_str());
         service.add_tcp(format!("[::]:{}", value.port).as_str());
 
@@ -52,11 +51,7 @@ impl ProxyHttp for HttpProxy {
         todo!()
     }
 
-    async fn upstream_peer(
-        &self,
-        session: &mut Session,
-        ctx: &mut Self::CTX,
-    ) -> pingora::Result<Box<HttpPeer>> {
+    async fn upstream_peer(&self, session: &mut Session, ctx: &mut Self::CTX) -> pingora::Result<Box<HttpPeer>> {
         todo!()
     }
 }

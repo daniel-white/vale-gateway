@@ -60,11 +60,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .build()
         .into();
 
-    let shared_filter_handlers: SharedFilterHandlersManager =
-        SharedFilterHandlersManagerOptions::builder()
-            .gateway(configuration.gateway())
-            .build()
-            .into();
+    let shared_filter_handlers: SharedFilterHandlersManager = SharedFilterHandlersManagerOptions::builder()
+        .gateway(configuration.gateway())
+        .build()
+        .into();
 
     let backends_configurator: BackendConfigurator = BackendConfiguratorOptions::builder()
         .current_location(current_location.subscribe())

@@ -1,14 +1,11 @@
 use super::finalizer::RoutedRequestFilterChainFinalizer;
-use super::{RoutedRequestFilterChain, factory};
-use crate::handler::generator::ErrorResponseGenerator;
+use super::RoutedRequestFilterChain;
 use crate::handler::{
-    AccessControlFilterHandlerLayer, AccessControlFilterHandlerLayerError,
-    ErrorResponseHandlerLayer, ErrorResponseHandlerLayerError, HeaderModifierFilterHandlerLayer,
-    HeaderModifierFilterHandlerLayerError, RedirectResponseFilterHandlerLayer,
-    RedirectResponseFilterHandlerLayerError, StaticResponseFilterHandlerLayer,
+    AccessControlFilterHandlerLayer, AccessControlFilterHandlerLayerError, ErrorResponseHandlerLayer,
+    ErrorResponseHandlerLayerError, HeaderModifierFilterHandlerLayer, HeaderModifierFilterHandlerLayerError,
+    RedirectResponseFilterHandlerLayer, RedirectResponseFilterHandlerLayerError, StaticResponseFilterHandlerLayer,
     StaticResponseFilterHandlerLayerError,
 };
-use std::sync::Arc;
 use thiserror::Error;
 use tower::{Layer, ServiceExt};
 use typed_builder::TypedBuilder;
@@ -43,7 +40,14 @@ pub enum RoutedRequestFilterChainFactoryError {
     RedirectResponse(#[from] RedirectResponseFilterHandlerLayerError),
 }
 
+impl Default for RoutedRequestFilterChainFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RoutedRequestFilterChainFactory {
+    #[must_use] 
     pub fn new() -> Self {
         Self::builder()
             .error_response(Default::default())
@@ -54,10 +58,7 @@ impl RoutedRequestFilterChainFactory {
             .build()
     }
 
-    pub fn error_response(
-        self,
-        policy: &ErrorResponsePolicy,
-    ) -> Result<Self, RoutedRequestFilterChainFactoryError> {
+    pub fn error_response(self, policy: &ErrorResponsePolicy) -> Result<Self, RoutedRequestFilterChainFactoryError> {
         let layer: ErrorResponseHandlerLayer = policy.try_into()?;
 
         let factory = Self::builder()

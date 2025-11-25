@@ -1,13 +1,13 @@
 use crate::api::v1::http::policy::client_addrs::{
-    ClientAddressesPolicy, ClientAddressesPolicyProxies,
-    ClientAddressesPolicyProxiesTrustedHeaders, ClientAddressesPolicySource,
+    ClientAddressesPolicy, ClientAddressesPolicyProxies, ClientAddressesPolicyProxiesTrustedHeaders,
+    ClientAddressesPolicySource,
 };
 use http::HeaderName;
 use http::header::InvalidHeaderName;
 use thiserror::Error;
 use vg_config::http::policy::client_addrs::{
-    ClientAddrExtractor, ClientAddrPolicy as ClientAddressesPolicyConfig,
-    TrustedHeaderClientAddrExtractor, TrustedProxiesClientAddrExtractor, TrustedProxyHeaderName,
+    ClientAddrExtractor, ClientAddrPolicy as ClientAddressesPolicyConfig, TrustedHeaderClientAddrExtractor,
+    TrustedProxiesClientAddrExtractor, TrustedProxyHeaderName,
 };
 use vg_core::net::IpRef;
 
@@ -47,11 +47,7 @@ impl TryFrom<&ClientAddressesPolicy> for ClientAddressesPolicyConfig {
             None => builder.backend_header(None),
         };
 
-        let builder = match (
-            &value.source,
-            value.header.as_deref(),
-            value.proxies.as_ref(),
-        ) {
+        let builder = match (&value.source, value.header.as_deref(), value.proxies.as_ref()) {
             (ClientAddressesPolicySource::None, None, None) => {
                 unreachable!("layers")
             }
@@ -59,9 +55,7 @@ impl TryFrom<&ClientAddressesPolicy> for ClientAddressesPolicyConfig {
                 builder.extractor(ClientAddrExtractor::Direct)
             }
             (ClientAddressesPolicySource::Header, Some(header), None) => {
-                let trusted_header = header
-                    .parse()
-                    .map_err(ClientAddressesPolicyConversionError::Header)?;
+                let trusted_header = header.parse().map_err(ClientAddressesPolicyConversionError::Header)?;
                 let extractor = TrustedHeaderClientAddrExtractor::builder()
                     .trusted_header(trusted_header)
                     .build();
@@ -97,9 +91,7 @@ impl TryFrom<&ClientAddressesPolicyProxies> for TrustedProxiesClientAddrExtracto
         let proxies = {
             let mut proxies: Vec<IpRef> = if value.trust_local_ranges {
                 Vec::with_capacity(
-                    IpRef::trusted_private().len()
-                        + value.trusted_ips.len()
-                        + value.trusted_ranges.len(),
+                    IpRef::trusted_private().len() + value.trusted_ips.len() + value.trusted_ranges.len(),
                 )
             } else {
                 Vec::with_capacity(value.trusted_ips.len() + value.trusted_ranges.len())

@@ -76,10 +76,7 @@ impl AccessControlPolicyHandler {
             let result: EvaluationResult = self.effect.into();
             result.negate()
         } else {
-            let matches = self
-                .matchers
-                .iter()
-                .any(|m| m.matches(client_addr.ip_addr()));
+            let matches = self.matchers.iter().any(|m| m.matches(client_addr.ip_addr()));
 
             if matches {
                 self.effect.into()
@@ -94,19 +91,14 @@ impl AccessControlPolicyHandler {
 impl From<&AccessControlFilter> for AccessControlPolicyHandler {
     fn from(value: &AccessControlFilter) -> Self {
         let matcher: Vec<_> = value.clients().iter().map(Matcher::from).collect();
-        Self::builder()
-            .effect(value.effect())
-            .matchers(matcher)
-            .build()
+        Self::builder().effect(value.effect()).matchers(matcher).build()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::extensions::TrustedClientIpAddr;
-    use crate::handler::access_control::policy::{
-        AccessControlPolicyHandler, EvaluationResult, Matcher,
-    };
+    use crate::handler::access_control::policy::{AccessControlPolicyHandler, EvaluationResult, Matcher};
     use ipnet::IpNet;
     use std::net::IpAddr;
     use std::str::FromStr;
@@ -133,14 +125,8 @@ mod tests {
             .build();
 
         let handler = AccessControlPolicyHandler::try_from(config).unwrap();
-        assert_eq!(
-            handler.evaluate(&trusted_ip("1.2.3.4")),
-            EvaluationResult::Allowed
-        );
-        assert_eq!(
-            handler.evaluate(&trusted_ip("192.168.1.1")),
-            EvaluationResult::Allowed
-        );
+        assert_eq!(handler.evaluate(&trusted_ip("1.2.3.4")), EvaluationResult::Allowed);
+        assert_eq!(handler.evaluate(&trusted_ip("192.168.1.1")), EvaluationResult::Allowed);
     }
 
     #[test]
@@ -151,14 +137,8 @@ mod tests {
             .build();
 
         let handler = AccessControlPolicyHandler::try_from(config).unwrap();
-        assert_eq!(
-            handler.evaluate(&trusted_ip("1.2.3.4")),
-            EvaluationResult::Denied
-        );
-        assert_eq!(
-            handler.evaluate(&trusted_ip("192.168.1.1")),
-            EvaluationResult::Denied
-        );
+        assert_eq!(handler.evaluate(&trusted_ip("1.2.3.4")), EvaluationResult::Denied);
+        assert_eq!(handler.evaluate(&trusted_ip("192.168.1.1")), EvaluationResult::Denied);
     }
 
     #[test]
@@ -172,18 +152,12 @@ mod tests {
             .build();
 
         let handler = AccessControlPolicyHandler::try_from(config).unwrap();
-        assert_eq!(
-            handler.evaluate(&trusted_ip("1.2.3.4")),
-            EvaluationResult::Denied
-        );
+        assert_eq!(handler.evaluate(&trusted_ip("1.2.3.4")), EvaluationResult::Denied);
         assert_eq!(
             handler.evaluate(&trusted_ip("192.168.1.127")),
             EvaluationResult::Allowed
         );
-        assert_eq!(
-            handler.evaluate(&trusted_ip("127.0.0.1")),
-            EvaluationResult::Allowed
-        );
+        assert_eq!(handler.evaluate(&trusted_ip("127.0.0.1")), EvaluationResult::Allowed);
     }
 
     #[test]
@@ -197,17 +171,8 @@ mod tests {
             .build();
 
         let handler = AccessControlPolicyHandler::try_from(config).unwrap();
-        assert_eq!(
-            handler.evaluate(&trusted_ip("1.2.3.4")),
-            EvaluationResult::Allowed
-        );
-        assert_eq!(
-            handler.evaluate(&trusted_ip("192.168.1.127")),
-            EvaluationResult::Denied
-        );
-        assert_eq!(
-            handler.evaluate(&trusted_ip("127.0.0.1")),
-            EvaluationResult::Denied
-        );
+        assert_eq!(handler.evaluate(&trusted_ip("1.2.3.4")), EvaluationResult::Allowed);
+        assert_eq!(handler.evaluate(&trusted_ip("192.168.1.127")), EvaluationResult::Denied);
+        assert_eq!(handler.evaluate(&trusted_ip("127.0.0.1")), EvaluationResult::Denied);
     }
 }

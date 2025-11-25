@@ -35,7 +35,7 @@ mod test {
             .build();
 
         let json = serde_json::to_string(&l).unwrap();
-        println!("{}", json);
+        println!("{json}");
     }
 
     #[test]

@@ -25,5 +25,4 @@ impl<T> ResponseFilterTrait for T where
 {
 }
 
-pub type ResponseFilter =
-    BoxCloneService<http::response::Parts, ResponseFilterResult, ResponseFilterError>;
+pub type ResponseFilter = BoxCloneService<http::response::Parts, ResponseFilterResult, ResponseFilterError>;

@@ -77,6 +77,7 @@ where
     V: PartialEq + Clone,
     E: From<CollectionEvent<K, V>> + Clone,
 {
+    #[must_use] 
     pub fn new(channel_capacity: usize) -> Self {
         let (tx, rx) = channel(channel_capacity);
         Self {
@@ -99,9 +100,7 @@ where
                 );
             }
             None => {
-                let _ = self
-                    .tx
-                    .send(CollectionEvent::Inserted { key, value }.into());
+                let _ = self.tx.send(CollectionEvent::Inserted { key, value }.into());
             }
             _ => {}
         }
@@ -117,6 +116,7 @@ where
         self.map.get(key).map(|v| v.value().clone())
     }
 
+    #[must_use] 
     pub fn subscribe(&self) -> Receiver<K, V, E> {
         self.tx.subscribe().into()
     }

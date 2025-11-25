@@ -4,9 +4,7 @@ use http::{HeaderMap, HeaderName};
 use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
 
-#[derive(
-    Debug, TypedBuilder, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters,
-)]
+#[derive(Debug, TypedBuilder, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters)]
 #[serde(rename_all = "camelCase")]
 pub struct HeaderModifierFilter {
     #[getset(get_clone = "pub")]

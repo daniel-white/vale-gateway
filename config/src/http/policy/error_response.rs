@@ -4,9 +4,7 @@ use http::Uri;
 use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
 
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder)]
 #[serde(rename_all = "camelCase")]
 pub struct ProblemDetailFormat {
     #[getset(get_clone = "pub")]
@@ -23,18 +21,7 @@ pub enum Format {
     ProblemDetail(ProblemDetailFormat),
 }
 
-#[derive(
-    Default,
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    TypedBuilder,
-    Getters,
-    CloneGetters,
-)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TypedBuilder, Getters, CloneGetters)]
 #[serde(rename_all = "camelCase")]
 pub struct ErrorResponsePolicy {
     #[getset(get = "pub")]

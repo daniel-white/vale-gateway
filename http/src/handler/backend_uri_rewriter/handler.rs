@@ -1,8 +1,6 @@
 use crate::extensions::routing::RequestMatch;
 use crate::rewriting::uri::UriRewriter;
-use crate::stage::backend_request::{
-    BackendRequestFilter, BackendRequestFilterError, BackendRequestFilterResult,
-};
+use crate::stage::backend_request::{BackendRequestFilter, BackendRequestFilterError, BackendRequestFilterResult};
 use futures::future::BoxFuture;
 use http::request::Parts;
 use std::sync::Arc;
@@ -26,10 +24,7 @@ impl Service<Parts> for BackendUriRewriterFilterHandler {
     }
 
     fn call(&mut self, mut req: Parts) -> Self::Future {
-        let request_match = req
-            .extensions
-            .get::<RequestMatch>()
-            .expect("missing request match");
+        let request_match = req.extensions.get::<RequestMatch>().expect("missing request match");
 
         let new_uri = self.rewriter.rewrite(&req.uri, request_match);
         req.uri = new_uri;

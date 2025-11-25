@@ -8,8 +8,7 @@ use thiserror::Error;
 use tracing::{debug, instrument};
 use typed_builder::TypedBuilder;
 use vg_config::http::route::rule::matcher::{
-    QueryParamMatcher as QueryParamMatcherConfig,
-    QueryParamValueMatcher as QueryParamValueMatcherConfig,
+    QueryParamMatcher as QueryParamMatcherConfig, QueryParamValueMatcher as QueryParamValueMatcherConfig,
     QueryParamsMatcher as QueryParamsMatcherConfig,
 };
 
@@ -83,11 +82,13 @@ impl QueryParamMatcher {
             .build()
     }
 
+    #[must_use] 
     pub fn new_exact(name: &str, value: &str) -> Self {
         let value_matcher = QueryParamValueMatcher::Exact(value.into());
         Self::new(name, value_matcher)
     }
 
+    #[must_use] 
     pub fn new_matching(name: &str, regex: &Regex) -> Self {
         let value_matcher = QueryParamValueMatcher::RegularExpression(regex.into());
         Self::new(name, value_matcher)
@@ -152,6 +153,7 @@ pub struct QueryParamsMatcher {
 }
 
 impl QueryParamsMatcher {
+    #[must_use] 
     pub fn weight(&self) -> usize {
         self.matchers.len()
     }
@@ -171,11 +173,10 @@ impl Matcher for QueryParamsMatcher {
             return false;
         }
 
-        let is_match = self.matchers.iter().all(|m| {
-            query_params
-                .iter()
-                .any(|query_param| m.matches(query_param))
-        });
+        let is_match = self
+            .matchers
+            .iter()
+            .all(|m| query_params.iter().any(|query_param| m.matches(query_param)));
 
         if is_match {
             debug!("Query parameters matched");
@@ -196,14 +197,10 @@ mod tests {
         let uri = if query.is_empty() {
             "http://example.com/test".to_string()
         } else {
-            format!("http://example.com/test?{}", query)
+            format!("http://example.com/test?{query}")
         };
-        let request = Request::builder()
-            .uri(&uri)
-            .version(Version::HTTP_11)
-            .body(())
-            .unwrap();
-        let (parts, _) = request.into_parts();
+        let request = Request::builder().uri(&uri).version(Version::HTTP_11).body(()).unwrap();
+        let (parts, ()) = request.into_parts();
         parts
     }
 
@@ -243,8 +240,7 @@ mod tests {
         // Assert
         assert_eq!(
             result, expected_match,
-            "QueryParamNameMatcher should return {} for '{}' vs '{}'",
-            expected_match, matcher_name, test_name
+            "QueryParamNameMatcher should return {expected_match} for '{matcher_name}' vs '{test_name}'"
         );
     }
 
@@ -284,8 +280,7 @@ mod tests {
         // Assert
         assert_eq!(
             result, expected_match,
-            "QueryParamValueMatcher should return {} for '{}' vs '{}'",
-            expected_match, matcher_value, test_value
+            "QueryParamValueMatcher should return {expected_match} for '{matcher_value}' vs '{test_value}'"
         );
     }
 
@@ -311,8 +306,7 @@ mod tests {
         // Assert
         assert_eq!(
             result, expected_match,
-            "QueryParamValueMatcher with regex '{}' should return {} for value '{}'",
-            pattern, expected_match, test_value
+            "QueryParamValueMatcher with regex '{pattern}' should return {expected_match} for value '{test_value}'"
         );
     }
 
@@ -368,8 +362,7 @@ mod tests {
         // Assert
         assert_eq!(
             result, expected_match,
-            "QueryParamMatcher should return {} for '{}={}' vs '{}={}'",
-            expected_match, matcher_name, matcher_value, test_name, test_value
+            "QueryParamMatcher should return {expected_match} for '{matcher_name}={matcher_value}' vs '{test_name}={test_value}'"
         );
     }
 
@@ -389,20 +382,14 @@ mod tests {
             result,
             "Empty QueryParamsMatcher should match any request with query params"
         );
-        assert_eq!(
-            matcher.weight(),
-            0,
-            "Empty QueryParamsMatcher should have weight 0"
-        );
+        assert_eq!(matcher.weight(), 0, "Empty QueryParamsMatcher should have weight 0");
     }
 
     #[test]
     fn test_query_params_matcher_no_query_params() {
         // Arrange
         let param_matcher = QueryParamMatcher::new_exact("page", "1");
-        let matcher = QueryParamsMatcher::builder()
-            .matchers(vec![param_matcher])
-            .build();
+        let matcher = QueryParamsMatcher::builder().matchers(vec![param_matcher]).build();
         let parts = create_request_parts_with_query(""); // No query params
         let scorer = RequestMatcherScorer::default();
 
@@ -420,9 +407,7 @@ mod tests {
     fn test_query_params_matcher_single_exact_match() {
         // Arrange
         let param_matcher = QueryParamMatcher::new_exact("format", "json");
-        let matcher = QueryParamsMatcher::builder()
-            .matchers(vec![param_matcher])
-            .build();
+        let matcher = QueryParamsMatcher::builder().matchers(vec![param_matcher]).build();
         let parts = create_request_parts_with_query("format=json");
         let scorer = RequestMatcherScorer::default();
 
@@ -430,24 +415,15 @@ mod tests {
         let result = matcher.matches(&scorer, &parts);
 
         // Assert
-        assert!(
-            result,
-            "QueryParamsMatcher should match when single parameter matches"
-        );
-        assert_eq!(
-            matcher.weight(),
-            1,
-            "Single parameter matcher should have weight 1"
-        );
+        assert!(result, "QueryParamsMatcher should match when single parameter matches");
+        assert_eq!(matcher.weight(), 1, "Single parameter matcher should have weight 1");
     }
 
     #[test]
     fn test_query_params_matcher_single_no_match() {
         // Arrange
         let param_matcher = QueryParamMatcher::new_exact("format", "json");
-        let matcher = QueryParamsMatcher::builder()
-            .matchers(vec![param_matcher])
-            .build();
+        let matcher = QueryParamsMatcher::builder().matchers(vec![param_matcher]).build();
         let parts = create_request_parts_with_query("format=xml");
         let scorer = RequestMatcherScorer::default();
 
@@ -476,15 +452,8 @@ mod tests {
         let result = matcher.matches(&scorer, &parts);
 
         // Assert
-        assert!(
-            result,
-            "QueryParamsMatcher should match when all parameters match"
-        );
-        assert_eq!(
-            matcher.weight(),
-            2,
-            "Two parameter matchers should have weight 2"
-        );
+        assert!(result, "QueryParamsMatcher should match when all parameters match");
+        assert_eq!(matcher.weight(), 2, "Two parameter matchers should have weight 2");
     }
 
     #[test]
@@ -513,9 +482,7 @@ mod tests {
         // Arrange
         let regex = Regex::new(r"^\d+$").unwrap();
         let param_matcher = QueryParamMatcher::new_matching("id", &regex);
-        let matcher = QueryParamsMatcher::builder()
-            .matchers(vec![param_matcher])
-            .build();
+        let matcher = QueryParamsMatcher::builder().matchers(vec![param_matcher]).build();
         let parts = create_request_parts_with_query("id=123");
         let scorer = RequestMatcherScorer::default();
 
@@ -530,9 +497,7 @@ mod tests {
     fn test_query_params_matcher_extra_params_in_request() {
         // Arrange
         let param_matcher = QueryParamMatcher::new_exact("format", "json");
-        let matcher = QueryParamsMatcher::builder()
-            .matchers(vec![param_matcher])
-            .build();
+        let matcher = QueryParamsMatcher::builder().matchers(vec![param_matcher]).build();
         let parts = create_request_parts_with_query("format=json&extra=value&another=param");
         let scorer = RequestMatcherScorer::default();
 
@@ -550,9 +515,7 @@ mod tests {
     fn test_query_params_matcher_url_encoded_values() {
         // Arrange
         let param_matcher = QueryParamMatcher::new_exact("message", "hello world");
-        let matcher = QueryParamsMatcher::builder()
-            .matchers(vec![param_matcher])
-            .build();
+        let matcher = QueryParamsMatcher::builder().matchers(vec![param_matcher]).build();
         let parts = create_request_parts_with_query("message=hello%20world");
         let scorer = RequestMatcherScorer::default();
 
@@ -560,10 +523,7 @@ mod tests {
         let result = matcher.matches(&scorer, &parts);
 
         // Assert
-        assert!(
-            result,
-            "QueryParamsMatcher should handle URL encoded values correctly"
-        );
+        assert!(result, "QueryParamsMatcher should handle URL encoded values correctly");
     }
 
     #[rstest]
@@ -574,9 +534,7 @@ mod tests {
     fn test_query_params_matcher_complex_query_strings(#[case] query: &str) {
         // Arrange
         let param_matcher = QueryParamMatcher::new_exact("search", "test query");
-        let matcher = QueryParamsMatcher::builder()
-            .matchers(vec![param_matcher])
-            .build();
+        let matcher = QueryParamsMatcher::builder().matchers(vec![param_matcher]).build();
 
         // Only test the second case that has the search parameter
         if query.contains("search=test%20query") {
@@ -589,8 +547,7 @@ mod tests {
             // Assert
             assert!(
                 result,
-                "QueryParamsMatcher should handle complex query string: {}",
-                query
+                "QueryParamsMatcher should handle complex query string: {query}"
             );
         }
     }
@@ -599,9 +556,7 @@ mod tests {
     fn test_query_params_matcher_calls_scorer_on_match() {
         // Arrange
         let param_matcher = QueryParamMatcher::new_exact("key", "value");
-        let matcher = QueryParamsMatcher::builder()
-            .matchers(vec![param_matcher])
-            .build();
+        let matcher = QueryParamsMatcher::builder().matchers(vec![param_matcher]).build();
         let parts = create_request_parts_with_query("key=value");
         let scorer = RequestMatcherScorer::default();
 
@@ -617,9 +572,7 @@ mod tests {
     fn test_query_params_matcher_does_not_call_scorer_on_no_match() {
         // Arrange
         let param_matcher = QueryParamMatcher::new_exact("key", "value");
-        let matcher = QueryParamsMatcher::builder()
-            .matchers(vec![param_matcher])
-            .build();
+        let matcher = QueryParamsMatcher::builder().matchers(vec![param_matcher]).build();
         let parts = create_request_parts_with_query("key=different");
         let scorer = RequestMatcherScorer::default();
 
@@ -635,9 +588,7 @@ mod tests {
     fn test_query_params_matcher_empty_parameter_value() {
         // Arrange
         let param_matcher = QueryParamMatcher::new_exact("empty", "");
-        let matcher = QueryParamsMatcher::builder()
-            .matchers(vec![param_matcher])
-            .build();
+        let matcher = QueryParamsMatcher::builder().matchers(vec![param_matcher]).build();
         let parts = create_request_parts_with_query("empty=");
         let scorer = RequestMatcherScorer::default();
 
@@ -645,19 +596,14 @@ mod tests {
         let result = matcher.matches(&scorer, &parts);
 
         // Assert
-        assert!(
-            result,
-            "QueryParamsMatcher should handle empty parameter values"
-        );
+        assert!(result, "QueryParamsMatcher should handle empty parameter values");
     }
 
     #[test]
     fn test_query_params_matcher_parameter_without_value() {
         // Arrange
         let param_matcher = QueryParamMatcher::new_exact("flag", "");
-        let matcher = QueryParamsMatcher::builder()
-            .matchers(vec![param_matcher])
-            .build();
+        let matcher = QueryParamsMatcher::builder().matchers(vec![param_matcher]).build();
         let parts = create_request_parts_with_query("flag");
         let scorer = RequestMatcherScorer::default();
 

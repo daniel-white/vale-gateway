@@ -37,11 +37,8 @@ impl Service<Parts> for StaticResponseFilterHandler {
 
             let response = match body_content.as_ref() {
                 Some(body) => {
-                    let content_type: HeaderValue = body
-                        .content_type()
-                        .try_into()
-                        .expect("Invalid content type");
-                    let body = Bytes::from(body.data().to_vec());
+                    let content_type: HeaderValue = body.content_type().try_into().expect("Invalid content type");
+                    let body = Bytes::from(body.data().clone());
 
                     builder
                         .header(CONTENT_TYPE, content_type)

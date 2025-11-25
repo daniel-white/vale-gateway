@@ -11,11 +11,7 @@ fn main() {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let manifest_dir = Path::new(manifest_dir.as_str());
 
-    let out_dir = manifest_dir
-        .join("..")
-        .join("helm")
-        .join("crds")
-        .join("generated");
+    let out_dir = manifest_dir.join("..").join("helm").join("crds").join("generated");
 
     let out_dir = out_dir.as_path();
     write_kube_crds(out_dir);

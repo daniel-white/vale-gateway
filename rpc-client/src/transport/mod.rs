@@ -32,12 +32,14 @@ impl TransportClient {
         self.client.changed().await.map_err(|_| ())
     }
 
+    #[must_use] 
     pub fn client(&self) -> Client {
         self.client.borrow().clone()
     }
 
     // Temporary method to derive listener_ref from gateway_ref
     // This will be removed when the API client is updated to use Gateway-centric approach
+    #[must_use] 
     pub fn listener_ref(&self) -> vg_config::http::listener::ListenerRef {
         // For now, assume the listener_ref can be derived from gateway_ref
         // This is a temporary solution during the transition
@@ -45,10 +47,7 @@ impl TransportClient {
     }
 
     pub async fn request_reconnect(&self) {
-        let _ = self
-            .message_tx
-            .send(TransportClientMessage::Reconnect)
-            .await;
+        let _ = self.message_tx.send(TransportClientMessage::Reconnect).await;
     }
 }
 
@@ -88,36 +87,33 @@ impl Transport {
                 let client = WsClientBuilder::new().enable_ws_ping(PingConfig::default());
                 select! {
                     result = client.build(self.endpoint.to_string()) => {
-                        match result {
-                            Ok(client) => {
-                                println!("client connected!");
-                                let _ = self.client.send(Client::Connected(Arc::new(client)));
-                                select! {
-                                    _ = message_rx.recv() => {
-                                        // TODO handle message error and types!
-                                        let _ = self.client.send(Client::Disconnected);
-                                        continue;
-                                    }
-                                    _ = stop_handle.stopped() => {
-                                        let _ = self.client.send(Client::Disconnected);
-                                        break;
-                                    }
+                        if let Ok(client) = result {
+                            println!("client connected!");
+                            let _ = self.client.send(Client::Connected(Arc::new(client)));
+                            select! {
+                                _ = message_rx.recv() => {
+                                    // TODO handle message error and types!
+                                    let _ = self.client.send(Client::Disconnected);
+                                    continue;
                                 }
-                            },
-                            Err(_) => {
-                                println!("client unable to connect!");
-
-                                // TODO retry with staggered retries
-                                tokio::time::sleep(Duration::from_secs(5)).await;
-                                continue;
+                                () = stop_handle.stopped() => {
+                                    let _ = self.client.send(Client::Disconnected);
+                                    break;
+                                }
                             }
+                        } else {
+                            println!("client unable to connect!");
+
+                            // TODO retry with staggered retries
+                            tokio::time::sleep(Duration::from_secs(5)).await;
+                            continue;
                         }
                     }
                     _ = message_rx.recv() => {
                         // TODO handle message error and types!
                         continue;
                     }
-                    _ = stop_handle.stopped() => {
+                    () = stop_handle.stopped() => {
                         let _ = self.client.send(Client::Disconnected);
                         break;
                     }

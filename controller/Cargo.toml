@@ -3,6 +3,9 @@ name = "vg-controller"
 version = "0.0.0"
 edition = "2024"
 
+[lints]
+workspace = true
+
 [dependencies]
 async-trait.workspace = true
 http.workspace = true
@@ -14,3 +17,4 @@ typed-builder.workspace = true
 vg-core = { path = "../core" }
 vg-config = { path = "../config" }
 vg-rpc-server = { path = "../rpc-server" }
+

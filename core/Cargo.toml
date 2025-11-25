@@ -7,6 +7,9 @@ edition = "2024"
 name = "vg_core"
 path = "src/lib.rs"
 
+[lints]
+workspace = true
+
 [dependencies]
 arc-swap.workspace = true
 assertables.workspace = true

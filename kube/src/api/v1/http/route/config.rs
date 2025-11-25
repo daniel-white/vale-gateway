@@ -1,6 +1,5 @@
 use crate::api::v1::http::route::rule::config::{HTTPRouteRuleWrapper, RuleConversionError};
 use crate::resources::{HTTPRouteRef, HTTPRouteWrapper};
-use std::ops::Deref;
 use thiserror::Error;
 use vg_config::http::route::host::{HostMatcher, HostMatcherConversionError};
 use vg_config::http::route::rule::Rule;
@@ -26,7 +25,7 @@ impl TryFrom<HTTPRouteWrapper<'_>> for Route {
     type Error = RouteConversionError;
 
     fn try_from(value: HTTPRouteWrapper<'_>) -> Result<Self, Self::Error> {
-        let ref_ = HTTPRouteRef::from(*value.deref());
+        let ref_ = HTTPRouteRef::from(*value);
 
         let spec = &value.spec;
 

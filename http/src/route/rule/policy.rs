@@ -36,11 +36,7 @@ impl TryFrom<&RulePolicies> for RulePolicyHandlers {
 
     fn try_from(value: &RulePolicies) -> Result<Self, Self::Error> {
         let timeouts = value.timeouts().try_into()?;
-        let retries = value
-            .retries()
-            .as_ref()
-            .map(RetryPolicyHandler::try_from)
-            .transpose()?;
+        let retries = value.retries().as_ref().map(RetryPolicyHandler::try_from).transpose()?;
 
         let policies = Self::builder().timeouts(timeouts).retries(retries).build();
 

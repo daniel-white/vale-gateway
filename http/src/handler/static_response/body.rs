@@ -1,8 +1,6 @@
 use getset::Getters;
 use typed_builder::TypedBuilder;
-use vg_config::http::filter::static_response::{
-    Body as BodyConfig, BodyContent as BodyContentConfig,
-};
+use vg_config::http::filter::static_response::{Body as BodyConfig, BodyContent as BodyContentConfig};
 use vg_core::http::content_type::ContentTypeBuf;
 
 #[derive(Debug, TypedBuilder, Getters)]

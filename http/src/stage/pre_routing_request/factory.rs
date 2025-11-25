@@ -1,14 +1,11 @@
 use super::PreRoutingRequestFilterChain;
 use super::finalizer::PreRoutingRequestFilterChainFinalizer;
-use crate::handler::generator::{ErrorResponseGenerator, ErrorResponseGeneratorConversionError};
 use crate::handler::{
-    AccessControlFilterHandlerLayer, AccessControlFilterHandlerLayerError,
-    ClientAddrFilterHandlerLayer, ClientAddrFilterHandlerLayerError, ErrorResponseHandlerLayer,
-    ErrorResponseHandlerLayerError, HeaderModifierFilterHandlerLayer,
-    HeaderModifierFilterHandlerLayerError, StaticResponseFilterHandlerLayer,
+    AccessControlFilterHandlerLayer, AccessControlFilterHandlerLayerError, ClientAddrFilterHandlerLayer,
+    ClientAddrFilterHandlerLayerError, ErrorResponseHandlerLayer, ErrorResponseHandlerLayerError,
+    HeaderModifierFilterHandlerLayer, HeaderModifierFilterHandlerLayerError, StaticResponseFilterHandlerLayer,
     StaticResponseFilterHandlerLayerError,
 };
-use std::sync::Arc;
 use thiserror::Error;
 use tower::{Layer, ServiceExt};
 use typed_builder::TypedBuilder;
@@ -44,9 +41,7 @@ pub enum PreRoutingRequestFilterChainFactoryError {
 }
 
 impl PreRoutingRequestFilterChainFactory {
-    pub fn with_client_addr(
-        policy: &ClientAddrPolicy,
-    ) -> Result<Self, PreRoutingRequestFilterChainFactoryError> {
+    pub fn with_client_addr(policy: &ClientAddrPolicy) -> Result<Self, PreRoutingRequestFilterChainFactoryError> {
         let layer: ClientAddrFilterHandlerLayer = policy.try_into()?;
 
         let factory = Self::builder()

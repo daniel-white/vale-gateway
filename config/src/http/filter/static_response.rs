@@ -10,18 +10,7 @@ use vg_core::http::content_type::ContentTypeBuf;
 #[serde(transparent)]
 pub struct StaticResponseFilterRef(String);
 
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    TypedBuilder,
-    Getters,
-    CopyGetters,
-    CloneGetters,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TypedBuilder, Getters, CopyGetters, CloneGetters)]
 #[serde(rename_all = "camelCase")]
 pub struct StaticResponseFilter {
     #[getset(get_clone = "pub")]
@@ -34,18 +23,7 @@ pub struct StaticResponseFilter {
     body: Option<Body>,
 }
 
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    TypedBuilder,
-    Getters,
-    CloneGetters,
-    CopyGetters,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TypedBuilder, Getters, CloneGetters, CopyGetters)]
 #[serde(rename_all = "camelCase")]
 pub struct Body {
     #[getset(get_clone = "pub")]
@@ -67,9 +45,7 @@ pub enum BodyContent {
     Remote(Uri),
 }
 
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder)]
 #[serde(rename_all = "camelCase")]
 pub struct StaticResponseSharedFilter {
     #[getset(get_clone = "pub")]

@@ -7,9 +7,7 @@ use typed_builder::TypedBuilder;
 use vg_core::http::header::{X_FORWARDED_BY, X_FORWARDED_FOR, X_FORWARDED_HOST, X_FORWARDED_PROTO};
 use vg_core::net::IpRef;
 
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder)]
 #[serde(rename_all = "camelCase")]
 pub struct TrustedHeaderClientAddrExtractor {
     #[getset(get_clone = "pub")]
@@ -52,29 +50,29 @@ pub struct TrustedProxiesClientAddrExtractor {
 }
 
 impl TrustedProxiesClientAddrExtractor {
+    #[must_use] 
     pub fn trust_forwarded_header(&self) -> bool {
-        self.trusted_headers
-            .contains(&TrustedProxyHeaderName::Forwarded)
+        self.trusted_headers.contains(&TrustedProxyHeaderName::Forwarded)
     }
 
+    #[must_use] 
     pub fn trust_x_forwarded_for_header(&self) -> bool {
-        self.trusted_headers
-            .contains(&TrustedProxyHeaderName::XForwardedFor)
+        self.trusted_headers.contains(&TrustedProxyHeaderName::XForwardedFor)
     }
 
+    #[must_use] 
     pub fn trust_x_forwarded_host_header(&self) -> bool {
-        self.trusted_headers
-            .contains(&TrustedProxyHeaderName::XForwardedHost)
+        self.trusted_headers.contains(&TrustedProxyHeaderName::XForwardedHost)
     }
 
+    #[must_use] 
     pub fn trust_x_forwarded_proto_header(&self) -> bool {
-        self.trusted_headers
-            .contains(&TrustedProxyHeaderName::XForwardedProto)
+        self.trusted_headers.contains(&TrustedProxyHeaderName::XForwardedProto)
     }
 
+    #[must_use] 
     pub fn trust_x_forwarded_by_header(&self) -> bool {
-        self.trusted_headers
-            .contains(&TrustedProxyHeaderName::XForwardedBy)
+        self.trusted_headers.contains(&TrustedProxyHeaderName::XForwardedBy)
     }
 }
 
@@ -87,18 +85,7 @@ pub enum ClientAddrExtractor {
     TrustedProxies(TrustedProxiesClientAddrExtractor),
 }
 
-#[derive(
-    Debug,
-    Default,
-    Clone,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    TypedBuilder,
-    Getters,
-    CloneGetters,
-)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize, TypedBuilder, Getters, CloneGetters)]
 #[serde(rename_all = "camelCase")]
 pub struct ClientAddrPolicy {
     #[getset(get = "pub")]
@@ -137,10 +124,7 @@ mod tests {
             .build();
 
         let json = serde_json::to_string(&policy).unwrap();
-        assert_eq!(
-            json,
-            r#"{"extractor":"direct","backendHeader":"x-client-ip"}"#
-        );
+        assert_eq!(json, r#"{"extractor":"direct","backendHeader":"x-client-ip"}"#);
     }
 
     #[test]

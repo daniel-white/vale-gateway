@@ -20,10 +20,7 @@ pub struct Observable<T: PartialEq + Send + Sync>(Arc<State<T>>);
 impl<T: PartialEq + Send + Sync> Observable<T> {
     pub fn new(initial: T) -> (Observable<T>, Subscription<T>) {
         let (tx, _) = watch::channel(0);
-        let state = State::builder()
-            .arc(ArcSwap::from_pointee(initial))
-            .tx(tx)
-            .build();
+        let state = State::builder().arc(ArcSwap::from_pointee(initial)).tx(tx).build();
         let observable = Self(Arc::new(state));
         let subscription = observable.subscribe();
         (observable, subscription)
@@ -34,6 +31,7 @@ impl<T: PartialEq + Send + Sync> Observable<T> {
     }
 
     /// Subscribe to change notifications
+    #[must_use] 
     pub fn subscribe(&self) -> Subscription<T> {
         let state = self.state();
         let rx = state.tx.subscribe();
@@ -43,7 +41,7 @@ impl<T: PartialEq + Send + Sync> Observable<T> {
 
     /// Apply an update function *optimistically* and retry if stale.
     ///
-    /// If `f` produces the same value (PartialEq), no update or notify occurs.
+    /// If `f` produces the same value (`PartialEq`), no update or notify occurs.
     pub fn update<F>(&self, mut f: F)
     where
         F: FnMut(&T) -> T,
@@ -86,6 +84,7 @@ pub struct Subscription<T: PartialEq + Send + Sync> {
 }
 
 impl<T: PartialEq + Send + Sync> Subscription<T> {
+    #[must_use] 
     pub fn current(&self) -> Arc<T> {
         self.state.arc.load_full()
     }

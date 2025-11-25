@@ -22,6 +22,7 @@ pub enum TopologyLocationMatch {
 }
 
 impl TopologyLocationMatch {
+    #[must_use] 
     pub fn matches(lhs: &TopologyLocation, rhs: &TopologyLocation) -> BitFlags<Self> {
         let mut score = BitFlags::empty();
         if lhs.zone.is_some() && lhs.zone == rhs.zone {

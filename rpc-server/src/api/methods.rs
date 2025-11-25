@@ -63,12 +63,9 @@ impl ApiServer for ApiServerMethods {
             .sink(subscription_sink)
             .build();
 
-        self.event_sinks
-            .try_register(pending_sink)
-            .await
-            .map_err(|err| {
-                let err: ErrorObject<'static> = err.into();
-                SubscriptionError::from(err)
-            })
+        self.event_sinks.try_register(pending_sink).await.map_err(|err| {
+            let err: ErrorObject<'static> = err.into();
+            SubscriptionError::from(err)
+        })
     }
 }

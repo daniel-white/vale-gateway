@@ -68,6 +68,7 @@ pub enum AccessControlFilterConditionType {
 }
 
 impl AccessControlFilterConditionType {
+    #[must_use] 
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Accepted => "Accepted",
@@ -95,6 +96,7 @@ pub enum AccessControlFilterConditionReason {
 }
 
 impl AccessControlFilterConditionReason {
+    #[must_use] 
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Accepted => "Accepted",

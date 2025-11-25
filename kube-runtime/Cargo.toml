@@ -3,6 +3,9 @@ name = "vg-kube-runtime"
 version = "0.0.0"
 edition = "2024"
 
+[lints]
+workspace = true
+
 [dependencies]
 gateway-api.workspace = true
 k8s-openapi.workspace = true

@@ -18,10 +18,12 @@ impl<T: PartialEq> ExactMatcher<T> {
 }
 
 impl ExactMatcher<String> {
+    #[must_use] 
     pub fn weight(&self) -> usize {
         self.value.len()
     }
 
+    #[must_use] 
     pub fn matches_str(&self, value: &str) -> bool {
         self.value.as_str() == value
     }
@@ -34,6 +36,7 @@ impl ExactMatcher<HeaderValue> {
 }
 
 impl ExactMatcher<Name> {
+    #[must_use] 
     pub fn weight(&self) -> usize {
         self.value.iter().len()
     }
@@ -102,10 +105,12 @@ pub struct StringPrefixMatcher {
 }
 
 impl StringPrefixMatcher {
+    #[must_use] 
     pub fn matches(&self, value: &str) -> bool {
         value.starts_with(&self.prefix)
     }
 
+    #[must_use] 
     pub fn weight(&self) -> usize {
         self.prefix.len()
     }
@@ -135,10 +140,12 @@ pub struct RegularExpressionMatcher {
 }
 
 impl RegularExpressionMatcher {
+    #[must_use] 
     pub fn matches(&self, value: &str) -> bool {
         self.regex.is_match(value)
     }
 
+    #[must_use] 
     pub fn weight(&self) -> usize {
         self.regex.as_str().len() * 4
     }
@@ -159,9 +166,7 @@ impl From<Regex> for RegularExpressionMatcher {
 
 impl From<&Regex> for RegularExpressionMatcher {
     fn from(val: &Regex) -> Self {
-        RegularExpressionMatcher::builder()
-            .regex(val.clone())
-            .build()
+        RegularExpressionMatcher::builder().regex(val.clone()).build()
     }
 }
 
@@ -172,6 +177,7 @@ pub struct InZoneDnsNameMatcher {
 }
 
 impl InZoneDnsNameMatcher {
+    #[must_use] 
     pub fn matches(&self, value: &Name) -> bool {
         self.zone.zone_of(value)
     }
@@ -218,9 +224,7 @@ mod tests {
         }
 
         #[rstest]
-        fn test_exact_string_matcher_doesnt_match_different_value(
-            string_matcher: ExactMatcher<String>,
-        ) {
+        fn test_exact_string_matcher_doesnt_match_different_value(string_matcher: ExactMatcher<String>) {
             assert!(!string_matcher.matches(&"different".to_string()));
         }
 
@@ -244,18 +248,13 @@ mod tests {
         #[case("a", 1)]
         #[case("hello", 5)]
         #[case("hello world", 11)]
-        fn test_exact_string_matcher_weight_with_different_lengths(
-            #[case] input: &str,
-            #[case] expected: usize,
-        ) {
+        fn test_exact_string_matcher_weight_with_different_lengths(#[case] input: &str, #[case] expected: usize) {
             let matcher: ExactMatcher<_> = input.into();
             assert_eq!(matcher.weight(), expected);
         }
 
         #[rstest]
-        fn test_exact_header_value_matcher_matches_exact_value(
-            header_value_matcher: ExactMatcher<HeaderValue>,
-        ) {
+        fn test_exact_header_value_matcher_matches_exact_value(header_value_matcher: ExactMatcher<HeaderValue>) {
             let header_value = HeaderValue::from_static("application/json");
             assert!(header_value_matcher.matches(&header_value));
         }
@@ -277,10 +276,7 @@ mod tests {
         #[case("text/html", 9)]
         #[case("application/xml", 15)]
         #[case("*/*", 3)]
-        fn test_exact_header_value_matcher_weight_with_different_values(
-            #[case] input: &str,
-            #[case] expected: usize,
-        ) {
+        fn test_exact_header_value_matcher_weight_with_different_values(#[case] input: &str, #[case] expected: usize) {
             let header_value = HeaderValue::try_from(input).unwrap();
             let matcher: ExactMatcher<_> = header_value.into();
             assert_eq!(matcher.weight(), expected);
@@ -317,18 +313,14 @@ mod tests {
         }
 
         #[rstest]
-        fn test_string_prefix_matcher_doesnt_match_different_prefix(
-            prefix_matcher: StringPrefixMatcher,
-        ) {
+        fn test_string_prefix_matcher_doesnt_match_different_prefix(prefix_matcher: StringPrefixMatcher) {
             assert!(!prefix_matcher.matches("/web"));
             assert!(!prefix_matcher.matches("/other"));
             assert!(!prefix_matcher.matches("api")); // missing leading slash
         }
 
         #[rstest]
-        fn test_string_prefix_matcher_doesnt_match_partial_prefix(
-            prefix_matcher: StringPrefixMatcher,
-        ) {
+        fn test_string_prefix_matcher_doesnt_match_partial_prefix(prefix_matcher: StringPrefixMatcher) {
             assert!(!prefix_matcher.matches("/ap"));
             assert!(!prefix_matcher.matches("/a"));
         }
@@ -348,10 +340,7 @@ mod tests {
         #[case("/", 1)]
         #[case("/health", 7)]
         #[case("/api/v1/users", 13)] // 13 characters, not 12
-        fn test_string_prefix_matcher_weight_with_different_prefixes(
-            #[case] prefix: &str,
-            #[case] expected: usize,
-        ) {
+        fn test_string_prefix_matcher_weight_with_different_prefixes(#[case] prefix: &str, #[case] expected: usize) {
             let matcher: StringPrefixMatcher = prefix.into();
             assert_eq!(matcher.weight(), expected);
         }
@@ -397,27 +386,21 @@ mod tests {
         }
 
         #[rstest]
-        fn test_regex_matcher_doesnt_match_invalid_pattern(
-            simple_regex_matcher: RegularExpressionMatcher,
-        ) {
+        fn test_regex_matcher_doesnt_match_invalid_pattern(simple_regex_matcher: RegularExpressionMatcher) {
             assert!(!simple_regex_matcher.matches("/api/va"));
             assert!(!simple_regex_matcher.matches("/web/v1"));
             assert!(!simple_regex_matcher.matches("api/v1")); // missing leading slash
         }
 
         #[rstest]
-        fn test_regex_matcher_with_complex_pattern(
-            complex_regex_matcher: RegularExpressionMatcher,
-        ) {
+        fn test_regex_matcher_with_complex_pattern(complex_regex_matcher: RegularExpressionMatcher) {
             assert!(complex_regex_matcher.matches("/users/john123/profile"));
             assert!(complex_regex_matcher.matches("/users/A/profile"));
             assert!(complex_regex_matcher.matches("/users/123/profile"));
         }
 
         #[rstest]
-        fn test_regex_matcher_complex_pattern_rejects_invalid(
-            complex_regex_matcher: RegularExpressionMatcher,
-        ) {
+        fn test_regex_matcher_complex_pattern_rejects_invalid(complex_regex_matcher: RegularExpressionMatcher) {
             assert!(!complex_regex_matcher.matches("/users/john-doe/profile")); // hyphen not allowed
             assert!(!complex_regex_matcher.matches("/users/john/profile/settings")); // extra path
             assert!(!complex_regex_matcher.matches("/users//profile")); // empty username
@@ -440,10 +423,7 @@ mod tests {
         #[case(r"\d+", 12)] // 3 * 4
         #[case(r"^hello$", 28)] // 7 * 4
         #[case(r"[a-zA-Z]+", 36)] // 9 * 4
-        fn test_regex_matcher_weight_with_different_patterns(
-            #[case] pattern: &str,
-            #[case] expected: usize,
-        ) {
+        fn test_regex_matcher_weight_with_different_patterns(#[case] pattern: &str, #[case] expected: usize) {
             let regex = Regex::new(pattern).unwrap();
             let matcher: RegularExpressionMatcher = regex.into();
             assert_eq!(matcher.weight(), expected);
@@ -507,25 +487,19 @@ mod tests {
         }
 
         #[rstest]
-        fn test_exact_dns_name_matcher_doesnt_match_different_name(
-            dns_name_matcher: ExactMatcher<Name>,
-        ) {
+        fn test_exact_dns_name_matcher_doesnt_match_different_name(dns_name_matcher: ExactMatcher<Name>) {
             let name = Name::from_str("other.com.").unwrap();
             assert!(!dns_name_matcher.matches(&name));
         }
 
         #[rstest]
-        fn test_exact_dns_name_matcher_doesnt_match_subdomain(
-            dns_name_matcher: ExactMatcher<Name>,
-        ) {
+        fn test_exact_dns_name_matcher_doesnt_match_subdomain(dns_name_matcher: ExactMatcher<Name>) {
             let name = Name::from_str("sub.example.com.").unwrap();
             assert!(!dns_name_matcher.matches(&name));
         }
 
         #[rstest]
-        fn test_exact_dns_name_matcher_doesnt_match_parent_domain(
-            dns_name_matcher: ExactMatcher<Name>,
-        ) {
+        fn test_exact_dns_name_matcher_doesnt_match_parent_domain(dns_name_matcher: ExactMatcher<Name>) {
             let name = Name::from_str("com.").unwrap();
             assert!(!dns_name_matcher.matches(&name));
         }
@@ -537,9 +511,7 @@ mod tests {
         }
 
         #[rstest]
-        fn test_exact_dns_name_matcher_root_doesnt_match_other(
-            root_dns_name_matcher: ExactMatcher<Name>,
-        ) {
+        fn test_exact_dns_name_matcher_root_doesnt_match_other(root_dns_name_matcher: ExactMatcher<Name>) {
             let name = Name::from_str("example.com.").unwrap();
             assert!(!root_dns_name_matcher.matches(&name));
         }
@@ -619,9 +591,7 @@ mod tests {
         }
 
         #[rstest]
-        fn test_in_zone_matcher_root_zone_matches_everything(
-            root_zone_matcher: InZoneDnsNameMatcher,
-        ) {
+        fn test_in_zone_matcher_root_zone_matches_everything(root_zone_matcher: InZoneDnsNameMatcher) {
             let any_name = Name::from_str("anything.example.com.").unwrap();
             assert!(root_zone_matcher.matches(&any_name));
 

@@ -3,8 +3,7 @@ use crate::resources::AccessControlFilterRef;
 use std::collections::HashSet;
 use thiserror::Error;
 use vg_config::http::filter::access_control::{
-    AccessControlEffect, AccessControlFilter,
-    AccessControlFilterRef as AccessControlFilterRefConfig,
+    AccessControlEffect, AccessControlFilter, AccessControlFilterRef as AccessControlFilterRefConfig,
 };
 use vg_core::net::IpRef;
 

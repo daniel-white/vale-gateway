@@ -3,6 +3,13 @@ name = "vg-build"
 version = "0.0.0"
 edition = "2024"
 
+[lib]
+name = "vg_build"
+path = "src/lib.rs"
+
+[lints]
+workspace = true
+
 [dependencies]
 
 [build-dependencies]
@@ -12,6 +19,5 @@ serde.workspace = true
 serde_yaml.workspace = true
 vg-kube.path = "../kube"
 
-[lib]
-name = "vg_build"
-path = "src/lib.rs"
+
+

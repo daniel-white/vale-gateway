@@ -44,6 +44,7 @@ impl<R: Resource> NamespaceScopedRef<R>
 where
     R::DynamicType: 'static + Default,
 {
+    #[must_use] 
     pub fn new(namespace: &str, name: &str) -> Self {
         Self {
             kind: Default::default(),
@@ -52,18 +53,22 @@ where
         }
     }
 
+    #[must_use] 
     pub fn group(&self) -> Option<&str> {
         self.kind.group()
     }
 
+    #[must_use] 
     pub fn kind(&self) -> &str {
         self.kind.kind()
     }
 
+    #[must_use] 
     pub fn namespace(&self) -> &str {
         &self.namespace
     }
 
+    #[must_use] 
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -79,10 +84,7 @@ where
             .namespace
             .as_ref()
             .expect("NamespaceScopedResource must have a namespace");
-        let name = meta
-            .name
-            .as_ref()
-            .expect("NamespaceScopedResource must have a name");
+        let name = meta.name.as_ref().expect("NamespaceScopedResource must have a name");
 
         Self::new(namespace, name)
     }
@@ -170,6 +172,7 @@ where
     R: NamespaceScopedResource,
     R::DynamicType: 'static + Default,
 {
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             map: RefCell::default(),
@@ -179,12 +182,7 @@ where
     pub fn insert(&self, resource: R) {
         let ref_: NamespaceScopedRef<R> = (&resource).into();
         let ref_: K = ref_.into();
-        let uid = resource
-            .meta()
-            .uid
-            .as_ref()
-            .expect("Resource must have a UID")
-            .clone();
+        let uid = resource.meta().uid.as_ref().expect("Resource must have a UID").clone();
         let arc = Arc::new(resource);
         let mut map = self.map.borrow_mut();
         map.insert(ref_, uid, arc);

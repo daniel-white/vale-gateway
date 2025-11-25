@@ -81,9 +81,7 @@ impl TryFrom<&TrustedHeaderClientAddrExtractorConfig> for TrustedHeaderClientAdd
     type Error = TrustedHeaderClientAddrExtractorConversionError;
 
     fn try_from(value: &TrustedHeaderClientAddrExtractorConfig) -> Result<Self, Self::Error> {
-        let extractor = Self::builder()
-            .trusted_header(value.trusted_header())
-            .build();
+        let extractor = Self::builder().trusted_header(value.trusted_header()).build();
 
         Ok(extractor)
     }
@@ -123,9 +121,7 @@ impl TryFrom<&TrustedProxiesClientAddrExtractorConfig> for TrustedProxiesClientA
     fn try_from(value: &TrustedProxiesClientAddrExtractorConfig) -> Result<Self, Self::Error> {
         let proxies: HashSet<IpRef> = value.proxies().iter().copied().collect();
         if proxies.is_empty() && value.trusted_headers().is_empty() {
-            return Err(
-                TrustedProxiesClientAddrExtractorConversionError::NoTrustedProxiesOrHeaders,
-            );
+            return Err(TrustedProxiesClientAddrExtractorConversionError::NoTrustedProxiesOrHeaders);
         }
 
         let config = TrustedProxies::builder()
@@ -137,9 +133,7 @@ impl TryFrom<&TrustedProxiesClientAddrExtractorConfig> for TrustedProxiesClientA
             .trust_x_forwarded_by_header(value.trust_x_forwarded_by_header())
             .build();
 
-        let extractor = Self::builder()
-            .config(trusted_proxies::Config::from(config))
-            .build();
+        let extractor = Self::builder().config(trusted_proxies::Config::from(config)).build();
 
         Ok(extractor)
     }
@@ -193,7 +187,7 @@ mod tests {
 
     fn create_empty_parts() -> Parts {
         use http::Request;
-        let (parts, _) = Request::get("/").body(()).unwrap().into_parts();
+        let (parts, ()) = Request::get("/").body(()).unwrap().into_parts();
         parts
     }
 

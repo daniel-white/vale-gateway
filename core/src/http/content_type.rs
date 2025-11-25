@@ -11,11 +11,9 @@ use thiserror::Error;
 
 const PROBLEM: Name = Name::new_unchecked("problem");
 
-pub const PROBLEM_DETAIL: ContentType =
-    ContentType::from_parts(APPLICATION, PROBLEM, Some(JSON), [].as_slice());
+pub const PROBLEM_DETAIL: ContentType = ContentType::from_parts(APPLICATION, PROBLEM, Some(JSON), [].as_slice());
 
-pub const HTML: ContentType =
-    ContentType::from_parts(TEXT, names::HTML, None, [(CHARSET, UTF_8)].as_slice());
+pub const HTML: ContentType = ContentType::from_parts(TEXT, names::HTML, None, [(CHARSET, UTF_8)].as_slice());
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, From, Deref)]
 pub struct ContentType<'a>(MediaType<'a>);
@@ -89,9 +87,7 @@ impl TryFrom<HeaderValue> for ContentTypeBuf {
     type Error = ContentTypeConversionError;
 
     fn try_from(value: HeaderValue) -> Result<Self, Self::Error> {
-        let value = value
-            .to_str()
-            .map_err(|_| ContentTypeConversionError::HeaderValue)?;
+        let value = value.to_str().map_err(|_| ContentTypeConversionError::HeaderValue)?;
         let value = value.parse()?;
         Ok(value)
     }

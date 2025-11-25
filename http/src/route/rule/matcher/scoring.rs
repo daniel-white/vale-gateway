@@ -41,7 +41,7 @@ impl Ord for RequestMatchScore {
             (true, false) => return Ordering::Less,
             (false, true) => return Ordering::Greater,
             _ => {}
-        };
+        }
 
         match (self.path_weight, other.path_weight) {
             (Some(len1), Some(len2)) => match len1.cmp(&len2) {
@@ -52,13 +52,13 @@ impl Ord for RequestMatchScore {
             (Some(_), None) => return Ordering::Less,
             (None, Some(_)) => return Ordering::Greater,
             _ => {}
-        };
+        }
 
         match (self.method, other.method) {
             (true, false) => return Ordering::Less,
             (false, true) => return Ordering::Greater,
             _ => {}
-        };
+        }
 
         match (self.headers_weight, other.headers_weight) {
             (Some(count1), Some(count2)) => match count1.cmp(&count2) {
@@ -69,7 +69,7 @@ impl Ord for RequestMatchScore {
             (Some(_), None) => return Ordering::Less,
             (None, Some(_)) => return Ordering::Greater,
             _ => {}
-        };
+        }
 
         match (self.query_params_weight, other.query_params_weight) {
             (Some(count1), Some(count2)) => match count1.cmp(&count2) {
@@ -80,7 +80,7 @@ impl Ord for RequestMatchScore {
             (Some(_), None) => return Ordering::Less,
             (None, Some(_)) => return Ordering::Greater,
             _ => {}
-        };
+        }
 
         Ordering::Equal
     }
@@ -123,7 +123,7 @@ impl RequestMatcherScorer {
                 let weight = matcher.weight();
                 self.path_weight.replace(Some(weight));
             }
-        };
+        }
     }
 
     pub fn method(&self, _matcher: &MethodMatcher) {
@@ -172,9 +172,7 @@ mod tests {
     fn headers_matcher_single() -> HeadersMatcher {
         let content_type = HeaderValue::from_static("application/json");
         let header_matcher = HeaderMatcher::new_exact(CONTENT_TYPE, content_type);
-        HeadersMatcher::builder()
-            .matchers(vec![header_matcher])
-            .build()
+        HeadersMatcher::builder().matchers(vec![header_matcher]).build()
     }
 
     #[fixture]
@@ -182,9 +180,7 @@ mod tests {
         let content_type = HeaderValue::from_static("application/json");
         let header1 = HeaderMatcher::new_exact(CONTENT_TYPE, content_type.clone());
         let header2 = HeaderMatcher::new_exact(ACCEPT, content_type);
-        HeadersMatcher::builder()
-            .matchers(vec![header1, header2])
-            .build()
+        HeadersMatcher::builder().matchers(vec![header1, header2]).build()
     }
 
     #[fixture]
@@ -193,9 +189,7 @@ mod tests {
             .name_matcher("version".into())
             .value_matcher(QueryParamValueMatcher::Exact("v1".into()))
             .build();
-        QueryParamsMatcher::builder()
-            .matchers(vec![param_matcher])
-            .build()
+        QueryParamsMatcher::builder().matchers(vec![param_matcher]).build()
     }
 
     #[fixture]
@@ -208,9 +202,7 @@ mod tests {
             .name_matcher("format".into())
             .value_matcher(QueryParamValueMatcher::Exact("json".into()))
             .build();
-        QueryParamsMatcher::builder()
-            .matchers(vec![param1, param2])
-            .build()
+        QueryParamsMatcher::builder().matchers(vec![param1, param2]).build()
     }
 
     #[rstest]
@@ -673,7 +665,7 @@ mod tests {
         let zero_weight = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(0))
-            .path_prefix(Some("".to_string()))
+            .path_prefix(Some(String::new()))
             .method(false)
             .headers_weight(None)
             .query_params_weight(None)
@@ -769,7 +761,7 @@ mod tests {
         let zero_weight = RequestMatchScore::builder()
             .path_exact(false)
             .path_weight(Some(0))
-            .path_prefix(Some("".to_string()))
+            .path_prefix(Some(String::new()))
             .method(false)
             .headers_weight(None)
             .query_params_weight(None)

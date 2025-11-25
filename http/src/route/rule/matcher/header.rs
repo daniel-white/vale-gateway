@@ -74,10 +74,7 @@ pub struct HeaderMatcher {
 
 impl HeaderMatcher {
     fn new(name: HeaderName, value_matcher: HeaderValueMatcher) -> Self {
-        Self::builder()
-            .name_matcher(name)
-            .value_matcher(value_matcher)
-            .build()
+        Self::builder().name_matcher(name).value_matcher(value_matcher).build()
     }
 
     pub fn new_exact(name: HeaderName, value: HeaderValue) -> Self {
@@ -123,6 +120,7 @@ pub struct HeadersMatcher {
 }
 
 impl HeadersMatcher {
+    #[must_use] 
     pub fn weight(&self) -> usize {
         self.matchers.len()
     }
@@ -158,8 +156,7 @@ impl TryFrom<&HeadersMatcherConfig> for HeadersMatcher {
             .iter()
             .enumerate()
             .map(|(idx, value)| {
-                HeaderMatcher::try_from(value)
-                    .map_err(|e| HeadersMatcherConversionError::InvalidMatcher(idx, e))
+                HeaderMatcher::try_from(value).map_err(|e| HeadersMatcherConversionError::InvalidMatcher(idx, e))
             })
             .collect::<Result<_, _>>()?;
 
@@ -187,7 +184,7 @@ mod tests {
         }
 
         let request = request_builder.body(()).unwrap();
-        let (parts, _) = request.into_parts();
+        let (parts, ()) = request.into_parts();
         parts
     }
 
@@ -229,8 +226,7 @@ mod tests {
         // Assert
         assert_eq!(
             result, expected_match,
-            "HeaderNameMatcher should return {} for '{}' vs '{}'",
-            expected_match, matcher_name, test_name
+            "HeaderNameMatcher should return {expected_match} for '{matcher_name}' vs '{test_name}'"
         );
     }
 
@@ -271,8 +267,7 @@ mod tests {
         // Assert
         assert_eq!(
             result, expected_match,
-            "HeaderValueMatcher should return {} for '{}' vs '{}'",
-            expected_match, matcher_value, test_value
+            "HeaderValueMatcher should return {expected_match} for '{matcher_value}' vs '{test_value}'"
         );
     }
 
@@ -298,8 +293,7 @@ mod tests {
         // Assert
         assert_eq!(
             result, expected_match,
-            "HeaderValueMatcher with regex '{}' should return {} for value '{}'",
-            pattern, expected_match, test_value
+            "HeaderValueMatcher with regex '{pattern}' should return {expected_match} for value '{test_value}'"
         );
     }
 
@@ -338,13 +332,7 @@ mod tests {
     }
 
     #[rstest]
-    #[case(
-        "content-type",
-        "application/json",
-        "content-type",
-        "application/json",
-        true
-    )]
+    #[case("content-type", "application/json", "content-type", "application/json", true)]
     #[case("authorization", "Bearer token", "authorization", "Bearer token", true)]
     #[case("accept", "text/html", "content-type", "application/json", false)]
     #[case("x-custom", "value1", "x-custom", "value2", false)]
@@ -368,8 +356,7 @@ mod tests {
         // Assert
         assert_eq!(
             result, expected_match,
-            "HeaderMatcher should return {} for '{}:{:?}' vs '{}:{}'",
-            expected_match, matcher_name, matcher_value, test_name, test_value
+            "HeaderMatcher should return {expected_match} for '{matcher_name}:{matcher_value:?}' vs '{test_name}:{test_value}'"
         );
     }
 
@@ -386,11 +373,7 @@ mod tests {
 
         // Assert
         assert!(result, "Empty HeadersMatcher should match any request");
-        assert_eq!(
-            matcher.weight(),
-            0,
-            "Empty HeadersMatcher should have weight 0"
-        );
+        assert_eq!(matcher.weight(), 0, "Empty HeadersMatcher should have weight 0");
     }
 
     #[test]
@@ -398,9 +381,7 @@ mod tests {
         // Arrange
         let header_value = HeaderValue::from_static("application/json");
         let header_matcher = HeaderMatcher::new_exact(CONTENT_TYPE, header_value.clone());
-        let matcher = HeadersMatcher::builder()
-            .matchers(vec![header_matcher])
-            .build();
+        let matcher = HeadersMatcher::builder().matchers(vec![header_matcher]).build();
         let parts = create_request_parts_with_headers(vec![("content-type", "application/json")]);
         let scorer = RequestMatcherScorer::default();
 
@@ -408,15 +389,8 @@ mod tests {
         let result = matcher.matches(&scorer, &parts);
 
         // Assert
-        assert!(
-            result,
-            "HeadersMatcher should match when single header matches"
-        );
-        assert_eq!(
-            matcher.weight(),
-            1,
-            "Single header matcher should have weight 1"
-        );
+        assert!(result, "HeadersMatcher should match when single header matches");
+        assert_eq!(matcher.weight(), 1, "Single header matcher should have weight 1");
     }
 
     #[test]
@@ -424,9 +398,7 @@ mod tests {
         // Arrange
         let header_value = HeaderValue::from_static("application/json");
         let header_matcher = HeaderMatcher::new_exact(CONTENT_TYPE, header_value);
-        let matcher = HeadersMatcher::builder()
-            .matchers(vec![header_matcher])
-            .build();
+        let matcher = HeadersMatcher::builder().matchers(vec![header_matcher]).build();
         let parts = create_request_parts_with_headers(vec![("content-type", "text/html")]);
         let scorer = RequestMatcherScorer::default();
 
@@ -461,11 +433,7 @@ mod tests {
 
         // Assert
         assert!(result, "HeadersMatcher should match when all headers match");
-        assert_eq!(
-            matcher.weight(),
-            2,
-            "Two header matchers should have weight 2"
-        );
+        assert_eq!(matcher.weight(), 2, "Two header matchers should have weight 2");
     }
 
     #[test]
@@ -488,10 +456,7 @@ mod tests {
         let result = matcher.matches(&scorer, &parts);
 
         // Assert
-        assert!(
-            !result,
-            "HeadersMatcher should not match when not all headers match"
-        );
+        assert!(!result, "HeadersMatcher should not match when not all headers match");
     }
 
     #[test]
@@ -499,13 +464,8 @@ mod tests {
         // Arrange
         let mozilla_regex = Regex::new(r"Mozilla.*").unwrap();
         let header_matcher = HeaderMatcher::new_matching(USER_AGENT, mozilla_regex);
-        let matcher = HeadersMatcher::builder()
-            .matchers(vec![header_matcher])
-            .build();
-        let parts = create_request_parts_with_headers(vec![(
-            "user-agent",
-            "Mozilla/5.0 (compatible; bot)",
-        )]);
+        let matcher = HeadersMatcher::builder().matchers(vec![header_matcher]).build();
+        let parts = create_request_parts_with_headers(vec![("user-agent", "Mozilla/5.0 (compatible; bot)")]);
         let scorer = RequestMatcherScorer::default();
 
         // Act
@@ -520,9 +480,7 @@ mod tests {
         // Arrange
         let content_type = HeaderValue::from_static("application/json");
         let header_matcher = HeaderMatcher::new_exact(CONTENT_TYPE, content_type);
-        let matcher = HeadersMatcher::builder()
-            .matchers(vec![header_matcher])
-            .build();
+        let matcher = HeadersMatcher::builder().matchers(vec![header_matcher]).build();
         let parts = create_request_parts_with_headers(vec![
             ("content-type", "application/json"),
             ("accept", "application/json"), // Extra header
@@ -544,9 +502,7 @@ mod tests {
         // Arrange
         let content_type = HeaderValue::from_static("application/json");
         let header_matcher = HeaderMatcher::new_exact(CONTENT_TYPE, content_type);
-        let matcher = HeadersMatcher::builder()
-            .matchers(vec![header_matcher])
-            .build();
+        let matcher = HeadersMatcher::builder().matchers(vec![header_matcher]).build();
         let parts = create_request_parts_with_headers(vec![("content-type", "application/json")]);
         let scorer = RequestMatcherScorer::default();
 
@@ -563,9 +519,7 @@ mod tests {
         // Arrange
         let content_type = HeaderValue::from_static("application/json");
         let header_matcher = HeaderMatcher::new_exact(CONTENT_TYPE, content_type);
-        let matcher = HeadersMatcher::builder()
-            .matchers(vec![header_matcher])
-            .build();
+        let matcher = HeadersMatcher::builder().matchers(vec![header_matcher]).build();
         let parts = create_request_parts_with_headers(vec![("content-type", "text/html")]);
         let scorer = RequestMatcherScorer::default();
 

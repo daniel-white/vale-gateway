@@ -24,12 +24,10 @@ impl FromStr for HostMatcher {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let value = if s.starts_with("*.") {
             let s = s.trim_start_matches("*.");
-            let name =
-                Name::from_utf8(s).map_err(|_| HostMatcherConversionError::InvalidDnsName)?;
+            let name = Name::from_utf8(s).map_err(|_| HostMatcherConversionError::InvalidDnsName)?;
             HostMatcher::InZone(name.to_string())
         } else {
-            let name =
-                Name::from_utf8(s).map_err(|_| HostMatcherConversionError::InvalidDnsName)?;
+            let name = Name::from_utf8(s).map_err(|_| HostMatcherConversionError::InvalidDnsName)?;
             if !name.is_fqdn() {
                 return Err(HostMatcherConversionError::NotFullyQualifiedDnsName);
             }

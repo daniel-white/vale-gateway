@@ -32,27 +32,18 @@ pub enum RouteConversionError {
     Rule(usize, #[source] RuleConversionError),
 }
 
-impl
-    TryFrom<(
-        &HashMap<SharedFilterRef, SharedFilterHandlerLayer>,
-        &RouteConfig,
-    )> for Route
-{
+impl TryFrom<(&HashMap<SharedFilterRef, SharedFilterHandlerLayer>, &RouteConfig)> for Route {
     type Error = RouteConversionError;
 
     fn try_from(
-        (shared_filter_handlers, route): (
-            &HashMap<SharedFilterRef, SharedFilterHandlerLayer>,
-            &RouteConfig,
-        ),
+        (shared_filter_handlers, route): (&HashMap<SharedFilterRef, SharedFilterHandlerLayer>, &RouteConfig),
     ) -> Result<Self, Self::Error> {
         let host_matchers = route
             .host_matchers()
             .iter()
             .enumerate()
             .map(|(idx, matcher)| {
-                HostMatcher::try_from(matcher)
-                    .map_err(|err| RouteConversionError::HostMatcher(idx, err))
+                HostMatcher::try_from(matcher).map_err(|err| RouteConversionError::HostMatcher(idx, err))
             })
             .collect::<Result<_, _>>()?;
 
@@ -61,8 +52,7 @@ impl
             .iter()
             .enumerate()
             .map(|(idx, rule)| {
-                Rule::try_from((shared_filter_handlers, rule))
-                    .map_err(|err| RouteConversionError::Rule(idx, err))
+                Rule::try_from((shared_filter_handlers, rule)).map_err(|err| RouteConversionError::Rule(idx, err))
             })
             .collect::<Result<_, _>>()?;
 

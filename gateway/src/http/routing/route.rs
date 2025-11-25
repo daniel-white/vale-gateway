@@ -57,8 +57,7 @@ impl RouteConfigurator {
             loop {
                 let routes: HashMap<_, _> = {
                     let config = gateway.current();
-                    let shared_filter_handlers =
-                        shared_filter_handlers.current().unwrap_or_default();
+                    let shared_filter_handlers = shared_filter_handlers.current().unwrap_or_default();
                     let shared_filter_handlers = shared_filter_handlers.handlers();
 
                     config

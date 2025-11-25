@@ -27,12 +27,8 @@ impl TryFrom<HTTPRouteUrlRewriteWrapper<'_>> for BackendUriRewriterFilter {
                     path.replace_full_path.clone(),
                     path.replace_prefix_match.clone(),
                 ) {
-                    (RequestOperationType::ReplaceFullPath, Some(r), None) => {
-                        Ok(PathRewrite::ReplaceWith(r))
-                    }
-                    (RequestOperationType::ReplacePrefixMatch, None, Some(r)) => {
-                        Ok(PathRewrite::ReplacePrefixWith(r))
-                    }
+                    (RequestOperationType::ReplaceFullPath, Some(r), None) => Ok(PathRewrite::ReplaceWith(r)),
+                    (RequestOperationType::ReplacePrefixMatch, None, Some(r)) => Ok(PathRewrite::ReplacePrefixWith(r)),
                     _ => Err(BackendUriRewriterConversionError::Path),
                 }
             })

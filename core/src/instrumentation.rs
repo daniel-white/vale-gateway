@@ -1,6 +1,4 @@
-use opentelemetry::global::{
-    BoxedTracer, meter, set_text_map_propagator, set_tracer_provider, tracer,
-};
+use opentelemetry::global::{BoxedTracer, meter, set_text_map_propagator, set_tracer_provider, tracer};
 use opentelemetry::metrics::Meter;
 use opentelemetry::trace::TracerProvider;
 use opentelemetry_sdk::propagation::TraceContextPropagator;
@@ -14,7 +12,7 @@ use tracing_subscriber::Registry;
 use tracing_subscriber::layer::SubscriberExt;
 
 pub(crate) static TRACER: LazyLock<BoxedTracer> = LazyLock::new(|| tracer("vg-core"));
-pub(crate) static METER: LazyLock<Meter> = LazyLock::new(|| meter("vg-core"));
+pub(crate) static _METER: LazyLock<Meter> = LazyLock::new(|| meter("vg-core"));
 
 pub fn init(name: &'static str) {
     let exporter = SpanExporter::default(); // Creates a default stdout exporter
@@ -24,7 +22,7 @@ pub fn init(name: &'static str) {
         .with_sampler(AlwaysOn)
         .build();
 
-    let tracer = tracer_provider.tracer(name);
+    let _tracer = tracer_provider.tracer(name);
     let registry = Registry::default().with(OpenTelemetryLayer::default());
 
     set_tracer_provider(tracer_provider);

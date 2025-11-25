@@ -1,15 +1,7 @@
-use crate::api::v1::http::route::backend::config::{
-    HTTPBackendReferenceWrapper, RuleBackendConversionError,
-};
-use crate::api::v1::http::route::filter::config::{
-    HTTPRouteFilterWrapper, RuleFilterConversionError,
-};
-use crate::api::v1::http::route::r#match::config::{
-    RequestMatcherConversionError, RouteMatchWrapper,
-};
-use crate::api::v1::http::route::timeout::config::{
-    HTTPRouteTimeoutWrapper, TimeoutPoliciesConversionError,
-};
+use crate::api::v1::http::route::backend::config::{HTTPBackendReferenceWrapper, RuleBackendConversionError};
+use crate::api::v1::http::route::filter::config::{HTTPRouteFilterWrapper, RuleFilterConversionError};
+use crate::api::v1::http::route::r#match::config::{RequestMatcherConversionError, RouteMatchWrapper};
+use crate::api::v1::http::route::timeout::config::{HTTPRouteTimeoutWrapper, TimeoutPoliciesConversionError};
 use gateway_api::httproutes::HTTPRouteRule;
 use thiserror::Error;
 use typed_builder::TypedBuilder;
@@ -58,8 +50,7 @@ impl TryFrom<HTTPRouteRuleWrapper<'_>> for Rule {
             .enumerate()
             .map(|(idx, match_)| {
                 let match_ = RouteMatchWrapper::from(match_);
-                RequestMatcher::try_from(match_)
-                    .map_err(|err| RuleConversionError::Matcher(idx, err))
+                RequestMatcher::try_from(match_).map_err(|err| RuleConversionError::Matcher(idx, err))
             })
             .collect::<Result<Vec<_>, _>>()?;
 
@@ -78,10 +69,7 @@ impl TryFrom<HTTPRouteRuleWrapper<'_>> for Rule {
             .collect::<Result<Vec<_>, _>>()?;
 
         let timeouts = rule.timeouts.as_ref().map(HTTPRouteTimeoutWrapper::from);
-        let timeouts = timeouts
-            .map(TimeoutPolicies::try_from)
-            .transpose()?
-            .unwrap_or_default();
+        let timeouts = timeouts.map(TimeoutPolicies::try_from).transpose()?.unwrap_or_default();
         let policies = RulePolicies::builder()
             .timeouts(timeouts)
             .retries(None) // TODO: Implement retries conversion
@@ -98,8 +86,7 @@ impl TryFrom<HTTPRouteRuleWrapper<'_>> for Rule {
                     .backend_ref(be)
                     .build();
                 // Convert RuleBackend to WeightedBackendRef
-                let rule_backend = RuleBackend::try_from(be)
-                    .map_err(|err| RuleConversionError::Backend(idx, err))?;
+                let rule_backend = RuleBackend::try_from(be).map_err(|err| RuleConversionError::Backend(idx, err))?;
                 Ok::<WeightedBackendRef, RuleConversionError>(
                     WeightedBackendRef::builder()
                         .backend_ref(rule_backend.ref_().clone())

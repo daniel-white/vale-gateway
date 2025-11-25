@@ -5,17 +5,7 @@ use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
 
 #[derive(
-    Default,
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    Getters,
-    CopyGetters,
-    CloneGetters,
-    TypedBuilder,
+    Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CopyGetters, CloneGetters, TypedBuilder,
 )]
 #[serde(rename_all = "camelCase")]
 pub struct RulePolicies {
@@ -29,6 +19,7 @@ pub struct RulePolicies {
 }
 
 impl RulePolicies {
+    #[must_use] 
     pub fn is_none(&self) -> bool {
         self.timeouts.is_none() && self.retries.is_none()
     }

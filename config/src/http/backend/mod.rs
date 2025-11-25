@@ -9,9 +9,7 @@ use vg_core::collections::{CollectionEvent, NotifyingCollection};
 #[serde(transparent)]
 pub struct BackendRef(String);
 
-#[derive(
-    Debug, PartialEq, Eq, Clone, Serialize, Deserialize, TypedBuilder, Getters, CloneGetters,
-)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, TypedBuilder, Getters, CloneGetters)]
 #[serde(rename_all = "camelCase")]
 pub struct Backend {
     #[getset(get_clone = "pub")]
@@ -58,6 +56,7 @@ impl From<CollectionEvent<BackendRef, Backend>> for BackendCollectionEvent {
 pub struct BackendCollection(NotifyingCollection<BackendRef, Backend, BackendCollectionEvent>);
 
 impl BackendCollection {
+    #[must_use] 
     pub fn new(channel_capacity: usize) -> Self {
         NotifyingCollection::new(channel_capacity).into()
     }

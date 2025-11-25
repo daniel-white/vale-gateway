@@ -1,8 +1,6 @@
 use crate::api::v1::common::Ref;
 use derive_more::{Deref, DerefMut, From};
-use gateway_api::common::{
-    HeaderModifier as HeaderModifierInner, RequestRedirect as RequestRedirectInner,
-};
+use gateway_api::common::{HeaderModifier as HeaderModifierInner, RequestRedirect as RequestRedirectInner};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

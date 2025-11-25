@@ -1,9 +1,7 @@
 use crate::instrumentation::TRACER;
 use dashmap::DashMap;
 use getset::{CloneGetters, Getters};
-use jsonrpsee_core::server::{
-    ConnectionId, PendingSubscriptionSink, SubscriptionMessage, SubscriptionSink,
-};
+use jsonrpsee_core::server::{ConnectionId, PendingSubscriptionSink, SubscriptionMessage, SubscriptionSink};
 use opentelemetry::trace::{FutureExt, SpanKind, Tracer};
 use std::sync::Arc;
 use typed_builder::TypedBuilder;
@@ -19,6 +17,7 @@ pub struct PendingEventSink {
 }
 
 impl PendingEventSink {
+    #[must_use] 
     pub fn connection_id(&self) -> ConnectionId {
         self.sink.connection_id()
     }
@@ -26,10 +25,7 @@ impl PendingEventSink {
     pub async fn accept(self) -> Result<EventSink, ()> {
         let sink = self.sink.accept().await.map_err(|_| ())?; // TODO: handle error) 
 
-        let sink = EventSink::builder()
-            .gateway_ref(self.gateway_ref)
-            .sink(sink)
-            .build();
+        let sink = EventSink::builder().gateway_ref(self.gateway_ref).sink(sink).build();
 
         sink.send(Event::Initialize).await?; // TODO handle error
 
@@ -37,7 +33,7 @@ impl PendingEventSink {
     }
 
     pub async fn reject(self, error: ApiError) {
-        self.sink.reject(error).await
+        self.sink.reject(error).await;
     }
 }
 
@@ -53,16 +49,18 @@ pub struct EventSink {
 pub struct EventSinkId(ConnectionId);
 
 impl EventSink {
+    #[must_use] 
     pub fn id(&self) -> EventSinkId {
         EventSinkId(self.sink.connection_id())
     }
 
+    #[must_use] 
     pub fn is_closed(&self) -> bool {
         self.sink.is_closed()
     }
 
     pub async fn closed(&self) {
-        self.sink.closed().await
+        self.sink.closed().await;
     }
 
     pub async fn send(&self, event: Event) -> Result<(), ()> {
@@ -76,17 +74,8 @@ impl EventSink {
             .event(event)
             .build();
 
-        let message = SubscriptionMessage::new(
-            self.sink.method_name(),
-            self.sink.subscription_id(),
-            &message,
-        )
-        .unwrap();
-        self.sink
-            .send(message)
-            .with_current_context()
-            .await
-            .map_err(|_| ())
+        let message = SubscriptionMessage::new(self.sink.method_name(), self.sink.subscription_id(), &message).unwrap();
+        self.sink.send(message).with_current_context().await.map_err(|_| ())
     }
 }
 
@@ -100,20 +89,13 @@ pub struct EventSinkRegistry {
 }
 
 impl EventSinkRegistry {
-    pub(crate) async fn try_register(
-        &self,
-        pending_sink: PendingEventSink,
-    ) -> Result<(), ApiError> {
-        if !self
-            .configuration
-            .gateway_exists(&pending_sink.gateway_ref)
-            .await
-        {
+    pub(crate) async fn try_register(&self, pending_sink: PendingEventSink) -> Result<(), ApiError> {
+        if !self.configuration.gateway_exists(&pending_sink.gateway_ref).await {
             pending_sink.reject(ApiError::NotFound).await;
             return Err(ApiError::NotFound);
         }
 
-        let sink = pending_sink.accept().await.map_err(|_| ApiError::Unknown)?;
+        let sink = pending_sink.accept().await.map_err(|()| ApiError::Unknown)?;
         self.sinks.insert(sink.id(), sink);
 
         Ok(())

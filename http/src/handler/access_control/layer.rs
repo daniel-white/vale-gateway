@@ -33,9 +33,7 @@ impl TryFrom<&AccessControlFilter> for AccessControlFilterHandlerLayer {
     fn try_from(value: &AccessControlFilter) -> Result<Self, Self::Error> {
         let policy_handler: AccessControlPolicyHandler = value.into();
 
-        let layer = Self::builder()
-            .policy_handler(Arc::new(policy_handler))
-            .build();
+        let layer = Self::builder().policy_handler(Arc::new(policy_handler)).build();
 
         Ok(layer)
     }

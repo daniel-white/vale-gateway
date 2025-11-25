@@ -5,18 +5,7 @@ use serde::{Deserialize, Serialize};
 use typed_builder::TypedBuilder;
 use vg_core::net::Port;
 
-#[derive(
-    Debug,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    Clone,
-    TypedBuilder,
-    Getters,
-    CloneGetters,
-    CopyGetters,
-)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, TypedBuilder, Getters, CloneGetters, CopyGetters)]
 #[serde(rename_all = "camelCase")]
 pub struct RuleBackend {
     #[getset(get_clone = "pub")]
@@ -35,19 +24,8 @@ pub struct RuleBackend {
     filters: Vec<RuleBackendFilter>,
 }
 
-/// WeightedBackendRef represents a backend reference with an associated weight for load balancing
-#[derive(
-    Debug,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    Clone,
-    TypedBuilder,
-    Getters,
-    CloneGetters,
-    CopyGetters,
-)]
+/// `WeightedBackendRef` represents a backend reference with an associated weight for load balancing
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, TypedBuilder, Getters, CloneGetters, CopyGetters)]
 #[serde(rename_all = "camelCase")]
 pub struct WeightedBackendRef {
     #[getset(get_clone = "pub")]

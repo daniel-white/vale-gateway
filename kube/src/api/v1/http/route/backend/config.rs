@@ -1,6 +1,4 @@
-use crate::api::v1::http::route::filter::config::{
-    HTTPRouteBackendFilterWrapper, RuleBackendFilterConversionError,
-};
+use crate::api::v1::http::route::filter::config::{HTTPRouteBackendFilterWrapper, RuleBackendFilterConversionError};
 use crate::resources::ServiceRef;
 use gateway_api::httproutes::HTTPBackendReference;
 use thiserror::Error;
@@ -44,7 +42,9 @@ impl TryFrom<HTTPBackendReferenceWrapper<'_>> for RuleBackend {
                     let ref_ = ServiceRef::new(namespace, &backend_ref.name);
                     BackendRef::from(ref_.to_string())
                 }
-                _ => return Err(RuleBackendConversionError::UnsupportedBackend),
+                _ => {
+                    return Err(RuleBackendConversionError::UnsupportedBackend);
+                }
             },
             _ => return Err(RuleBackendConversionError::UnsupportedBackend),
         };
@@ -66,8 +66,7 @@ impl TryFrom<HTTPBackendReferenceWrapper<'_>> for RuleBackend {
                     .namespace(namespace)
                     .filter(filter)
                     .build();
-                RuleBackendFilter::try_from(filter)
-                    .map_err(|err| RuleBackendConversionError::Filter(idx, err))
+                RuleBackendFilter::try_from(filter).map_err(|err| RuleBackendConversionError::Filter(idx, err))
             })
             .collect::<Result<Vec<_>, _>>()?;
 

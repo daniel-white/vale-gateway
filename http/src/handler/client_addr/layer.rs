@@ -1,6 +1,4 @@
-use crate::handler::client_addr::extractors::{
-    ClientAddrExtractor, ClientAddrExtractorConversionError,
-};
+use crate::handler::client_addr::extractors::{ClientAddrExtractor, ClientAddrExtractorConversionError};
 use crate::handler::client_addr::handler::ClientAddrFilterHandler;
 use crate::stage::inbound_request::InboundRequestFilterHandler;
 use http::HeaderName;

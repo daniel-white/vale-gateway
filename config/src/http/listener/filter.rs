@@ -1,7 +1,5 @@
 use crate::http::filter::access_control::AccessControlFilterRef;
-use crate::http::filter::header_modifier::{
-    RequestHeaderModifierFilter, ResponseHeaderModifierFilter,
-};
+use crate::http::filter::header_modifier::{RequestHeaderModifierFilter, ResponseHeaderModifierFilter};
 use crate::http::filter::static_response::StaticResponseFilterRef;
 use derive_more::{Deref, From};
 use getset::{CloneGetters, Getters};
@@ -17,9 +15,7 @@ pub enum ListenerFilter {
     StaticResponse(StaticResponseListenerFilter),
 }
 
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder)]
 #[serde(rename_all = "camelCase")]
 pub struct AccessControlListenerFilter {
     #[getset(get_clone = "pub")]
@@ -36,9 +32,7 @@ pub struct RequestHeaderModifierListenerFilter(RequestHeaderModifierFilter);
 #[serde(transparent)]
 pub struct ResponseHeaderModifierListenerFilter(ResponseHeaderModifierFilter);
 
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CloneGetters, TypedBuilder)]
 #[serde(rename_all = "camelCase")]
 pub struct StaticResponseListenerFilter {
     #[getset(get_clone = "pub")]

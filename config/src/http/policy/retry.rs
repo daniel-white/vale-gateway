@@ -7,9 +7,7 @@ use std::time::Duration;
 use typed_builder::TypedBuilder;
 
 #[serde_as]
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CopyGetters, TypedBuilder,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CopyGetters, TypedBuilder)]
 #[serde(rename_all = "camelCase")]
 pub struct RetryPolicy {
     #[getset(get = "pub")]

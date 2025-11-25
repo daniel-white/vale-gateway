@@ -30,6 +30,7 @@ pub struct EventClient {
 }
 
 impl EventClient {
+    #[must_use] 
     pub fn events(&self) -> EventReceiver {
         EventReceiver::builder()
             .tx(self.sender.clone())
@@ -37,6 +38,7 @@ impl EventClient {
             .build()
     }
 
+    #[must_use] 
     pub fn start(self) -> Handle {
         let (handle, mut stop_handle) = handles();
         let mut transport_client = self.transport_client;
@@ -48,11 +50,11 @@ impl EventClient {
                     select! {
                         result = transport_client.changed() => {
                             match result {
-                                Ok(_) => continue 'main,
-                                Err(_) => break 'main,
+                                Ok(()) => continue 'main,
+                                Err(()) => break 'main,
                             }
                         }
-                        _ = stop_handle.stopped() => {
+                        () = stop_handle.stopped() => {
                             break 'main;
                         }
                     }
@@ -70,15 +72,15 @@ impl EventClient {
                     select! {
                         result = transport_client.changed() => {
                             match result {
-                                Ok(_) => continue 'main,
-                                Err(_) => break 'main,
+                                Ok(()) => continue 'main,
+                                Err(()) => break 'main,
                             }
                         }
-                        _ = stop_handle.stopped() => {
+                        () = stop_handle.stopped() => {
                             break 'main;
                         }
                         result = client.events(req) => {
-                            println!("subscription result: {:?}", result);
+                            println!("subscription result: {result:?}");
                             let Ok(mut subscription) = result else {
                                 // TODO add backoff and use tokio-retry
                                 println!("subscription failed");
@@ -92,11 +94,11 @@ impl EventClient {
                                 select! {
                                     result = transport_client.changed() => {
                                         match result {
-                                            Ok(_) => continue 'main,
-                                            Err(_) => break 'main,
+                                            Ok(()) => continue 'main,
+                                            Err(()) => break 'main,
                                         }
                                     }
-                                    _ = stop_handle.stopped() => {
+                                    () = stop_handle.stopped() => {
                                         break 'main;
                                     }
                                     result = subscription.next() => {
@@ -150,10 +152,7 @@ pub struct EventReceiver {
 
 impl Clone for EventReceiver {
     fn clone(&self) -> Self {
-        Self::builder()
-            .tx(self.tx.clone())
-            .rx(self.tx.subscribe())
-            .build()
+        Self::builder().tx(self.tx.clone()).rx(self.tx.subscribe()).build()
     }
 }
 
@@ -171,6 +170,7 @@ impl EventReceiver {
         }
     }
 
+    #[must_use] 
     pub fn is_closed(&self) -> bool {
         self.rx.is_closed()
     }

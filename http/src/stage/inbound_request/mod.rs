@@ -7,10 +7,7 @@ use tower::util::BoxCloneService;
 
 pub use crate::stage::pre_routing_request::factory::*;
 
-trait InboundRequestFilterTrait:
-    Service<http::request::Parts, Response = InboundRequestFilterResult>
-{
-}
+trait InboundRequestFilterTrait: Service<http::request::Parts, Response = InboundRequestFilterResult> {}
 
 #[derive(Debug, From)]
 pub enum InboundRequestFilterResult {
@@ -24,11 +21,7 @@ pub enum InboundRequestFilterResult {
 pub struct InboundRequestFilterError;
 
 impl<T> InboundRequestFilterTrait for T where
-    T: Service<
-            http::request::Parts,
-            Response = InboundRequestFilterResult,
-            Error = InboundRequestFilterError,
-        >
+    T: Service<http::request::Parts, Response = InboundRequestFilterResult, Error = InboundRequestFilterError>
 {
 }
 

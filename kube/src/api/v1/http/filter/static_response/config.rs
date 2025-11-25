@@ -5,8 +5,7 @@ use http::StatusCode;
 use http::status::InvalidStatusCode;
 use thiserror::Error;
 use vg_config::http::filter::static_response::{
-    Body, BodyContent, StaticResponseFilter,
-    StaticResponseFilterRef as StaticResponseFilterRefConfig,
+    Body, BodyContent, StaticResponseFilter, StaticResponseFilterRef as StaticResponseFilterRefConfig,
 };
 use vg_core::http::content_type::{ContentTypeBuf, ContentTypeConversionError};
 
@@ -20,16 +19,14 @@ impl From<StaticResponseFilterRef> for StaticResponseFilterRefConfig {
 pub enum StaticResponseFilterConversionError {
     #[error("Invalid configuration")]
     InvalidConfiguration,
-    #[error("`status_code` is invalid")]
+    #[error(transparent)]
     StatusCode(
         #[from]
-        #[source]
         InvalidStatusCode,
     ),
-    #[error("Body configuration error: {0}")]
+    #[error(transparent)]
     Body(
         #[from]
-        #[source]
         BodyConversionError,
     ),
 }
@@ -70,7 +67,7 @@ impl TryFrom<&StaticResponseFilterBody> for Body {
     fn try_from(value: &StaticResponseFilterBody) -> Result<Self, Self::Error> {
         let content_type: ContentTypeBuf = value.content_type.parse()?;
         let content: BodyContent = match (&value.format, &value.text, &value.binary) {
-            (StaticResponseFilterBodyFormat::Text, Some(text), None) => text.as_bytes().into(),
+            (StaticResponseFilterBodyFormat::Text, Some(text), None) => text.clone().into_bytes().into(),
             (StaticResponseFilterBodyFormat::Text, None, _) => {
                 return Err(BodyConversionError::MissingText);
             }
@@ -78,7 +75,7 @@ impl TryFrom<&StaticResponseFilterBody> for Body {
                 // TODO determine whether or not to store for fetch or not
                 let src: String = binary.chars().filter(|c| !c.is_whitespace()).collect();
                 let buf = Base64Unpadded::decode_vec(&src)?;
-                buf.as_slice().into()
+                buf.into()
             }
             (StaticResponseFilterBodyFormat::Binary, _, None) => {
                 return Err(BodyConversionError::MissingBinary);
@@ -86,10 +83,7 @@ impl TryFrom<&StaticResponseFilterBody> for Body {
             _ => return Err(BodyConversionError::InvalidConfiguration),
         };
 
-        let body = Body::builder()
-            .content_type(content_type)
-            .content(content)
-            .build();
+        let body = Body::builder().content_type(content_type).content(content).build();
 
         Ok(body)
     }

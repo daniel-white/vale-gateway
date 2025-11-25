@@ -44,6 +44,7 @@ impl From<ErrorObjectOwned> for ApiError {
 pub struct PropagationChannel(#[serde(with = "http_serde_ext::header_map")] HeaderMap);
 
 impl PropagationChannel {
+    #[must_use] 
     pub fn current() -> Self {
         get_text_map_propagator(|propagator| {
             let mut headers = HeaderMap::default();
@@ -71,6 +72,7 @@ pub struct RequestContext {
 }
 
 impl RequestContext {
+    #[must_use] 
     pub fn new(span: BoxedSpan) -> Self {
         let guard = opentelemetry::Context::new().with_span(span).attach();
         Self::builder()

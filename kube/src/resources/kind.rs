@@ -26,10 +26,12 @@ impl<R: Resource> ResourceKind<R>
 where
     R::DynamicType: 'static + Default,
 {
+    #[must_use] 
     pub fn group(&self) -> Option<&str> {
         self.inner.group()
     }
 
+    #[must_use] 
     pub fn kind(&self) -> &str {
         self.inner.kind()
     }
@@ -99,11 +101,7 @@ where
 {
     pub fn group(&self) -> Option<&str> {
         let group = self.borrow_group();
-        if group.is_empty() {
-            None
-        } else {
-            Some(group.as_ref())
-        }
+        if group.is_empty() { None } else { Some(group.as_ref()) }
     }
 
     pub fn kind(&self) -> &str {

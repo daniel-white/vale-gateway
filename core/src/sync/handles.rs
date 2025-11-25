@@ -12,7 +12,7 @@ pub struct AlreadyStoppedError;
 
 impl Handle {
     pub async fn stopped(self) {
-        self.tx.closed().await
+        self.tx.closed().await;
     }
 
     pub fn shutdown(self) -> Result<(), AlreadyStoppedError> {
@@ -31,6 +31,7 @@ impl StopHandle {
     }
 }
 
+#[must_use] 
 pub fn handles() -> (Handle, StopHandle) {
     let (tx, rx) = channel(());
 

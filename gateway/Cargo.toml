@@ -3,6 +3,9 @@ name = "vg-gateway"
 version = "0.0.0"
 edition = "2024"
 
+[lints]
+workspace = true
+
 [dependencies]
 async_from.workspace = true
 dashmap.workspace = true

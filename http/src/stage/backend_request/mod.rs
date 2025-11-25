@@ -1,5 +1,4 @@
 use crate::handler::error_code::ErrorResponseCode;
-use crate::stage::inbound_request::InboundRequestFilterHandler;
 use bytes::Bytes;
 use derive_more::{Deref, DerefMut, From};
 use thiserror::Error;
@@ -23,11 +22,7 @@ pub enum BackendRequestFilterResult {
 pub struct BackendRequestFilterError;
 
 impl<T> BackendRequestFilterTrait for T where
-    T: Service<
-            http::request::Parts,
-            Response = BackendRequestFilterResult,
-            Error = BackendRequestFilterError,
-        >
+    T: Service<http::request::Parts, Response = BackendRequestFilterResult, Error = BackendRequestFilterError>
 {
 }
 
